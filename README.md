@@ -36,10 +36,12 @@ Create `.env` with:
 ```bash
 OPENROUTER_API_KEY=your_key_here
 DATABASE_URL=your_neon_postgres_url
+NEXTAUTH_SECRET=long_random_secret
 ```
 
 - If `OPENROUTER_API_KEY` is omitted, AI-related features fail.
 - If `DATABASE_URL` is omitted, planner event sourcing still works locally, but Neon persistence APIs return non-persisted mode.
+- `NEXTAUTH_SECRET` is required for stable Auth.js sessions in production.
 
 ## Quality Commands
 

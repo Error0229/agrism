@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
   Home,
   CalendarDays,
@@ -9,6 +10,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Warehouse,
+  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,6 +35,7 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <Sidebar>
@@ -57,6 +60,21 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>帳號</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <button type="button" onClick={() => signOut({ callbackUrl: "/auth/login" })}>
+                    <LogOut className="size-4" />
+                    <span>登出{session?.user?.email ? ` (${session.user.email})` : ""}</span>
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
