@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useCustomCrops } from "@/lib/store/custom-crops-context";
 import { CropCategory, WaterLevel, SunlightLevel } from "@/lib/types";
+import type { Crop } from "@/lib/types";
 import { Plus, Sparkles, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -47,6 +48,7 @@ export function CustomCropDialog() {
   const [soilPhMax, setSoilPhMax] = useState("6.8");
   const [pestSusceptibility, setPestSusceptibility] = useState<"低" | "中" | "高">("中");
   const [yieldEstimateKgPerSqm, setYieldEstimateKgPerSqm] = useState("2.5");
+  const [stageProfiles, setStageProfiles] = useState<Crop["stageProfiles"] | undefined>(undefined);
   const [fertilizerDays, setFertilizerDays] = useState("14");
   const [needsPruning, setNeedsPruning] = useState(false);
   const [pruningMonths, setPruningMonths] = useState<number[]>([]);
@@ -94,6 +96,7 @@ export function CustomCropDialog() {
       setSoilPhMax(String(data.soilPhRange?.max || 6.8));
       setPestSusceptibility(data.pestSusceptibility || "中");
       setYieldEstimateKgPerSqm(String(data.yieldEstimateKgPerSqm || 2.5));
+      setStageProfiles(data.stageProfiles || undefined);
       setFertilizerDays(String(data.fertilizerIntervalDays || 14));
       setNeedsPruning(data.needsPruning || false);
       setPruningMonths(data.pruningMonths || []);
@@ -124,6 +127,7 @@ export function CustomCropDialog() {
       soilPhRange: { min: parseFloat(soilPhMin) || 5.8, max: parseFloat(soilPhMax) || 6.8 },
       pestSusceptibility,
       yieldEstimateKgPerSqm: parseFloat(yieldEstimateKgPerSqm) || 2.5,
+      stageProfiles,
       fertilizerIntervalDays: parseInt(fertilizerDays) || 14,
       needsPruning,
       pruningMonths: needsPruning ? pruningMonths : undefined,
@@ -154,6 +158,7 @@ export function CustomCropDialog() {
     setSoilPhMax("6.8");
     setPestSusceptibility("中");
     setYieldEstimateKgPerSqm("2.5");
+    setStageProfiles(undefined);
     setFertilizerDays("14");
     setNeedsPruning(false);
     setPruningMonths([]);

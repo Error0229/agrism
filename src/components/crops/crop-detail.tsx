@@ -23,6 +23,7 @@ import type { Crop } from "@/lib/types";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
+import { STAGE_ORDER, getStageDisplayName } from "@/lib/utils/crop-stages";
 import { getMonthName } from "@/lib/utils/date-helpers";
 import { parsePestEntry, getPestImageSearchUrl } from "@/lib/utils/pest-helpers";
 import { Droplets, Sun, Thermometer, Ruler, Bug, Wind, Plus, Beaker, BarChart3 } from "lucide-react";
@@ -258,6 +259,28 @@ export function CropDetail({ crop }: { crop: Crop }) {
               );
             })}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">生長階段管理參考</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {STAGE_ORDER.map((stage) => {
+              const profile = crop.stageProfiles[stage];
+              if (!profile) return null;
+              return (
+                <div key={stage} className="rounded-lg border p-3 text-sm">
+                  <p className="font-medium">{getStageDisplayName(stage)}</p>
+                  <p className="text-muted-foreground">
+                    水分：{profile.water}・施肥：每 {profile.fertilizerIntervalDays} 天・病蟲害風險：{profile.pestRisk}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 

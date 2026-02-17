@@ -1,4 +1,4 @@
-import { SunlightLevel, WaterLevel, type Crop, type CustomCrop } from "@/lib/types";
+import { SunlightLevel, WaterLevel, type Crop, type CropStage, type CustomCrop } from "@/lib/types";
 
 type CropInput = Partial<Crop> & {
   id: string;
@@ -45,11 +45,81 @@ function asPestSusceptibility(value: unknown): Crop["pestSusceptibility"] {
   return value === "低" || value === "中" || value === "高" ? value : "中";
 }
 
+function buildDefaultStageProfiles(input: {
+  water: Crop["water"];
+  fertilizerIntervalDays: number;
+  pestSusceptibility: Crop["pestSusceptibility"];
+}): Crop["stageProfiles"] {
+  const baseFertilizer = Math.max(1, input.fertilizerIntervalDays);
+
+  return {
+    seedling: {
+      water: input.water === WaterLevel.大量 ? WaterLevel.適量 : input.water,
+      fertilizerIntervalDays: baseFertilizer + 7,
+      pestRisk: "中",
+    },
+    vegetative: {
+      water: input.water,
+      fertilizerIntervalDays: baseFertilizer,
+      pestRisk: input.pestSusceptibility,
+    },
+    flowering_fruiting: {
+      water: input.water === WaterLevel.少量 ? WaterLevel.適量 : input.water,
+      fertilizerIntervalDays: Math.max(7, baseFertilizer - 3),
+      pestRisk: input.pestSusceptibility === "低" ? "中" : input.pestSusceptibility,
+    },
+    harvest_ready: {
+      water: input.water === WaterLevel.大量 ? WaterLevel.適量 : input.water,
+      fertilizerIntervalDays: baseFertilizer + 10,
+      pestRisk: input.pestSusceptibility === "高" ? "中" : "低",
+    },
+  };
+}
+
+function asStageProfiles(value: unknown, fallback: Crop["stageProfiles"]): Crop["stageProfiles"] {
+  if (!value || typeof value !== "object") return fallback;
+  const raw = value as Record<string, unknown>;
+  const output: Crop["stageProfiles"] = {};
+
+  const stages: CropStage[] = ["seedling", "vegetative", "flowering_fruiting", "harvest_ready"];
+  for (const stage of stages) {
+    const stageValue = raw[stage];
+    if (!stageValue || typeof stageValue !== "object") {
+      output[stage] = fallback[stage];
+      continue;
+    }
+
+    const profile = stageValue as Record<string, unknown>;
+    output[stage] = {
+      water: asWaterLevel(profile.water),
+      fertilizerIntervalDays: Math.max(
+        1,
+        asNumber(profile.fertilizerIntervalDays, fallback[stage]?.fertilizerIntervalDays ?? 14)
+      ),
+      pestRisk:
+        profile.pestRisk === "低" || profile.pestRisk === "中" || profile.pestRisk === "高"
+          ? profile.pestRisk
+          : fallback[stage]?.pestRisk ?? "中",
+    };
+  }
+
+  return output;
+}
+
 export function normalizeCrop(input: CropInput): Crop {
   const raw = input as Record<string, unknown>;
   const spacing = (raw.spacing ?? {}) as Record<string, unknown>;
   const temperatureRange = (raw.temperatureRange ?? {}) as Record<string, unknown>;
   const soilPhRange = (raw.soilPhRange ?? {}) as Record<string, unknown>;
+
+  const fertilizerIntervalDays = Math.max(1, asNumber(raw.fertilizerIntervalDays, 14));
+  const pestSusceptibility = asPestSusceptibility(raw.pestSusceptibility);
+  const water = asWaterLevel(raw.water);
+  const defaultStageProfiles = buildDefaultStageProfiles({
+    water,
+    fertilizerIntervalDays,
+    pestSusceptibility,
+  });
 
   return {
     id: input.id,
@@ -65,7 +135,7 @@ export function normalizeCrop(input: CropInput): Crop {
       row: Math.max(1, asNumber(spacing.row, 50)),
       plant: Math.max(1, asNumber(spacing.plant, 30)),
     },
-    water: asWaterLevel(raw.water),
+    water,
     sunlight: asSunlightLevel(raw.sunlight),
     temperatureRange: {
       min: asNumber(temperatureRange.min, 18),
@@ -75,9 +145,10 @@ export function normalizeCrop(input: CropInput): Crop {
       min: asNumber(soilPhRange.min, 5.8),
       max: asNumber(soilPhRange.max, 6.8),
     },
-    pestSusceptibility: asPestSusceptibility(raw.pestSusceptibility),
+    pestSusceptibility,
     yieldEstimateKgPerSqm: Math.max(0, asNumber(raw.yieldEstimateKgPerSqm, 2.5)),
-    fertilizerIntervalDays: Math.max(1, asNumber(raw.fertilizerIntervalDays, 14)),
+    stageProfiles: asStageProfiles(raw.stageProfiles, defaultStageProfiles),
+    fertilizerIntervalDays,
     needsPruning: Boolean(raw.needsPruning),
     pruningMonths: Boolean(raw.needsPruning) ? asMonthArray(raw.pruningMonths, [4, 5, 6]) : undefined,
     pestControl: asStringArray(raw.pestControl, ["注意輪作與通風管理"]),
@@ -95,4 +166,3 @@ export function normalizeCustomCrop(input: Partial<CustomCrop> & { id: string; n
     baseCropId: raw.baseCropId ? String(raw.baseCropId) : undefined,
   };
 }
-

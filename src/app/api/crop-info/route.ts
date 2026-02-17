@@ -28,6 +28,12 @@ JSON 格式如下：
   "soilPhRange": { "min": 最低建議土壤pH, "max": 最高建議土壤pH },
   "pestSusceptibility": "病蟲害敏感度（必須是：低、中、高 其中之一）",
   "yieldEstimateKgPerSqm": 每平方公尺預估產量公斤數,
+  "stageProfiles": {
+    "seedling": { "water": "少量|適量|大量", "fertilizerIntervalDays": 數字, "pestRisk": "低|中|高" },
+    "vegetative": { "water": "少量|適量|大量", "fertilizerIntervalDays": 數字, "pestRisk": "低|中|高" },
+    "flowering_fruiting": { "water": "少量|適量|大量", "fertilizerIntervalDays": 數字, "pestRisk": "低|中|高" },
+    "harvest_ready": { "water": "少量|適量|大量", "fertilizerIntervalDays": 數字, "pestRisk": "低|中|高" }
+  },
   "fertilizerIntervalDays": 施肥間隔天數,
   "needsPruning": 是否需要剪枝（true/false）,
   "pruningMonths": [剪枝月份，如不需要則為空陣列],

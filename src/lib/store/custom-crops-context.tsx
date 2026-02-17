@@ -7,10 +7,14 @@ import { v4 as uuidv4 } from "uuid";
 import defaultCropsData from "@/lib/data/default-crops.json";
 import { normalizeCrop, normalizeCustomCrop } from "@/lib/data/crop-schema";
 
+type AddCustomCropInput = Omit<CustomCrop, "id" | "isCustom" | "createdAt" | "schemaVersion" | "stageProfiles"> & {
+  stageProfiles?: CustomCrop["stageProfiles"];
+};
+
 interface CustomCropsContextType {
   customCrops: CustomCrop[];
   isLoaded: boolean;
-  addCustomCrop: (crop: Omit<CustomCrop, "id" | "isCustom" | "createdAt" | "schemaVersion">) => CustomCrop;
+  addCustomCrop: (crop: AddCustomCropInput) => CustomCrop;
   updateCustomCrop: (id: string, updates: Partial<CustomCrop>) => void;
   removeCustomCrop: (id: string) => void;
   importDefaultCrops: () => number;
@@ -41,7 +45,7 @@ export function CustomCropsProvider({ children }: { children: ReactNode }) {
   }, [isLoaded, rawCustomCrops, setCustomCrops]);
 
   const addCustomCrop = useCallback(
-    (crop: Omit<CustomCrop, "id" | "isCustom" | "createdAt" | "schemaVersion">) => {
+    (crop: AddCustomCropInput) => {
       const newCrop = normalizeCustomCrop({
         ...crop,
         id: `custom-${uuidv4()}`,

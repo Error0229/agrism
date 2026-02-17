@@ -50,6 +50,7 @@ export interface Crop {
   soilPhRange: { min: number; max: number };
   pestSusceptibility: "低" | "中" | "高";
   yieldEstimateKgPerSqm: number;
+  stageProfiles: Partial<Record<CropStage, CropStageProfile>>;
   fertilizerIntervalDays: number;
   needsPruning: boolean;
   pruningMonths?: number[];
@@ -62,6 +63,14 @@ export interface CustomCrop extends Crop {
   isCustom: true;
   createdAt: string;
   baseCropId?: string;
+}
+
+export type CropStage = "seedling" | "vegetative" | "flowering_fruiting" | "harvest_ready";
+
+export interface CropStageProfile {
+  water: WaterLevel;
+  fertilizerIntervalDays: number;
+  pestRisk: "低" | "中" | "高";
 }
 
 export interface PlantedCrop {
