@@ -1,52 +1,63 @@
 import { NextResponse } from "next/server";
+import { getWeatherData } from "@/lib/weather/weather-service";
 
 // Hualien City coordinates
 const HUALIEN_LAT = 23.99;
 const HUALIEN_LON = 121.60;
 
-const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
-
 export async function GET() {
   try {
-    const params = new URLSearchParams({
-      latitude: String(HUALIEN_LAT),
-      longitude: String(HUALIEN_LON),
-      current: [
-        "temperature_2m",
-        "relative_humidity_2m",
-        "precipitation",
-        "rain",
-        "wind_speed_10m",
-        "wind_direction_10m",
-        "weather_code",
-        "apparent_temperature",
-        "uv_index",
-      ].join(","),
-      daily: [
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "precipitation_sum",
-        "rain_sum",
-        "uv_index_max",
-        "weather_code",
-        "wind_speed_10m_max",
-        "sunrise",
-        "sunset",
-      ].join(","),
+    const { data, fallbackUsed, providerErrors } = await getWeatherData({
+      latitude: HUALIEN_LAT,
+      longitude: HUALIEN_LON,
       timezone: "Asia/Taipei",
-      forecast_days: "7",
+      forecastDays: 7,
+      historyDays: 3,
     });
 
-    const response = await fetch(`${OPEN_METEO_URL}?${params}`, {
-      next: { revalidate: 1800 }, // Cache for 30 minutes
+    return NextResponse.json({
+      current: {
+        temperature_2m: data.current.temperatureC,
+        relative_humidity_2m: data.current.humidityPercent,
+        precipitation: data.current.precipitationMm,
+        rain: data.current.rainMm,
+        wind_speed_10m: data.current.windSpeedKmh,
+        wind_direction_10m: data.current.windDirectionDeg,
+        weather_code: data.current.weatherCode,
+        apparent_temperature: data.current.apparentTemperatureC,
+        uv_index: data.current.uvIndex,
+      },
+      daily: {
+        time: data.forecast.map((day) => day.date),
+        temperature_2m_max: data.forecast.map((day) => day.tempMaxC),
+        temperature_2m_min: data.forecast.map((day) => day.tempMinC),
+        precipitation_sum: data.forecast.map((day) => day.precipitationMm),
+        rain_sum: data.forecast.map((day) => day.rainMm),
+        uv_index_max: data.forecast.map((day) => day.uvIndexMax),
+        weather_code: data.forecast.map((day) => day.weatherCode),
+        wind_speed_10m_max: data.forecast.map((day) => day.windSpeedMaxKmh),
+        sunrise: data.forecast.map((day) => day.sunrise),
+        sunset: data.forecast.map((day) => day.sunset),
+      },
+      history: {
+        time: data.history.map((day) => day.date),
+        temperature_2m_max: data.history.map((day) => day.tempMaxC),
+        temperature_2m_min: data.history.map((day) => day.tempMinC),
+        precipitation_sum: data.history.map((day) => day.precipitationMm),
+        rain_sum: data.history.map((day) => day.rainMm),
+        uv_index_max: data.history.map((day) => day.uvIndexMax),
+        weather_code: data.history.map((day) => day.weatherCode),
+        wind_speed_10m_max: data.history.map((day) => day.windSpeedMaxKmh),
+        sunrise: data.history.map((day) => day.sunrise),
+        sunset: data.history.map((day) => day.sunset),
+      },
+      meta: {
+        source: data.source,
+        fetchedAt: data.fetchedAt,
+        fallbackUsed,
+        providerErrors,
+      },
     });
-
-    if (!response.ok) {
-      throw new Error(`Open-Meteo API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
   } catch (error) {
     console.error("Weather API error:", error);
     return NextResponse.json(
