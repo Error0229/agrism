@@ -74,6 +74,12 @@ interface WeatherData {
     source?: string;
     fetchedAt?: string;
     fallbackUsed?: boolean;
+    confidence?: {
+      freshnessMinutes: number;
+      freshnessLabel: "fresh" | "stale" | "expired";
+      confidenceScore: number;
+      confidenceLevel: "low" | "medium" | "high";
+    };
   };
 }
 
@@ -231,6 +237,12 @@ export function WeatherTab() {
               {lastFetched && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   資料來源：Open-Meteo（免費天氣 API）・最後更新：{lastFetched.toLocaleTimeString("zh-TW")}
+                </p>
+              )}
+              {weather.meta?.confidence && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  資料信心度：{weather.meta.confidence.confidenceScore}/100（{weather.meta.confidence.confidenceLevel}）・
+                  新鮮度：{weather.meta.confidence.freshnessLabel}
                 </p>
               )}
             </CardContent>

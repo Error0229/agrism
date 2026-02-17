@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWeatherData } from "@/lib/weather/weather-service";
 import { buildSevereWeatherAlerts } from "@/lib/weather/severe-alerts";
+import { calculateDataConfidence } from "@/lib/weather/data-confidence";
 
 // Hualien City coordinates
 const HUALIEN_LAT = 23.99;
@@ -24,6 +25,14 @@ export async function GET() {
         uvIndex: data.current.uvIndex,
       },
       forecastRainMm: data.forecast.map((day) => day.precipitationMm),
+    });
+
+    const confidence = calculateDataConfidence({
+      fetchedAt: data.fetchedAt,
+      source: data.source,
+      fallbackUsed,
+      providerErrors,
+      forecastPoints: data.forecast.length,
     });
 
     return NextResponse.json({
@@ -67,6 +76,7 @@ export async function GET() {
         fetchedAt: data.fetchedAt,
         fallbackUsed,
         providerErrors,
+        confidence,
       },
       alerts,
     });

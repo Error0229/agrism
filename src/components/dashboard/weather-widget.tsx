@@ -48,11 +48,21 @@ interface WeatherDaily {
   precipitation_sum: number[];
 }
 
+interface WeatherMeta {
+  source?: string;
+  confidence?: {
+    confidenceScore: number;
+    confidenceLevel: "low" | "medium" | "high";
+    freshnessLabel: "fresh" | "stale" | "expired";
+  };
+}
+
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
 export function WeatherWidget() {
   const [current, setCurrent] = useState<WeatherCurrent | null>(null);
   const [daily, setDaily] = useState<WeatherDaily | null>(null);
+  const [meta, setMeta] = useState<WeatherMeta | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -66,6 +76,7 @@ export function WeatherWidget() {
       if (data.error) throw new Error();
       setCurrent(data.current);
       setDaily(data.daily);
+      setMeta(data.meta ?? null);
     } catch {
       setError(true);
     } finally {
@@ -159,7 +170,10 @@ export function WeatherWidget() {
             })}
           </div>
         )}
-        <p className="text-[10px] text-muted-foreground mt-2">資料來源：Open-Meteo</p>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          資料來源：{meta?.source ?? "open-meteo"}
+          {meta?.confidence ? `・信心度 ${meta.confidence.confidenceScore}/100` : ""}
+        </p>
       </CardContent>
     </Card>
   );
