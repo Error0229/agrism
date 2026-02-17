@@ -57,12 +57,20 @@ interface WeatherMeta {
   };
 }
 
+interface WeatherAlert {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  recommendation: string;
+}
+
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
 export function WeatherWidget() {
   const [current, setCurrent] = useState<WeatherCurrent | null>(null);
   const [daily, setDaily] = useState<WeatherDaily | null>(null);
   const [meta, setMeta] = useState<WeatherMeta | null>(null);
+  const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -77,6 +85,7 @@ export function WeatherWidget() {
       setCurrent(data.current);
       setDaily(data.daily);
       setMeta(data.meta ?? null);
+      setAlerts(Array.isArray(data.alerts) ? data.alerts : []);
     } catch {
       setError(true);
     } finally {
@@ -170,6 +179,26 @@ export function WeatherWidget() {
             })}
           </div>
         )}
+
+        {alerts.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-t pt-3">
+            {alerts.slice(0, 2).map((alert) => (
+              <p
+                key={alert.id}
+                className={`text-xs ${
+                  alert.severity === "critical"
+                    ? "text-red-600"
+                    : alert.severity === "warning"
+                    ? "text-amber-600"
+                    : "text-green-600"
+                }`}
+              >
+                {alert.title}：{alert.recommendation}
+              </p>
+            ))}
+          </div>
+        )}
+
         <p className="text-[10px] text-muted-foreground mt-2">
           資料來源：{meta?.source ?? "open-meteo"}
           {meta?.confidence ? `・信心度 ${meta.confidence.confidenceScore}/100` : ""}
