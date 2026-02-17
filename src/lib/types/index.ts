@@ -65,6 +65,13 @@ export interface CustomCrop extends Crop {
   baseCropId?: string;
 }
 
+export interface CropTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  crops: CustomCrop[];
+}
+
 export type CropStage = "seedling" | "vegetative" | "flowering_fruiting" | "harvest_ready";
 
 export interface CropStageProfile {

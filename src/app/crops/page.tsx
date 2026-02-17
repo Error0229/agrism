@@ -6,6 +6,7 @@ import { useCustomCrops } from "@/lib/store/custom-crops-context";
 import { CropCard } from "@/components/crops/crop-card";
 import { CropSearch } from "@/components/crops/crop-search";
 import { CustomCropDialog } from "@/components/crops/custom-crop-dialog";
+import { CropTemplateManager } from "@/components/crops/crop-template-manager";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
@@ -46,6 +47,7 @@ export default function CropsPage() {
             <Download className="h-4 w-4 mr-2" />
             匯入常用蔬果
           </Button>
+          <CropTemplateManager />
           <CustomCropDialog />
         </div>
       </div>
