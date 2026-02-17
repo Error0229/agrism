@@ -15,6 +15,7 @@ import { useTasks } from "@/lib/store/tasks-context";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { useCropById } from "@/lib/data/crop-lookup";
 import type { PlantedCrop } from "@/lib/types";
+import { createPlannerEvent, detectSpatialConflictsAt } from "@/lib/planner/events";
 import { addDays, format } from "date-fns";
 
 interface CropTimingDialogProps {
@@ -22,10 +23,11 @@ interface CropTimingDialogProps {
   onOpenChange: (open: boolean) => void;
   plantedCrop: PlantedCrop | null;
   fieldId: string;
+  occurredAt?: string;
 }
 
-export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: CropTimingDialogProps) {
-  const { updatePlantedCrop } = useFields();
+export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId, occurredAt }: CropTimingDialogProps) {
+  const { updatePlantedCrop, plannerEvents } = useFields();
   const { removeTasksByPlantedCrop, addTasks } = useTasks();
   const crop = useCropById(plantedCrop?.cropId ?? "");
 
@@ -50,6 +52,20 @@ export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: C
     ? addDays(parsedDate, isNaN(growthDays) ? crop.growthDays : growthDays)
     : null;
 
+  const conflictPreviewCount = (() => {
+    if (!plantedCrop || !parsedDate || isNaN(parsedDate.getTime())) return 0;
+    const synthetic = createPlannerEvent({
+      type: "crop_updated",
+      occurredAt: occurredAt ?? new Date().toISOString(),
+      fieldId,
+      cropId: plantedCrop.id,
+      payload: { plantedDate: parsedDate.toISOString() },
+    });
+    const replayAt = occurredAt ?? new Date().toISOString();
+    const conflicts = detectSpatialConflictsAt([...plannerEvents, synthetic], replayAt).filter((conflict) => conflict.fieldId === fieldId);
+    return conflicts.length;
+  })();
+
   const handleSave = () => {
     if (!parsedDate || isNaN(parsedDate.getTime())) return;
     const updates: Partial<PlantedCrop> = {
@@ -57,7 +73,7 @@ export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: C
       notes: notes || undefined,
       customGrowthDays: customDays ? parseInt(customDays) : undefined,
     };
-    updatePlantedCrop(fieldId, plantedCrop.id, updates);
+    updatePlantedCrop(fieldId, plantedCrop.id, updates, { occurredAt });
 
     // Regenerate tasks
     removeTasksByPlantedCrop(plantedCrop.id);
@@ -93,6 +109,9 @@ export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: C
             <p className="text-sm">
               預計收成日：<span className="font-medium">{expectedHarvest ? format(expectedHarvest, "yyyy/MM/dd") : "—"}</span>
             </p>
+            {conflictPreviewCount > 0 && (
+              <p className="mt-1 text-xs text-red-600">警告：此播種時機可能造成 {conflictPreviewCount} 筆空間衝突。</p>
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">備註</label>

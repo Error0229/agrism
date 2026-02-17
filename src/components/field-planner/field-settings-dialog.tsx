@@ -16,9 +16,10 @@ import { Plus, Pencil } from "lucide-react";
 
 interface FieldSettingsDialogProps {
   editField?: Field;
+  occurredAt?: string;
 }
 
-export function FieldSettingsDialog({ editField }: FieldSettingsDialogProps) {
+export function FieldSettingsDialog({ editField, occurredAt }: FieldSettingsDialogProps) {
   const { addField, updateField } = useFields();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -47,9 +48,9 @@ export function FieldSettingsDialog({ editField }: FieldSettingsDialogProps) {
       updateField(editField.id, {
         name,
         dimensions: { width: parseFloat(width), height: parseFloat(height) },
-      });
+      }, { occurredAt });
     } else {
-      addField(name, parseFloat(width), parseFloat(height));
+      addField(name, parseFloat(width), parseFloat(height), { occurredAt });
     }
     setOpen(false);
     if (!isEdit) {

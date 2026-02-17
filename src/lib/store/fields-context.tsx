@@ -10,19 +10,33 @@ interface FieldsContextType {
   fields: Field[];
   plannerEvents: PlannerEvent[];
   isLoaded: boolean;
-  addField: (name: string, width: number, height: number) => Field;
-  updateField: (id: string, updates: Partial<Omit<Field, "id">>) => void;
-  removeField: (id: string) => void;
-  addPlantedCrop: (fieldId: string, crop: Omit<PlantedCrop, "id">) => PlantedCrop;
-  updatePlantedCrop: (fieldId: string, cropId: string, updates: Partial<PlantedCrop>) => void;
-  removePlantedCrop: (fieldId: string, cropId: string) => void;
-  getFieldsAt: (at: string | Date) => Field[];
+  showHarvestedCrops: boolean;
+  setShowHarvestedCrops: (show: boolean) => void;
+  addField: (name: string, width: number, height: number, options?: { occurredAt?: string }) => Field;
+  updateField: (id: string, updates: Partial<Omit<Field, "id">>, options?: { occurredAt?: string }) => void;
+  removeField: (id: string, options?: { occurredAt?: string }) => void;
+  addPlantedCrop: (fieldId: string, crop: Omit<PlantedCrop, "id">, options?: { occurredAt?: string }) => PlantedCrop;
+  updatePlantedCrop: (
+    fieldId: string,
+    cropId: string,
+    updates: Partial<PlantedCrop>,
+    options?: { occurredAt?: string }
+  ) => void;
+  removePlantedCrop: (fieldId: string, cropId: string, options?: { occurredAt?: string }) => void;
+  harvestPlantedCrop: (
+    fieldId: string,
+    cropId: string,
+    harvestedDate?: string,
+    options?: { occurredAt?: string }
+  ) => void;
+  getFieldsAt: (at: string | Date, options?: { respectPlantedDate?: boolean }) => Field[];
 }
 
 const FieldsContext = createContext<FieldsContextType | null>(null);
 
 export function FieldsProvider({ children }: { children: ReactNode }) {
   const [plannerEvents, setPlannerEvents, isLoaded] = useLocalStorage<PlannerEvent[]>("hualien-planner-events", []);
+  const [showHarvestedCrops, setShowHarvestedCrops] = useLocalStorage<boolean>("hualien-show-harvested", true);
   const fields = useMemo(() => replayPlannerEvents(plannerEvents), [plannerEvents]);
 
   const appendEvent = useCallback(
@@ -56,11 +70,12 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   }, [isLoaded, plannerEvents.length, setPlannerEvents]);
 
   const addField = useCallback(
-    (name: string, width: number, height: number) => {
+    (name: string, width: number, height: number, options?: { occurredAt?: string }) => {
       const newField: Field = { id: uuidv4(), name, dimensions: { width, height }, plantedCrops: [] };
       appendEvent(
         createPlannerEvent({
           type: "field_created",
+          occurredAt: options?.occurredAt,
           fieldId: newField.id,
           payload: { id: newField.id, name, dimensions: { width, height } },
         })
@@ -71,10 +86,11 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   );
 
   const updateField = useCallback(
-    (id: string, updates: Partial<Omit<Field, "id">>) => {
+    (id: string, updates: Partial<Omit<Field, "id">>, options?: { occurredAt?: string }) => {
       appendEvent(
         createPlannerEvent({
           type: "field_updated",
+          occurredAt: options?.occurredAt,
           fieldId: id,
           payload: updates,
         })
@@ -84,10 +100,11 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   );
 
   const removeField = useCallback(
-    (id: string) => {
+    (id: string, options?: { occurredAt?: string }) => {
       appendEvent(
         createPlannerEvent({
           type: "field_removed",
+          occurredAt: options?.occurredAt,
           fieldId: id,
           payload: {},
         })
@@ -97,11 +114,12 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   );
 
   const addPlantedCrop = useCallback(
-    (fieldId: string, crop: Omit<PlantedCrop, "id">) => {
+    (fieldId: string, crop: Omit<PlantedCrop, "id">, options?: { occurredAt?: string }) => {
       const newCrop: PlantedCrop = { ...crop, id: uuidv4() };
       appendEvent(
         createPlannerEvent({
           type: "crop_planted",
+          occurredAt: options?.occurredAt,
           fieldId,
           cropId: newCrop.id,
           payload: newCrop,
@@ -113,10 +131,11 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   );
 
   const updatePlantedCrop = useCallback(
-    (fieldId: string, cropId: string, updates: Partial<PlantedCrop>) => {
+    (fieldId: string, cropId: string, updates: Partial<PlantedCrop>, options?: { occurredAt?: string }) => {
       appendEvent(
         createPlannerEvent({
           type: "crop_updated",
+          occurredAt: options?.occurredAt,
           fieldId,
           cropId,
           payload: updates,
@@ -127,10 +146,11 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   );
 
   const removePlantedCrop = useCallback(
-    (fieldId: string, cropId: string) => {
+    (fieldId: string, cropId: string, options?: { occurredAt?: string }) => {
       appendEvent(
         createPlannerEvent({
           type: "crop_removed",
+          occurredAt: options?.occurredAt,
           fieldId,
           cropId,
           payload: {},
@@ -140,8 +160,26 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
     [appendEvent]
   );
 
+  const harvestPlantedCrop = useCallback(
+    (fieldId: string, cropId: string, harvestedDate?: string, options?: { occurredAt?: string }) => {
+      appendEvent(
+        createPlannerEvent({
+          type: "crop_harvested",
+          occurredAt: options?.occurredAt ?? harvestedDate,
+          fieldId,
+          cropId,
+          payload: {
+            harvestedDate: harvestedDate ?? new Date().toISOString(),
+          },
+        })
+      );
+    },
+    [appendEvent]
+  );
+
   const getFieldsAt = useCallback(
-    (at: string | Date) => replayPlannerEvents(plannerEvents, { at }),
+    (at: string | Date, options?: { respectPlantedDate?: boolean }) =>
+      replayPlannerEvents(plannerEvents, { at, respectPlantedDate: options?.respectPlantedDate }),
     [plannerEvents]
   );
 
@@ -151,12 +189,15 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
         fields,
         plannerEvents,
         isLoaded,
+        showHarvestedCrops,
+        setShowHarvestedCrops,
         addField,
         updateField,
         removeField,
         addPlantedCrop,
         updatePlantedCrop,
         removePlantedCrop,
+        harvestPlantedCrop,
         getFieldsAt,
       }}
     >

@@ -85,6 +85,7 @@ export interface PlantedCrop {
   cropId: string;
   fieldId: string;
   plantedDate: string; // ISO date string
+  harvestedDate?: string; // ISO date string
   status: "growing" | "harvested" | "removed";
   position: { x: number; y: number };
   size: { width: number; height: number };

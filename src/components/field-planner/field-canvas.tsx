@@ -7,6 +7,7 @@ import type Konva from "konva";
 import type { Field, PlantedCrop } from "@/lib/types";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
+import { addDays, format } from "date-fns";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
@@ -16,16 +17,36 @@ const CROP_HANDLE_SIZE = 8;
 const MIN_CROP_SIZE = 10; // minimum 10cm
 
 type ResizeHandle = "top-left" | "top" | "top-right" | "right" | "bottom-right" | "bottom" | "bottom-left" | "left" | null;
-type CropResizeCorner = "top-left" | "top-right" | "bottom-right" | "bottom-left" | null;
+type CropResizeHandle =
+  | "top-left"
+  | "top"
+  | "top-right"
+  | "right"
+  | "bottom-right"
+  | "bottom"
+  | "bottom-left"
+  | "left"
+  | null;
 
 interface FieldCanvasProps {
   field: Field;
   selectedCropId: string | null;
   onSelectCrop: (cropId: string | null) => void;
   resizeMode: boolean;
+  occurredAt?: string;
+  showHarvestedCrops: boolean;
+  conflictedCropIds?: string[];
 }
 
-export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resizeMode }: FieldCanvasProps) {
+export default function FieldCanvas({
+  field,
+  selectedCropId,
+  onSelectCrop,
+  resizeMode,
+  occurredAt,
+  showHarvestedCrops,
+  conflictedCropIds = [],
+}: FieldCanvasProps) {
   const { updateField, updatePlantedCrop } = useFields();
   const allCrops = useAllCrops();
   const stageRef = useRef<Konva.Stage>(null);
@@ -35,23 +56,20 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Field resize state
   const [activeHandle, setActiveHandle] = useState<ResizeHandle>(null);
   const [hoveredHandle, setHoveredHandle] = useState<ResizeHandle>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [tempDimensions, setTempDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  // Crop resize state
-  const [cropResizeCorner, setCropResizeCorner] = useState<CropResizeCorner>(null);
+  const [cropResizeHandle, setCropResizeHandle] = useState<CropResizeHandle>(null);
   const [cropResizeId, setCropResizeId] = useState<string | null>(null);
   const [cropDragStart, setCropDragStart] = useState<{ x: number; y: number } | null>(null);
   const [cropOriginal, setCropOriginal] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [tempCropRect, setTempCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
-  const getCropById = useCallback(
-    (id: string) => allCrops.find((c) => c.id === id),
-    [allCrops]
-  );
+  const conflictSet = useMemo(() => new Set(conflictedCropIds), [conflictedCropIds]);
+
+  const getCropById = useCallback((id: string) => allCrops.find((c) => c.id === id), [allCrops]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -71,15 +89,19 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
   const canvasWidth = dims.width * PIXELS_PER_METER;
   const canvasHeight = dims.height * PIXELS_PER_METER;
 
-  const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
-    const scaleBy = 1.1;
-    const newScale = e.evt.deltaY > 0 ? scale / scaleBy : scale * scaleBy;
-    setScale(Math.max(0.2, Math.min(3.0, newScale)));
-  }, [scale]);
+  const handleWheel = useCallback(
+    (e: KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault();
+      const scaleBy = 1.1;
+      const newScale = e.evt.deltaY > 0 ? scale / scaleBy : scale * scaleBy;
+      setScale(Math.max(0.2, Math.min(3.0, newScale)));
+    },
+    [scale]
+  );
 
   const handleDragEnd = useCallback(
     (plantedCrop: PlantedCrop, e: KonvaEventObject<DragEvent>) => {
+      if (plantedCrop.status !== "growing") return;
       const node = e.target;
       const maxX = field.dimensions.width * PIXELS_PER_METER - plantedCrop.size.width;
       const maxY = field.dimensions.height * PIXELS_PER_METER - plantedCrop.size.height;
@@ -87,11 +109,16 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
       const y = Math.max(0, Math.min(maxY, node.y()));
       node.x(x);
       node.y(y);
-      updatePlantedCrop(field.id, plantedCrop.id, {
-        position: { x, y },
-      });
+      updatePlantedCrop(
+        field.id,
+        plantedCrop.id,
+        {
+          position: { x, y },
+        },
+        { occurredAt }
+      );
     },
-    [field.id, field.dimensions, updatePlantedCrop]
+    [field.id, field.dimensions, occurredAt, updatePlantedCrop]
   );
 
   const handleStageClick = useCallback(
@@ -103,22 +130,24 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
     [onSelectCrop]
   );
 
-  // ---- Field resize handle logic ----
   const snapToGrid = (meters: number): number => {
     return Math.max(MIN_SIZE_METERS, Math.round(meters / SNAP_METERS) * SNAP_METERS);
   };
 
-  const handleResizeStart = useCallback((handle: ResizeHandle, e: KonvaEventObject<MouseEvent>) => {
-    e.cancelBubble = true;
-    setActiveHandle(handle);
-    const stage = stageRef.current;
-    if (!stage) return;
-    const pointer = stage.getPointerPosition();
-    if (pointer) {
-      setDragStart({ x: pointer.x, y: pointer.y });
-      setTempDimensions({ ...field.dimensions });
-    }
-  }, [field.dimensions]);
+  const handleResizeStart = useCallback(
+    (handle: ResizeHandle, e: KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      setActiveHandle(handle);
+      const stage = stageRef.current;
+      if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (pointer) {
+        setDragStart({ x: pointer.x, y: pointer.y });
+        setTempDimensions({ ...field.dimensions });
+      }
+    },
+    [field.dimensions]
+  );
 
   const handleResizeMove = useCallback(() => {
     if (!activeHandle || !dragStart || !tempDimensions) return;
@@ -147,7 +176,7 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
 
   const handleResizeEnd = useCallback(() => {
     if (tempDimensions && activeHandle) {
-      updateField(field.id, { dimensions: tempDimensions });
+      updateField(field.id, { dimensions: tempDimensions }, { occurredAt });
       const maxX = tempDimensions.width * PIXELS_PER_METER;
       const maxY = tempDimensions.height * PIXELS_PER_METER;
       for (const planted of field.plantedCrops) {
@@ -155,46 +184,53 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
         const clampedX = Math.min(planted.position.x, maxX - planted.size.width);
         const clampedY = Math.min(planted.position.y, maxY - planted.size.height);
         if (clampedX !== planted.position.x || clampedY !== planted.position.y) {
-          updatePlantedCrop(field.id, planted.id, {
-            position: { x: Math.max(0, clampedX), y: Math.max(0, clampedY) },
-          });
+          updatePlantedCrop(
+            field.id,
+            planted.id,
+            {
+              position: { x: Math.max(0, clampedX), y: Math.max(0, clampedY) },
+            },
+            { occurredAt }
+          );
         }
       }
     }
     setActiveHandle(null);
     setDragStart(null);
     setTempDimensions(null);
-  }, [tempDimensions, activeHandle, field.id, field.plantedCrops, updateField, updatePlantedCrop]);
+  }, [tempDimensions, activeHandle, field.id, field.plantedCrops, updateField, updatePlantedCrop, occurredAt]);
 
-  // ---- Crop resize logic ----
-  const handleCropResizeStart = useCallback((cropId: string, corner: CropResizeCorner, e: KonvaEventObject<MouseEvent>) => {
-    e.cancelBubble = true;
-    const planted = field.plantedCrops.find((c) => c.id === cropId);
-    if (!planted) return;
-    setCropResizeCorner(corner);
-    setCropResizeId(cropId);
-    const stage = stageRef.current;
-    if (!stage) return;
-    const pointer = stage.getPointerPosition();
-    if (pointer) {
-      setCropDragStart({ x: pointer.x, y: pointer.y });
-      setCropOriginal({
-        x: planted.position.x,
-        y: planted.position.y,
-        w: planted.size.width,
-        h: planted.size.height,
-      });
-      setTempCropRect({
-        x: planted.position.x,
-        y: planted.position.y,
-        w: planted.size.width,
-        h: planted.size.height,
-      });
-    }
-  }, [field.plantedCrops]);
+  const handleCropResizeStart = useCallback(
+    (cropId: string, handle: CropResizeHandle, e: KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true;
+      const planted = field.plantedCrops.find((c) => c.id === cropId);
+      if (!planted || planted.status !== "growing") return;
+      setCropResizeHandle(handle);
+      setCropResizeId(cropId);
+      const stage = stageRef.current;
+      if (!stage) return;
+      const pointer = stage.getPointerPosition();
+      if (pointer) {
+        setCropDragStart({ x: pointer.x, y: pointer.y });
+        setCropOriginal({
+          x: planted.position.x,
+          y: planted.position.y,
+          w: planted.size.width,
+          h: planted.size.height,
+        });
+        setTempCropRect({
+          x: planted.position.x,
+          y: planted.position.y,
+          w: planted.size.width,
+          h: planted.size.height,
+        });
+      }
+    },
+    [field.plantedCrops]
+  );
 
   const handleCropResizeMove = useCallback(() => {
-    if (!cropResizeCorner || !cropDragStart || !cropOriginal) return;
+    if (!cropResizeHandle || !cropDragStart || !cropOriginal) return;
     const stage = stageRef.current;
     if (!stage) return;
     const pointer = stage.getPointerPosition();
@@ -207,74 +243,74 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
     const fieldW = field.dimensions.width * PIXELS_PER_METER;
     const fieldH = field.dimensions.height * PIXELS_PER_METER;
 
-    switch (cropResizeCorner) {
-      case "bottom-right":
-        w = Math.max(MIN_CROP_SIZE, cropOriginal.w + dx);
-        h = Math.max(MIN_CROP_SIZE, cropOriginal.h + dy);
-        break;
-      case "bottom-left":
-        x = cropOriginal.x + dx;
-        w = Math.max(MIN_CROP_SIZE, cropOriginal.w - dx);
-        h = Math.max(MIN_CROP_SIZE, cropOriginal.h + dy);
-        if (w === MIN_CROP_SIZE) x = cropOriginal.x + cropOriginal.w - MIN_CROP_SIZE;
-        break;
-      case "top-right":
-        y = cropOriginal.y + dy;
-        w = Math.max(MIN_CROP_SIZE, cropOriginal.w + dx);
-        h = Math.max(MIN_CROP_SIZE, cropOriginal.h - dy);
-        if (h === MIN_CROP_SIZE) y = cropOriginal.y + cropOriginal.h - MIN_CROP_SIZE;
-        break;
-      case "top-left":
-        x = cropOriginal.x + dx;
-        y = cropOriginal.y + dy;
-        w = Math.max(MIN_CROP_SIZE, cropOriginal.w - dx);
-        h = Math.max(MIN_CROP_SIZE, cropOriginal.h - dy);
-        if (w === MIN_CROP_SIZE) x = cropOriginal.x + cropOriginal.w - MIN_CROP_SIZE;
-        if (h === MIN_CROP_SIZE) y = cropOriginal.y + cropOriginal.h - MIN_CROP_SIZE;
-        break;
+    if (cropResizeHandle.includes("left")) {
+      x = cropOriginal.x + dx;
+      w = cropOriginal.w - dx;
+    }
+    if (cropResizeHandle.includes("right")) {
+      w = cropOriginal.w + dx;
+    }
+    if (cropResizeHandle.includes("top")) {
+      y = cropOriginal.y + dy;
+      h = cropOriginal.h - dy;
+    }
+    if (cropResizeHandle.includes("bottom")) {
+      h = cropOriginal.h + dy;
     }
 
-    // Clamp to field
+    w = Math.max(MIN_CROP_SIZE, w);
+    h = Math.max(MIN_CROP_SIZE, h);
+
+    if (cropResizeHandle.includes("left") && w === MIN_CROP_SIZE) {
+      x = cropOriginal.x + cropOriginal.w - MIN_CROP_SIZE;
+    }
+    if (cropResizeHandle.includes("top") && h === MIN_CROP_SIZE) {
+      y = cropOriginal.y + cropOriginal.h - MIN_CROP_SIZE;
+    }
+
     x = Math.max(0, x);
     y = Math.max(0, y);
     w = Math.min(w, fieldW - x);
     h = Math.min(h, fieldH - y);
 
     setTempCropRect({ x, y, w, h });
-  }, [cropResizeCorner, cropDragStart, cropOriginal, field.dimensions, scale]);
+  }, [cropResizeHandle, cropDragStart, cropOriginal, field.dimensions, scale]);
 
   const handleCropResizeEnd = useCallback(() => {
     if (tempCropRect && cropResizeId) {
-      updatePlantedCrop(field.id, cropResizeId, {
-        position: { x: tempCropRect.x, y: tempCropRect.y },
-        size: { width: tempCropRect.w, height: tempCropRect.h },
-      });
+      updatePlantedCrop(
+        field.id,
+        cropResizeId,
+        {
+          position: { x: tempCropRect.x, y: tempCropRect.y },
+          size: { width: tempCropRect.w, height: tempCropRect.h },
+        },
+        { occurredAt }
+      );
     }
-    setCropResizeCorner(null);
+    setCropResizeHandle(null);
     setCropResizeId(null);
     setCropDragStart(null);
     setCropOriginal(null);
     setTempCropRect(null);
-  }, [tempCropRect, cropResizeId, field.id, updatePlantedCrop]);
+  }, [tempCropRect, cropResizeId, field.id, updatePlantedCrop, occurredAt]);
 
-  // Unified mouse move/up
   const handleMouseMove = useCallback(() => {
     if (activeHandle) {
       handleResizeMove();
-    } else if (cropResizeCorner) {
+    } else if (cropResizeHandle) {
       handleCropResizeMove();
     }
-  }, [activeHandle, cropResizeCorner, handleResizeMove, handleCropResizeMove]);
+  }, [activeHandle, cropResizeHandle, handleResizeMove, handleCropResizeMove]);
 
   const handleMouseUp = useCallback(() => {
     if (activeHandle) {
       handleResizeEnd();
-    } else if (cropResizeCorner) {
+    } else if (cropResizeHandle) {
       handleCropResizeEnd();
     }
-  }, [activeHandle, cropResizeCorner, handleResizeEnd, handleCropResizeEnd]);
+  }, [activeHandle, cropResizeHandle, handleResizeEnd, handleCropResizeEnd]);
 
-  // Check spacing overlap
   const checkOverlap = (crop: PlantedCrop) => {
     const cropData = getCropById(crop.cropId);
     if (!cropData) return false;
@@ -292,29 +328,19 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
     return false;
   };
 
-  // Grid lines
   const gridLines = useMemo(() => {
     const lines = [];
     for (let x = 0; x <= canvasWidth; x += PIXELS_PER_METER) {
-      lines.push(
-        <Line key={`v-${x}`} points={[x, 0, x, canvasHeight]} stroke="#e5e7eb" strokeWidth={1} />
-      );
-      lines.push(
-        <Text key={`vl-${x}`} x={x + 2} y={-16} text={`${x / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />
-      );
+      lines.push(<Line key={`v-${x}`} points={[x, 0, x, canvasHeight]} stroke="#e5e7eb" strokeWidth={1} />);
+      lines.push(<Text key={`vl-${x}`} x={x + 2} y={-16} text={`${x / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />);
     }
     for (let y = 0; y <= canvasHeight; y += PIXELS_PER_METER) {
-      lines.push(
-        <Line key={`h-${y}`} points={[0, y, canvasWidth, y]} stroke="#e5e7eb" strokeWidth={1} />
-      );
-      lines.push(
-        <Text key={`hl-${y}`} x={-28} y={y + 2} text={`${y / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />
-      );
+      lines.push(<Line key={`h-${y}`} points={[0, y, canvasWidth, y]} stroke="#e5e7eb" strokeWidth={1} />);
+      lines.push(<Text key={`hl-${y}`} x={-28} y={y + 2} text={`${y / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />);
     }
     return lines;
   }, [canvasWidth, canvasHeight]);
 
-  // Field resize handle positions
   const handlePositions = useMemo(() => {
     const hs = HANDLE_SIZE / scale;
     const w = canvasWidth;
@@ -331,11 +357,10 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
     ];
   }, [canvasWidth, canvasHeight, scale]);
 
-  const growingCrops = field.plantedCrops.filter((c) => c.status === "growing");
+  const visibleCrops = field.plantedCrops.filter((crop) => showHarvestedCrops || crop.status === "growing");
   const isResizing = !!activeHandle;
-  const isCropResizing = !!cropResizeCorner;
+  const isCropResizing = !!cropResizeHandle;
 
-  // Get crop rect (may be temp during resize)
   const getCropRect = (planted: PlantedCrop) => {
     if (cropResizeId === planted.id && tempCropRect) {
       return { x: tempCropRect.x, y: tempCropRect.y, w: tempCropRect.w, h: tempCropRect.h };
@@ -343,26 +368,29 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
     return { x: planted.position.x, y: planted.position.y, w: planted.size.width, h: planted.size.height };
   };
 
-  // Crop resize handle positions for a given crop
   const getCropHandles = (rect: { x: number; y: number; w: number; h: number }) => {
     const hs = CROP_HANDLE_SIZE / scale;
     return [
       { id: "top-left" as const, x: rect.x - hs / 2, y: rect.y - hs / 2, cursor: "nwse-resize" },
+      { id: "top" as const, x: rect.x + rect.w / 2 - hs / 2, y: rect.y - hs / 2, cursor: "ns-resize" },
       { id: "top-right" as const, x: rect.x + rect.w - hs / 2, y: rect.y - hs / 2, cursor: "nesw-resize" },
+      { id: "right" as const, x: rect.x + rect.w - hs / 2, y: rect.y + rect.h / 2 - hs / 2, cursor: "ew-resize" },
       { id: "bottom-right" as const, x: rect.x + rect.w - hs / 2, y: rect.y + rect.h - hs / 2, cursor: "nwse-resize" },
+      { id: "bottom" as const, x: rect.x + rect.w / 2 - hs / 2, y: rect.y + rect.h - hs / 2, cursor: "ns-resize" },
       { id: "bottom-left" as const, x: rect.x - hs / 2, y: rect.y + rect.h - hs / 2, cursor: "nesw-resize" },
+      { id: "left" as const, x: rect.x - hs / 2, y: rect.y + rect.h / 2 - hs / 2, cursor: "ew-resize" },
     ];
   };
 
   return (
-    <div ref={containerRef} className="border rounded-lg overflow-hidden bg-white relative">
+    <div ref={containerRef} className="relative overflow-hidden rounded-lg border bg-white">
       {resizeMode && (
-        <div className="absolute top-2 left-2 z-10 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-full shadow-md">
+        <div className="absolute top-2 left-2 z-10 rounded-full bg-blue-500 px-3 py-1.5 text-xs text-white shadow-md">
           拖拉藍色方塊調整田地大小
         </div>
       )}
       {!resizeMode && selectedCropId && (
-        <div className="absolute top-2 left-2 z-10 bg-green-600 text-white text-xs px-3 py-1.5 rounded-full shadow-md">
+        <div className="absolute top-2 left-2 z-10 rounded-full bg-green-600 px-3 py-1.5 text-xs text-white shadow-md">
           拖拉綠色方塊調整作物種植範圍
         </div>
       )}
@@ -386,7 +414,6 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
         onMouseUp={handleMouseUp}
       >
         <Layer>
-          {/* Field background */}
           <Rect
             x={0}
             y={0}
@@ -399,7 +426,6 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
           />
           {gridLines}
 
-          {/* Dimension label */}
           <Text
             x={canvasWidth / 2 - 40}
             y={canvasHeight + 8}
@@ -409,48 +435,37 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
             listening={false}
           />
 
-          {/* Field resize handles */}
-          {resizeMode && handlePositions.map((hp) => {
-            const hs = HANDLE_SIZE / scale;
-            const isActive = activeHandle === hp.id;
-            const isHovered = hoveredHandle === hp.id;
-            return (
-              <Rect
-                key={hp.id}
-                x={hp.x}
-                y={hp.y}
-                width={hs}
-                height={hs}
-                fill={isActive ? "#1d4ed8" : isHovered ? "#3b82f6" : "#60a5fa"}
-                stroke="#1e40af"
-                strokeWidth={1}
-                cornerRadius={2}
-                onMouseDown={(e) => handleResizeStart(hp.id, e)}
-                onMouseEnter={(e) => {
-                  setHoveredHandle(hp.id);
-                  const container = e.target.getStage()?.container();
-                  if (container) container.style.cursor = hp.cursor;
-                }}
-                onMouseLeave={(e) => {
-                  setHoveredHandle(null);
-                  const container = e.target.getStage()?.container();
-                  if (container) container.style.cursor = "default";
-                }}
-              />
-            );
-          })}
+          {resizeMode &&
+            handlePositions.map((hp) => {
+              const hs = HANDLE_SIZE / scale;
+              const isActive = activeHandle === hp.id;
+              const isHovered = hoveredHandle === hp.id;
+              return (
+                <Rect
+                  key={hp.id}
+                  x={hp.x}
+                  y={hp.y}
+                  width={hs}
+                  height={hs}
+                  fill={isActive ? "#1d4ed8" : isHovered ? "#3b82f6" : "#60a5fa"}
+                  stroke="#1e40af"
+                  strokeWidth={1}
+                  cornerRadius={2}
+                  onMouseDown={(e) => handleResizeStart(hp.id, e)}
+                  onMouseEnter={(e) => {
+                    setHoveredHandle(hp.id);
+                    const container = e.target.getStage()?.container();
+                    if (container) container.style.cursor = hp.cursor;
+                  }}
+                  onMouseLeave={(e) => {
+                    setHoveredHandle(null);
+                    const container = e.target.getStage()?.container();
+                    if (container) container.style.cursor = "default";
+                  }}
+                />
+              );
+            })}
 
-          {/* Field edge highlights in resize mode */}
-          {resizeMode && (
-            <>
-              <Line points={[0, 0, canvasWidth, 0]} stroke="#3b82f6" strokeWidth={2} listening={false} />
-              <Line points={[canvasWidth, 0, canvasWidth, canvasHeight]} stroke="#3b82f6" strokeWidth={2} listening={false} />
-              <Line points={[canvasWidth, canvasHeight, 0, canvasHeight]} stroke="#3b82f6" strokeWidth={2} listening={false} />
-              <Line points={[0, canvasHeight, 0, 0]} stroke="#3b82f6" strokeWidth={2} listening={false} />
-            </>
-          )}
-
-          {/* Field resize dimension overlay */}
           {isResizing && tempDimensions && (
             <Group>
               <Rect
@@ -474,21 +489,23 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
             </Group>
           )}
 
-          {/* Crop blocks */}
-          {growingCrops.map((plantedCrop) => {
+          {visibleCrops.map((plantedCrop) => {
             const cropData = getCropById(plantedCrop.cropId);
             if (!cropData) return null;
             const isSelected = selectedCropId === plantedCrop.id;
             const isHovered = hoveredCropId === plantedCrop.id;
             const showSpacing = isSelected || isHovered;
             const hasOverlap = checkOverlap(plantedCrop);
+            const hasConflict = conflictSet.has(plantedCrop.id);
             const maxSpacing = Math.max(cropData.spacing.plant, cropData.spacing.row);
             const rect = getCropRect(plantedCrop);
+            const isHarvested = plantedCrop.status === "harvested";
+            const growthDays = plantedCrop.customGrowthDays ?? cropData.growthDays;
+            const expectedHarvestDate = format(addDays(new Date(plantedCrop.plantedDate), growthDays), "yyyy/MM/dd");
 
             return (
               <Group key={plantedCrop.id}>
-                {/* Spacing circle */}
-                {showSpacing && (
+                {showSpacing && plantedCrop.status === "growing" && (
                   <Circle
                     x={rect.x + rect.w / 2}
                     y={rect.y + rect.h / 2}
@@ -499,17 +516,17 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
                     fill={hasOverlap ? "rgba(239,68,68,0.05)" : "rgba(59,130,246,0.05)"}
                   />
                 )}
-                {/* Crop block */}
                 <Rect
                   x={rect.x}
                   y={rect.y}
                   width={rect.w}
                   height={rect.h}
-                  fill={cropData.color + "40"}
-                  stroke={isSelected ? "#16a34a" : cropData.color}
-                  strokeWidth={isSelected ? 2 : 1}
+                  fill={isHarvested ? "#9ca3af44" : `${cropData.color}40`}
+                  stroke={hasConflict ? "#dc2626" : isSelected ? "#16a34a" : isHarvested ? "#6b7280" : cropData.color}
+                  strokeWidth={hasConflict ? 2 : isSelected ? 2 : 1}
+                  dash={hasConflict ? [5, 3] : isHarvested ? [4, 4] : undefined}
                   cornerRadius={4}
-                  draggable={!resizeMode && !isCropResizing}
+                  draggable={plantedCrop.status === "growing" && !resizeMode && !isCropResizing}
                   onDragEnd={(e) => handleDragEnd(plantedCrop, e)}
                   onClick={(e) => {
                     if (resizeMode) return;
@@ -521,66 +538,53 @@ export default function FieldCanvas({ field, selectedCropId, onSelectCrop, resiz
                   shadowColor={isSelected ? "#16a34a" : "transparent"}
                   shadowBlur={isSelected ? 8 : 0}
                 />
-                {/* Emoji + name */}
-                <Text
-                  x={rect.x + 4}
-                  y={rect.y + 4}
-                  text={cropData.emoji}
-                  fontSize={16}
-                  listening={false}
-                />
-                <Text
-                  x={rect.x + 4}
-                  y={rect.y + 24}
-                  text={cropData.name}
-                  fontSize={10}
-                  fill="#374151"
-                  listening={false}
-                />
-                {/* Size label when selected */}
+                <Text x={rect.x + 4} y={rect.y + 4} text={cropData.emoji} fontSize={16} listening={false} />
+                <Text x={rect.x + 4} y={rect.y + 24} text={cropData.name} fontSize={10} fill="#374151" listening={false} />
+                {isHarvested && (
+                  <Text x={rect.x + 4} y={rect.y + 36} text="已收成" fontSize={9} fill="#4b5563" listening={false} />
+                )}
                 {isSelected && (
                   <Text
                     x={rect.x}
                     y={rect.y + rect.h + 4}
-                    text={`${Math.round(rect.w)}×${Math.round(rect.h)} cm`}
+                    text={`${Math.round(rect.w)}×${Math.round(rect.h)} cm | ${format(new Date(plantedCrop.plantedDate), "yyyy/MM/dd")} -> ${expectedHarvestDate}`}
                     fontSize={9}
                     fill="#16a34a"
                     listening={false}
                   />
                 )}
 
-                {/* Crop resize handles (4 corners) - shown when selected & not in field resize mode */}
-                {isSelected && !resizeMode && getCropHandles(rect).map((ch) => {
-                  const hs = CROP_HANDLE_SIZE / scale;
-                  const isActiveCorner = cropResizeCorner === ch.id && cropResizeId === plantedCrop.id;
-                  return (
-                    <Rect
-                      key={ch.id}
-                      x={ch.x}
-                      y={ch.y}
-                      width={hs}
-                      height={hs}
-                      fill={isActiveCorner ? "#15803d" : "#22c55e"}
-                      stroke="#166534"
-                      strokeWidth={1}
-                      cornerRadius={1}
-                      onMouseDown={(e) => handleCropResizeStart(plantedCrop.id, ch.id, e)}
-                      onMouseEnter={(e) => {
-                        const container = e.target.getStage()?.container();
-                        if (container) container.style.cursor = ch.cursor;
-                      }}
-                      onMouseLeave={(e) => {
-                        const container = e.target.getStage()?.container();
-                        if (container) container.style.cursor = "default";
-                      }}
-                    />
-                  );
-                })}
+                {isSelected && !resizeMode && plantedCrop.status === "growing" &&
+                  getCropHandles(rect).map((ch) => {
+                    const hs = CROP_HANDLE_SIZE / scale;
+                    const isActiveCorner = cropResizeHandle === ch.id && cropResizeId === plantedCrop.id;
+                    return (
+                      <Rect
+                        key={ch.id}
+                        x={ch.x}
+                        y={ch.y}
+                        width={hs}
+                        height={hs}
+                        fill={isActiveCorner ? "#15803d" : "#22c55e"}
+                        stroke="#166534"
+                        strokeWidth={1}
+                        cornerRadius={1}
+                        onMouseDown={(e) => handleCropResizeStart(plantedCrop.id, ch.id, e)}
+                        onMouseEnter={(e) => {
+                          const container = e.target.getStage()?.container();
+                          if (container) container.style.cursor = ch.cursor;
+                        }}
+                        onMouseLeave={(e) => {
+                          const container = e.target.getStage()?.container();
+                          if (container) container.style.cursor = "default";
+                        }}
+                      />
+                    );
+                  })}
               </Group>
             );
           })}
 
-          {/* Crop resize size overlay */}
           {isCropResizing && tempCropRect && (
             <Group>
               <Rect

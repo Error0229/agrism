@@ -7,19 +7,31 @@ export type PlannerEventType =
   | "field_removed"
   | "crop_planted"
   | "crop_updated"
-  | "crop_removed";
+  | "crop_removed"
+  | "crop_harvested";
 
 export interface PlannerEvent<TPayload = unknown> {
   id: string;
   type: PlannerEventType;
   occurredAt: string;
+  insertedAt?: string;
   fieldId?: string;
   cropId?: string;
   payload: TPayload;
 }
 
+export interface PlannerConflict {
+  type: "spatial_overlap";
+  fieldId: string;
+  cropId: string;
+  conflictingCropId: string;
+  occurredAt: string;
+  message: string;
+}
+
 interface ReplayOptions {
   at?: string | Date;
+  respectPlantedDate?: boolean;
 }
 
 function asDateValue(dateLike: string | Date) {
@@ -28,6 +40,7 @@ function asDateValue(dateLike: string | Date) {
 
 export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOptions): Field[] {
   const at = options?.at ? asDateValue(options.at) : null;
+  const respectPlantedDate = options?.respectPlantedDate ?? false;
   const sorted = [...events].sort((a, b) => {
     const timeDiff = asDateValue(a.occurredAt) - asDateValue(b.occurredAt);
     if (timeDiff !== 0) return timeDiff;
@@ -67,6 +80,7 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
         const field = fieldsMap.get(event.fieldId);
         if (!field) break;
         const payload = event.payload as PlantedCrop;
+        if (respectPlantedDate && at !== null && asDateValue(payload.plantedDate) > at) break;
         fieldsMap.set(event.fieldId, { ...field, plantedCrops: [...field.plantedCrops, payload] });
         break;
       }
@@ -75,10 +89,14 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
         const field = fieldsMap.get(event.fieldId);
         if (!field) break;
         const payload = event.payload as Partial<PlantedCrop>;
-        fieldsMap.set(event.fieldId, {
+        const updatedField = {
           ...field,
           plantedCrops: field.plantedCrops.map((crop) => (crop.id === event.cropId ? { ...crop, ...payload } : crop)),
-        });
+        };
+        if (respectPlantedDate && at !== null) {
+          updatedField.plantedCrops = updatedField.plantedCrops.filter((crop) => asDateValue(crop.plantedDate) <= at);
+        }
+        fieldsMap.set(event.fieldId, updatedField);
         break;
       }
       case "crop_removed": {
@@ -91,6 +109,25 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
         });
         break;
       }
+      case "crop_harvested": {
+        if (!event.fieldId || !event.cropId) break;
+        const field = fieldsMap.get(event.fieldId);
+        if (!field) break;
+        const payload = event.payload as { harvestedDate?: string };
+        fieldsMap.set(event.fieldId, {
+          ...field,
+          plantedCrops: field.plantedCrops.map((crop) =>
+            crop.id === event.cropId
+              ? {
+                  ...crop,
+                  status: "harvested",
+                  harvestedDate: payload.harvestedDate ?? event.occurredAt,
+                }
+              : crop
+          ),
+        });
+        break;
+      }
     }
   }
 
@@ -100,6 +137,7 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
 export function createPlannerEvent<TPayload>(input: {
   type: PlannerEventType;
   occurredAt?: string;
+  insertedAt?: string;
   fieldId?: string;
   cropId?: string;
   payload: TPayload;
@@ -108,6 +146,7 @@ export function createPlannerEvent<TPayload>(input: {
     id: uuidv4(),
     type: input.type,
     occurredAt: input.occurredAt ?? new Date().toISOString(),
+    insertedAt: input.insertedAt ?? new Date().toISOString(),
     fieldId: input.fieldId,
     cropId: input.cropId,
     payload: input.payload,
@@ -145,3 +184,42 @@ export function bootstrapEventsFromFields(fields: Field[]): PlannerEvent[] {
   return events;
 }
 
+function rectanglesOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+) {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+export function detectSpatialConflictsAt(events: PlannerEvent[], at: string | Date): PlannerConflict[] {
+  const fields = replayPlannerEvents(events, { at, respectPlantedDate: true });
+  const occurredAt = at instanceof Date ? at.toISOString() : new Date(at).toISOString();
+  const conflicts: PlannerConflict[] = [];
+
+  for (const field of fields) {
+    const activeCrops = field.plantedCrops.filter((crop) => crop.status === "growing");
+    for (let i = 0; i < activeCrops.length; i += 1) {
+      for (let j = i + 1; j < activeCrops.length; j += 1) {
+        const a = activeCrops[i];
+        const b = activeCrops[j];
+        if (
+          rectanglesOverlap(
+            { x: a.position.x, y: a.position.y, width: a.size.width, height: a.size.height },
+            { x: b.position.x, y: b.position.y, width: b.size.width, height: b.size.height }
+          )
+        ) {
+          conflicts.push({
+            type: "spatial_overlap",
+            fieldId: field.id,
+            cropId: a.id,
+            conflictingCropId: b.id,
+            occurredAt,
+            message: `作物區塊重疊：${field.name} 中兩筆種植區域在同一時間有空間衝突。`,
+          });
+        }
+      }
+    }
+  }
+
+  return conflicts;
+}

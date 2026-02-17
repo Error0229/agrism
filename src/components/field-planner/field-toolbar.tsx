@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFields } from "@/lib/store/fields-context";
@@ -15,29 +11,32 @@ import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import type { Field } from "@/lib/types";
 import { CropTimingDialog } from "./crop-timing-dialog";
-import { Plus, Trash2, Clock } from "lucide-react";
+import { CropHarvestDialog } from "./crop-harvest-dialog";
+import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
 
 interface FieldToolbarProps {
   field: Field;
   selectedCropId: string | null;
   onSelectCrop: (id: string | null) => void;
+  occurredAt?: string;
 }
 
-export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolbarProps) {
-  const { addPlantedCrop, removePlantedCrop } = useFields();
+export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }: FieldToolbarProps) {
+  const { addPlantedCrop, removePlantedCrop, harvestPlantedCrop, showHarvestedCrops, setShowHarvestedCrops } = useFields();
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
   const allCrops = useAllCrops();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [timingOpen, setTimingOpen] = useState(false);
+  const [harvestOpen, setHarvestOpen] = useState(false);
 
-  const filteredCrops = allCrops.filter((c) =>
-    c.name.includes(search)
+  const filteredCrops = useMemo(() => allCrops.filter((c) => c.name.includes(search)), [allCrops, search]);
+
+  const selectedPlanted = selectedCropId ? field.plantedCrops.find((c) => c.id === selectedCropId) ?? null : null;
+  const selectedCropMeta = useMemo(
+    () => (selectedPlanted ? allCrops.find((crop) => crop.id === selectedPlanted.cropId) : null),
+    [selectedPlanted, allCrops]
   );
-
-  const selectedPlanted = selectedCropId
-    ? field.plantedCrops.find((c) => c.id === selectedCropId) ?? null
-    : null;
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -45,14 +44,19 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
     const existingCount = field.plantedCrops.filter((item) => item.status === "growing").length;
     const column = existingCount % 5;
     const row = Math.floor(existingCount / 5);
-    const plantedCrop = addPlantedCrop(field.id, {
-      cropId,
-      fieldId: field.id,
-      plantedDate: new Date().toISOString(),
-      status: "growing",
-      position: { x: 50 + column * 70, y: 50 + row * 70 },
-      size: { width: crop.spacing.plant, height: crop.spacing.row },
-    });
+    const plantedDate = occurredAt ?? new Date().toISOString();
+    const plantedCrop = addPlantedCrop(
+      field.id,
+      {
+        cropId,
+        fieldId: field.id,
+        plantedDate,
+        status: "growing",
+        position: { x: 50 + column * 70, y: 50 + row * 70 },
+        size: { width: crop.spacing.plant, height: crop.spacing.row },
+      },
+      { occurredAt: plantedDate }
+    );
     const tasks = generateTasksForPlantedCrop(crop, plantedCrop);
     addTasks(tasks);
     setPopoverOpen(false);
@@ -62,8 +66,13 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
   const handleDeleteSelected = () => {
     if (!selectedCropId) return;
     removeTasksByPlantedCrop(selectedCropId);
-    removePlantedCrop(field.id, selectedCropId);
+    removePlantedCrop(field.id, selectedCropId, { occurredAt });
     onSelectCrop(null);
+  };
+
+  const handleHarvestSelected = (harvestedDate: string) => {
+    if (!selectedCropId) return;
+    harvestPlantedCrop(field.id, selectedCropId, harvestedDate, { occurredAt: occurredAt ?? harvestedDate });
   };
 
   return (
@@ -88,7 +97,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
                 <button
                   key={crop.id}
                   onClick={() => handleAddCrop(crop.id)}
-                  className="flex items-center gap-2 w-full p-2 text-sm rounded hover:bg-accent transition-colors text-left"
+                  className="flex w-full items-center gap-2 rounded p-2 text-left text-sm transition-colors hover:bg-accent"
                 >
                   <span className="text-lg">{crop.emoji}</span>
                   <span>{crop.name}</span>
@@ -99,11 +108,25 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
         </PopoverContent>
       </Popover>
 
+      <Button size="sm" variant="outline" onClick={() => setShowHarvestedCrops(!showHarvestedCrops)}>
+        {showHarvestedCrops ? <EyeOff className="size-4 mr-1" /> : <Eye className="size-4 mr-1" />}
+        {showHarvestedCrops ? "隱藏已收成" : "顯示已收成"}
+      </Button>
+
       {selectedCropId && (
         <>
           <Button size="sm" variant="outline" onClick={() => setTimingOpen(true)}>
             <Clock className="size-4 mr-1" />
             調整播種時間
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setHarvestOpen(true)}
+            disabled={selectedPlanted?.status === "harvested"}
+          >
+            <Scissors className="size-4 mr-1" />
+            標記收成
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
             <Trash2 className="size-4 mr-1" />
@@ -117,6 +140,15 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
         onOpenChange={setTimingOpen}
         plantedCrop={selectedPlanted}
         fieldId={field.id}
+        occurredAt={occurredAt}
+      />
+
+      <CropHarvestDialog
+        open={harvestOpen}
+        onOpenChange={setHarvestOpen}
+        plantedCrop={selectedPlanted}
+        cropName={selectedCropMeta?.name}
+        onConfirm={handleHarvestSelected}
       />
     </div>
   );
