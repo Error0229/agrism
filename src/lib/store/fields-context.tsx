@@ -1,12 +1,14 @@
 "use client";
 
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import type { Field, PlantedCrop } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
+import { bootstrapEventsFromFields, createPlannerEvent, replayPlannerEvents, type PlannerEvent } from "@/lib/planner/events";
 
 interface FieldsContextType {
   fields: Field[];
+  plannerEvents: PlannerEvent[];
   isLoaded: boolean;
   addField: (name: string, width: number, height: number) => Field;
   updateField: (id: string, updates: Partial<Omit<Field, "id">>) => void;
@@ -14,74 +16,149 @@ interface FieldsContextType {
   addPlantedCrop: (fieldId: string, crop: Omit<PlantedCrop, "id">) => PlantedCrop;
   updatePlantedCrop: (fieldId: string, cropId: string, updates: Partial<PlantedCrop>) => void;
   removePlantedCrop: (fieldId: string, cropId: string) => void;
+  getFieldsAt: (at: string | Date) => Field[];
 }
 
 const FieldsContext = createContext<FieldsContextType | null>(null);
 
 export function FieldsProvider({ children }: { children: ReactNode }) {
-  const [fields, setFields, isLoaded] = useLocalStorage<Field[]>("hualien-fields", []);
+  const [plannerEvents, setPlannerEvents, isLoaded] = useLocalStorage<PlannerEvent[]>("hualien-planner-events", []);
+  const fields = useMemo(() => replayPlannerEvents(plannerEvents), [plannerEvents]);
+
+  const appendEvent = useCallback(
+    (event: PlannerEvent) => {
+      setPlannerEvents((prev) => [...prev, event]);
+      fetch("/api/planner/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+      }).catch(() => {
+        // Keep local event store as source of truth even if remote sync fails.
+      });
+    },
+    [setPlannerEvents]
+  );
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (plannerEvents.length > 0) return;
+    if (typeof window === "undefined") return;
+
+    try {
+      const rawFields = window.localStorage.getItem("hualien-fields");
+      if (!rawFields) return;
+      const legacyFields = JSON.parse(rawFields) as Field[];
+      if (!Array.isArray(legacyFields) || legacyFields.length === 0) return;
+      setPlannerEvents(bootstrapEventsFromFields(legacyFields));
+    } catch {
+      // Ignore migration failure and keep empty stream.
+    }
+  }, [isLoaded, plannerEvents.length, setPlannerEvents]);
 
   const addField = useCallback(
     (name: string, width: number, height: number) => {
       const newField: Field = { id: uuidv4(), name, dimensions: { width, height }, plantedCrops: [] };
-      setFields((prev) => [...prev, newField]);
+      appendEvent(
+        createPlannerEvent({
+          type: "field_created",
+          fieldId: newField.id,
+          payload: { id: newField.id, name, dimensions: { width, height } },
+        })
+      );
       return newField;
     },
-    [setFields]
+    [appendEvent]
   );
 
   const updateField = useCallback(
     (id: string, updates: Partial<Omit<Field, "id">>) => {
-      setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+      appendEvent(
+        createPlannerEvent({
+          type: "field_updated",
+          fieldId: id,
+          payload: updates,
+        })
+      );
     },
-    [setFields]
+    [appendEvent]
   );
 
   const removeField = useCallback(
     (id: string) => {
-      setFields((prev) => prev.filter((f) => f.id !== id));
+      appendEvent(
+        createPlannerEvent({
+          type: "field_removed",
+          fieldId: id,
+          payload: {},
+        })
+      );
     },
-    [setFields]
+    [appendEvent]
   );
 
   const addPlantedCrop = useCallback(
     (fieldId: string, crop: Omit<PlantedCrop, "id">) => {
       const newCrop: PlantedCrop = { ...crop, id: uuidv4() };
-      setFields((prev) =>
-        prev.map((f) => (f.id === fieldId ? { ...f, plantedCrops: [...f.plantedCrops, newCrop] } : f))
+      appendEvent(
+        createPlannerEvent({
+          type: "crop_planted",
+          fieldId,
+          cropId: newCrop.id,
+          payload: newCrop,
+        })
       );
       return newCrop;
     },
-    [setFields]
+    [appendEvent]
   );
 
   const updatePlantedCrop = useCallback(
     (fieldId: string, cropId: string, updates: Partial<PlantedCrop>) => {
-      setFields((prev) =>
-        prev.map((f) =>
-          f.id === fieldId
-            ? { ...f, plantedCrops: f.plantedCrops.map((c) => (c.id === cropId ? { ...c, ...updates } : c)) }
-            : f
-        )
+      appendEvent(
+        createPlannerEvent({
+          type: "crop_updated",
+          fieldId,
+          cropId,
+          payload: updates,
+        })
       );
     },
-    [setFields]
+    [appendEvent]
   );
 
   const removePlantedCrop = useCallback(
     (fieldId: string, cropId: string) => {
-      setFields((prev) =>
-        prev.map((f) =>
-          f.id === fieldId ? { ...f, plantedCrops: f.plantedCrops.filter((c) => c.id !== cropId) } : f
-        )
+      appendEvent(
+        createPlannerEvent({
+          type: "crop_removed",
+          fieldId,
+          cropId,
+          payload: {},
+        })
       );
     },
-    [setFields]
+    [appendEvent]
+  );
+
+  const getFieldsAt = useCallback(
+    (at: string | Date) => replayPlannerEvents(plannerEvents, { at }),
+    [plannerEvents]
   );
 
   return (
     <FieldsContext.Provider
-      value={{ fields, isLoaded, addField, updateField, removeField, addPlantedCrop, updatePlantedCrop, removePlantedCrop }}
+      value={{
+        fields,
+        plannerEvents,
+        isLoaded,
+        addField,
+        updateField,
+        removeField,
+        addPlantedCrop,
+        updatePlantedCrop,
+        removePlantedCrop,
+        getFieldsAt,
+      }}
     >
       {children}
     </FieldsContext.Provider>

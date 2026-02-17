@@ -35,9 +35,11 @@ Create `.env` with:
 
 ```bash
 OPENROUTER_API_KEY=your_key_here
+DATABASE_URL=your_neon_postgres_url
 ```
 
-If omitted, AI-related API routes/features will fail.
+- If `OPENROUTER_API_KEY` is omitted, AI-related features fail.
+- If `DATABASE_URL` is omitted, planner event sourcing still works locally, but Neon persistence APIs return non-persisted mode.
 
 ## Quality Commands
 
@@ -66,4 +68,3 @@ bun run build
   - Task prioritization: `src/lib/utils/task-prioritizer.ts`
   - Rotation/companion checks: `src/lib/utils/rotation-companion-checker.ts`
   - Weather providers/alerts/confidence: `src/lib/weather/*`
-

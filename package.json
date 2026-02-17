@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/react": "^3.0.88",
     "@hookform/resolvers": "^5.2.2",
+    "@neondatabase/serverless": "^1.0.2",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "ai": "^6.0.86",
     "class-variance-authority": "^0.7.1",
