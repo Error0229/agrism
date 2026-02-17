@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getWeatherData } from "@/lib/weather/weather-service";
+import { buildSevereWeatherAlerts } from "@/lib/weather/severe-alerts";
 
 // Hualien City coordinates
 const HUALIEN_LAT = 23.99;
@@ -13,6 +14,16 @@ export async function GET() {
       timezone: "Asia/Taipei",
       forecastDays: 7,
       historyDays: 3,
+    });
+
+    const alerts = buildSevereWeatherAlerts({
+      current: {
+        temperatureC: data.current.temperatureC,
+        humidityPercent: data.current.humidityPercent,
+        windSpeedKmh: data.current.windSpeedKmh,
+        uvIndex: data.current.uvIndex,
+      },
+      forecastRainMm: data.forecast.map((day) => day.precipitationMm),
     });
 
     return NextResponse.json({
@@ -57,6 +68,7 @@ export async function GET() {
         fallbackUsed,
         providerErrors,
       },
+      alerts,
     });
   } catch (error) {
     console.error("Weather API error:", error);

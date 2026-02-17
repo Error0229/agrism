@@ -29,6 +29,7 @@ import {
   CloudFog,
   Loader2,
 } from "lucide-react";
+import type { WeatherAlert } from "@/lib/weather/severe-alerts";
 
 // WMO Weather interpretation codes
 // https://open-meteo.com/en/docs
@@ -67,6 +68,12 @@ interface WeatherData {
     wind_speed_10m_max: number[];
     sunrise: string[];
     sunset: string[];
+  };
+  alerts?: WeatherAlert[];
+  meta?: {
+    source?: string;
+    fetchedAt?: string;
+    fallbackUsed?: boolean;
   };
 }
 
@@ -278,36 +285,22 @@ export function WeatherTab() {
               <CardTitle className="text-base">農務天氣提示</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1.5 text-sm">
-                {weather.current.temperature_2m > 35 && (
-                  <li className="text-red-600">🌡️ 高溫警示！建議增加澆水頻率，避免正午作業。</li>
-                )}
-                {weather.current.temperature_2m < 10 && (
-                  <li className="text-blue-600">❄️ 低溫注意！注意作物防寒保暖。</li>
-                )}
-                {weather.daily.precipitation_sum.slice(0, 3).some((r) => r > 30) && (
-                  <li className="text-blue-600">🌧️ 未來三天有較大降雨，注意排水與病蟲害預防。</li>
-                )}
-                {weather.daily.precipitation_sum.slice(0, 3).every((r) => r === 0) && (
-                  <li className="text-amber-600">☀️ 未來三天無降雨，請確保灌溉充足。</li>
-                )}
-                {weather.current.wind_speed_10m > 40 && (
-                  <li className="text-amber-600">💨 風速較大，注意搭建防風措施。</li>
-                )}
-                {weather.current.uv_index > 7 && (
-                  <li className="text-orange-600">☀️ UV 指數偏高，戶外作業請注意防曬。</li>
-                )}
-                {weather.current.relative_humidity_2m > 85 && (
-                  <li className="text-teal-600">💧 濕度偏高，注意真菌性病害發生。</li>
-                )}
-                {weather.current.temperature_2m >= 10 &&
-                  weather.current.temperature_2m <= 35 &&
-                  weather.current.wind_speed_10m <= 40 &&
-                  weather.current.uv_index <= 7 &&
-                  weather.current.relative_humidity_2m <= 85 &&
-                  weather.daily.precipitation_sum.slice(0, 3).some((r) => r > 0) && (
-                    <li className="text-green-600">✅ 天氣狀況良好，適合進行各項農務作業。</li>
-                  )}
+              <ul className="space-y-2 text-sm">
+                {(weather.alerts ?? []).map((alert) => (
+                  <li
+                    key={alert.id}
+                    className={
+                      alert.severity === "critical"
+                        ? "text-red-600"
+                        : alert.severity === "warning"
+                        ? "text-amber-600"
+                        : "text-green-600"
+                    }
+                  >
+                    <span className="font-medium">{alert.title}</span>
+                    <span className="text-foreground"> - {alert.recommendation}</span>
+                  </li>
+                ))}
               </ul>
             </CardContent>
           </Card>
