@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,13 +33,14 @@ export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: C
   const [customDays, setCustomDays] = useState("");
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    if (plantedCrop) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && plantedCrop) {
       setPlantDate(plantedCrop.plantedDate.split("T")[0]);
       setCustomDays(plantedCrop.customGrowthDays?.toString() ?? "");
       setNotes(plantedCrop.notes ?? "");
     }
-  }, [plantedCrop]);
+    onOpenChange(nextOpen);
+  };
 
   if (!plantedCrop || !crop) return null;
 
@@ -68,7 +69,7 @@ export function CropTimingDialog({ open, onOpenChange, plantedCrop, fieldId }: C
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{crop.emoji} {crop.name} — 調整播種時機</DialogTitle>

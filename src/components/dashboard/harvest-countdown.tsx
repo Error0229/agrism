@@ -10,9 +10,9 @@ import { Timer } from "lucide-react";
 export function HarvestCountdown() {
   const { fields } = useFields();
   const allCrops = useAllCrops();
-  const today = new Date();
 
   const harvests = useMemo(() => {
+    const today = new Date();
     const items: { cropName: string; emoji: string; fieldName: string; daysLeft: number }[] = [];
     for (const field of fields) {
       for (const planted of field.plantedCrops) {
@@ -28,7 +28,7 @@ export function HarvestCountdown() {
       }
     }
     return items.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 5);
-  }, [fields, allCrops, today]);
+  }, [fields, allCrops]);
 
   if (harvests.length === 0) return null;
 

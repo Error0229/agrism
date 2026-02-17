@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
-import { useAllCrops, useCropById } from "@/lib/data/crop-lookup";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import type { Field } from "@/lib/types";
 import { CropTimingDialog } from "./crop-timing-dialog";
@@ -42,12 +42,15 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
     if (!crop) return;
+    const existingCount = field.plantedCrops.filter((item) => item.status === "growing").length;
+    const column = existingCount % 5;
+    const row = Math.floor(existingCount / 5);
     const plantedCrop = addPlantedCrop(field.id, {
       cropId,
       fieldId: field.id,
       plantedDate: new Date().toISOString(),
       status: "growing",
-      position: { x: 50 + Math.random() * 200, y: 50 + Math.random() * 200 },
+      position: { x: 50 + column * 70, y: 50 + row * 70 },
       size: { width: crop.spacing.plant, height: crop.spacing.row },
     });
     const tasks = generateTasksForPlantedCrop(crop, plantedCrop);

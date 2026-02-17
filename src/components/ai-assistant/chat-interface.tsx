@@ -50,7 +50,7 @@ export function ChatInterface() {
       ctx += `\n\n待完成任務：\n${pendingTasks.join("\n")}`;
     }
     return ctx;
-  }, [fields, tasks]);
+  }, [allCrops, fields, tasks]);
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,13 +27,19 @@ export function FieldSettingsDialog({ editField }: FieldSettingsDialogProps) {
 
   const isEdit = !!editField;
 
-  useEffect(() => {
-    if (editField && open) {
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && editField) {
       setName(editField.name);
       setWidth(String(editField.dimensions.width));
       setHeight(String(editField.dimensions.height));
     }
-  }, [editField, open]);
+    if (!nextOpen && !isEdit) {
+      setName("");
+      setWidth("10");
+      setHeight("5");
+    }
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = () => {
     if (!name || !width || !height) return;
@@ -54,7 +60,7 @@ export function FieldSettingsDialog({ editField }: FieldSettingsDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {isEdit ? (
           <Button size="sm" variant="ghost">
