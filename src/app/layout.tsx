@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProvider } from "@/lib/store/app-provider";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
 import { AppSessionProvider } from "@/components/auth/session-provider";
+import { RootShell } from "@/components/layout/root-shell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,23 +28,7 @@ export default function RootLayout({
     <html lang="zh-TW">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <AppSessionProvider>
-          <AppProvider>
-            <TooltipProvider>
-              <SidebarProvider>
-                <AppSidebar />
-                <SidebarInset>
-                  <header className="flex h-12 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                    <Separator orientation="vertical" className="mr-2 !h-4" />
-                    <span className="text-sm text-muted-foreground">花蓮蔬果種植指南</span>
-                  </header>
-                  <main className="flex-1 overflow-auto p-4 md:p-6">
-                    {children}
-                  </main>
-                </SidebarInset>
-              </SidebarProvider>
-            </TooltipProvider>
-          </AppProvider>
+          <RootShell>{children}</RootShell>
         </AppSessionProvider>
       </body>
     </html>
