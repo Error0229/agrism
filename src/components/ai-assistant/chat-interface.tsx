@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
-import { getCropById } from "@/lib/data/crops-database";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { Send } from "lucide-react";
 
 const quickQuestions = [
@@ -22,6 +22,7 @@ const quickQuestions = [
 export function ChatInterface() {
   const { fields } = useFields();
   const { tasks } = useTasks();
+  const allCrops = useAllCrops();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
 
@@ -30,7 +31,7 @@ export function ChatInterface() {
       f.plantedCrops
         .filter((c) => c.status === "growing")
         .map((c) => {
-          const crop = getCropById(c.cropId);
+          const crop = allCrops.find((cr) => cr.id === c.cropId);
           return `- ${crop?.name}（${f.name}），種植日期：${c.plantedDate.split("T")[0]}`;
         })
     );

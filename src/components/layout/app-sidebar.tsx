@@ -8,6 +8,7 @@ import {
   Sprout,
   LayoutGrid,
   MessageSquare,
+  Warehouse,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +27,7 @@ const navItems = [
   { name: "種植月曆", icon: CalendarDays, href: "/calendar" },
   { name: "作物資料庫", icon: Sprout, href: "/crops" },
   { name: "田地規劃", icon: LayoutGrid, href: "/field-planner" },
+  { name: "農場管理", icon: Warehouse, href: "/farm-management" },
   { name: "AI 助手", icon: MessageSquare, href: "/ai-assistant" },
 ];
 

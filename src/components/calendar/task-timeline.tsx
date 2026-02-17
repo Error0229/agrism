@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useTasks } from "@/lib/store/tasks-context";
-import { getCropById } from "@/lib/data/crops-database";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { taskTypeColors } from "@/lib/utils/calendar-helpers";
 import { formatDate, getMonthName } from "@/lib/utils/date-helpers";
 import { Check } from "lucide-react";
@@ -11,6 +11,7 @@ import type { TaskType } from "@/lib/types";
 
 export function TaskTimeline() {
   const { tasks, completeTask } = useTasks();
+  const allCrops = useAllCrops();
 
   const groupedTasks = useMemo(() => {
     const sorted = [...tasks].sort(
@@ -45,7 +46,7 @@ export function TaskTimeline() {
             </h3>
             <div className="space-y-2 pl-4 border-l-2 border-muted">
               {monthTasks.map((task) => {
-                const crop = getCropById(task.cropId);
+                const crop = allCrops.find((c) => c.id === task.cropId);
                 return (
                   <div
                     key={task.id}

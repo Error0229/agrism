@@ -11,10 +11,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
-import { cropsDatabase, getCropById } from "@/lib/data/crops-database";
+import { useAllCrops, useCropById } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import type { Field } from "@/lib/types";
-import { Plus, Trash2 } from "lucide-react";
+import { CropTimingDialog } from "./crop-timing-dialog";
+import { Plus, Trash2, Clock } from "lucide-react";
 
 interface FieldToolbarProps {
   field: Field;
@@ -25,15 +26,21 @@ interface FieldToolbarProps {
 export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolbarProps) {
   const { addPlantedCrop, removePlantedCrop } = useFields();
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
+  const allCrops = useAllCrops();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [timingOpen, setTimingOpen] = useState(false);
 
-  const filteredCrops = cropsDatabase.filter((c) =>
+  const filteredCrops = allCrops.filter((c) =>
     c.name.includes(search)
   );
 
+  const selectedPlanted = selectedCropId
+    ? field.plantedCrops.find((c) => c.id === selectedCropId) ?? null
+    : null;
+
   const handleAddCrop = (cropId: string) => {
-    const crop = getCropById(cropId);
+    const crop = allCrops.find((c) => c.id === cropId);
     if (!crop) return;
     const plantedCrop = addPlantedCrop(field.id, {
       cropId,
@@ -90,11 +97,24 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop }: FieldToolb
       </Popover>
 
       {selectedCropId && (
-        <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
-          <Trash2 className="size-4 mr-1" />
-          刪除選取
-        </Button>
+        <>
+          <Button size="sm" variant="outline" onClick={() => setTimingOpen(true)}>
+            <Clock className="size-4 mr-1" />
+            調整播種時間
+          </Button>
+          <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
+            <Trash2 className="size-4 mr-1" />
+            刪除選取
+          </Button>
+        </>
       )}
+
+      <CropTimingDialog
+        open={timingOpen}
+        onOpenChange={setTimingOpen}
+        plantedCrop={selectedPlanted}
+        fieldId={field.id}
+      />
     </div>
   );
 }

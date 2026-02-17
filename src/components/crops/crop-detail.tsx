@@ -24,6 +24,7 @@ import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { getMonthName } from "@/lib/utils/date-helpers";
+import { parsePestEntry, getPestImageSearchUrl } from "@/lib/utils/pest-helpers";
 import { Droplets, Sun, Thermometer, Ruler, Bug, Wind, Plus } from "lucide-react";
 
 export function CropDetail({ crop }: { crop: Crop }) {
@@ -32,6 +33,8 @@ export function CropDetail({ crop }: { crop: Crop }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState("");
   const [plantDate, setPlantDate] = useState(new Date().toISOString().split("T")[0]);
+  const [customGrowthDays, setCustomGrowthDays] = useState("");
+  const [showCustomTiming, setShowCustomTiming] = useState(false);
 
   const handleAddToField = () => {
     if (!selectedFieldId) return;
@@ -42,10 +45,13 @@ export function CropDetail({ crop }: { crop: Crop }) {
       status: "growing",
       position: { x: 50, y: 50 },
       size: { width: crop.spacing.plant, height: crop.spacing.row },
+      customGrowthDays: customGrowthDays ? parseInt(customGrowthDays) : undefined,
     });
     const tasks = generateTasksForPlantedCrop(crop, plantedCrop);
     addTasks(tasks);
     setDialogOpen(false);
+    setCustomGrowthDays("");
+    setShowCustomTiming(false);
   };
 
   const typhoonBadge = {
@@ -105,6 +111,25 @@ export function CropDetail({ crop }: { crop: Crop }) {
                     <label className="text-sm font-medium">種植日期</label>
                     <Input type="date" value={plantDate} onChange={(e) => setPlantDate(e.target.value)} />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomTiming(!showCustomTiming)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {showCustomTiming ? "隱藏自訂時程" : "自訂時程（進階）"}
+                  </button>
+                  {showCustomTiming && (
+                    <div className="space-y-2 rounded-lg border p-3">
+                      <label className="text-sm font-medium">自訂生長天數（預設 {crop.growthDays} 天）</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder={String(crop.growthDays)}
+                        value={customGrowthDays}
+                        onChange={(e) => setCustomGrowthDays(e.target.value)}
+                      />
+                    </div>
+                  )}
                   <Button onClick={handleAddToField} disabled={!selectedFieldId} className="w-full">
                     確認種植並自動排程
                   </Button>
@@ -199,12 +224,25 @@ export function CropDetail({ crop }: { crop: Crop }) {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
-            {crop.pestControl.map((pest, idx) => (
-              <li key={idx} className="text-sm flex items-start gap-2">
-                <span className="text-muted-foreground mt-0.5">•</span>
-                <span>{pest}</span>
-              </li>
-            ))}
+            {crop.pestControl.map((pest, idx) => {
+              const { name, method } = parsePestEntry(pest);
+              return (
+                <li key={idx} className="text-sm flex items-start gap-2">
+                  <span className="text-muted-foreground mt-0.5">•</span>
+                  <span>
+                    <a
+                      href={getPestImageSearchUrl(name, crop.name)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline hover:text-primary/80 font-medium"
+                    >
+                      {name}
+                    </a>
+                    {method && `：${method}`}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </CardContent>
       </Card>

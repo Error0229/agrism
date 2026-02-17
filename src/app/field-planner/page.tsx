@@ -8,7 +8,7 @@ import { useFields } from "@/lib/store/fields-context";
 import { FieldToolbar } from "@/components/field-planner/field-toolbar";
 import { FieldSettingsDialog } from "@/components/field-planner/field-settings-dialog";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Move, MousePointer } from "lucide-react";
 
 const FieldCanvas = dynamic(
   () => import("@/components/field-planner/field-canvas"),
@@ -19,6 +19,7 @@ export default function FieldPlannerPage() {
   const { fields, isLoaded, removeField } = useFields();
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
+  const [resizeMode, setResizeMode] = useState(false);
 
   if (!isLoaded) {
     return <div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div>;
@@ -68,29 +69,50 @@ export default function FieldPlannerPage() {
                       selectedCropId={selectedCropId}
                       onSelectCrop={setSelectedCropId}
                     />
+                    <Button
+                      size="sm"
+                      variant={resizeMode ? "default" : "outline"}
+                      onClick={() => setResizeMode(!resizeMode)}
+                    >
+                      {resizeMode ? (
+                        <>
+                          <MousePointer className="size-4 mr-1" />
+                          完成調整
+                        </>
+                      ) : (
+                        <>
+                          <Move className="size-4 mr-1" />
+                          調整大小
+                        </>
+                      )}
+                    </Button>
                     <span className="text-sm text-muted-foreground">
                       {field.dimensions.width} x {field.dimensions.height} 公尺 &middot;{" "}
                       {field.plantedCrops.filter((c) => c.status === "growing").length} 種作物
                     </span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    onClick={() => {
-                      removeField(field.id);
-                      setActiveTab("");
-                      setSelectedCropId(null);
-                    }}
-                  >
-                    <Trash2 className="size-4 mr-1" />
-                    刪除田地
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <FieldSettingsDialog editField={field} />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive"
+                      onClick={() => {
+                        removeField(field.id);
+                        setActiveTab("");
+                        setSelectedCropId(null);
+                      }}
+                    >
+                      <Trash2 className="size-4 mr-1" />
+                      刪除田地
+                    </Button>
+                  </div>
                 </div>
                 <FieldCanvas
                   field={field}
                   selectedCropId={selectedCropId}
                   onSelectCrop={setSelectedCropId}
+                  resizeMode={resizeMode}
                 />
               </TabsContent>
             ))}

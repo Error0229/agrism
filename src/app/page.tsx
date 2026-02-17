@@ -6,14 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
-import { getCropById } from "@/lib/data/crops-database";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { formatRelativeDate } from "@/lib/utils/date-helpers";
+import { PlantingSuggestionsCard } from "@/components/dashboard/planting-suggestions";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { HarvestCountdown } from "@/components/dashboard/harvest-countdown";
+import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { Sprout, Map, CalendarDays, CheckCircle2, Check } from "lucide-react";
-import { isThisWeek, isBefore, addDays } from "date-fns";
+import { isToday, isThisWeek, isBefore, addDays } from "date-fns";
 
 export default function HomePage() {
   const { fields, isLoaded: fieldsLoaded } = useFields();
   const { tasks, isLoaded: tasksLoaded, completeTask } = useTasks();
+  const allCrops = useAllCrops();
 
   if (!fieldsLoaded || !tasksLoaded) {
     return <div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div>;
@@ -21,10 +26,16 @@ export default function HomePage() {
 
   const allPlantedCrops = fields.flatMap((f) => f.plantedCrops);
   const growingCrops = allPlantedCrops.filter((c) => c.status === "growing");
+
+  const todayTasks = tasks
+    .filter((t) => !t.completed && isToday(new Date(t.dueDate)))
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
   const upcomingTasks = tasks
-    .filter((t) => !t.completed)
+    .filter((t) => !t.completed && !isToday(new Date(t.dueDate)))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 5);
+
   const thisWeekTasks = tasks.filter((t) => !t.completed && isThisWeek(new Date(t.dueDate)));
   const harvestable = tasks.filter(
     (t) => !t.completed && t.type === "收成" && isBefore(new Date(t.dueDate), addDays(new Date(), 7))
@@ -36,6 +47,40 @@ export default function HomePage() {
         <h1 className="text-2xl font-bold">花蓮蔬果種植指南</h1>
         <p className="text-muted-foreground">管理您的花蓮在地蔬果種植計畫</p>
       </div>
+
+      {/* 快速操作列 */}
+      <QuickActions />
+
+      {/* 今日任務 */}
+      {todayTasks.length > 0 && (
+        <Card className="border-green-200 bg-green-50/50">
+          <CardHeader>
+            <CardTitle className="text-lg">今日任務</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {todayTasks.map((task) => {
+                const crop = allCrops.find((c) => c.id === task.cropId);
+                return (
+                  <div key={task.id} className="flex items-center gap-3">
+                    <button
+                      onClick={() => completeTask(task.id)}
+                      className="flex size-6 shrink-0 items-center justify-center rounded border-2 border-green-500 hover:bg-green-100 transition-colors"
+                    >
+                      {task.completed && <Check className="size-4" />}
+                    </button>
+                    <span className="text-lg">{crop?.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{task.title}</p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 快速統計 */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -99,7 +144,7 @@ export default function HomePage() {
             ) : (
               <div className="space-y-3">
                 {upcomingTasks.map((task) => {
-                  const crop = getCropById(task.cropId);
+                  const crop = allCrops.find((c) => c.id === task.cropId);
                   return (
                     <div key={task.id} className="flex items-center gap-3">
                       <button
@@ -153,6 +198,15 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 播種建議 + 收成倒數 */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <PlantingSuggestionsCard />
+        <HarvestCountdown />
+      </div>
+
+      {/* 即時天氣 */}
+      <WeatherWidget />
     </div>
   );
 }

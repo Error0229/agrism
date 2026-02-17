@@ -19,11 +19,12 @@ import {
 } from "@/components/ui/select";
 import { useTasks } from "@/lib/store/tasks-context";
 import { TaskType } from "@/lib/types";
-import { cropsDatabase } from "@/lib/data/crops-database";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { Plus } from "lucide-react";
 
 export function AddTaskDialog() {
   const { addTask } = useTasks();
+  const allCrops = useAllCrops();
   const [open, setOpen] = useState(false);
   const [taskType, setTaskType] = useState<string>("");
   const [cropId, setCropId] = useState<string>("");
@@ -32,7 +33,7 @@ export function AddTaskDialog() {
 
   const handleSubmit = () => {
     if (!taskType || !cropId || !dueDate) return;
-    const crop = cropsDatabase.find((c) => c.id === cropId);
+    const crop = allCrops.find((c) => c.id === cropId);
     const finalTitle = title || `${crop?.emoji} ${crop?.name} - ${taskType}`;
     addTask({
       type: taskType as TaskType,
@@ -79,7 +80,7 @@ export function AddTaskDialog() {
                 <SelectValue placeholder="選擇作物" />
               </SelectTrigger>
               <SelectContent>
-                {cropsDatabase.map((crop) => (
+                {allCrops.map((crop) => (
                   <SelectItem key={crop.id} value={crop.id}>
                     {crop.emoji} {crop.name}
                   </SelectItem>

@@ -9,6 +9,7 @@ export function generateTasksForPlantedCrop(
 ): Omit<Task, "id" | "completed">[] {
   const tasks: Omit<Task, "id" | "completed">[] = [];
   const plantDate = new Date(plantedCrop.plantedDate);
+  const growthDays = plantedCrop.customGrowthDays ?? crop.growthDays;
 
   // 播種任務
   tasks.push({
@@ -21,7 +22,7 @@ export function generateTasksForPlantedCrop(
   });
 
   // 定期施肥任務
-  const harvestDate = addDays(plantDate, crop.growthDays);
+  const harvestDate = addDays(plantDate, growthDays);
   let fertDate = addDays(plantDate, crop.fertilizerIntervalDays);
   while (fertDate < harvestDate) {
     tasks.push({
@@ -37,7 +38,7 @@ export function generateTasksForPlantedCrop(
 
   // 剪枝任務
   if (crop.needsPruning && crop.pruningMonths) {
-    for (let dayOffset = 0; dayOffset < crop.growthDays; dayOffset += 30) {
+    for (let dayOffset = 0; dayOffset < growthDays; dayOffset += 30) {
       const checkDate = addDays(plantDate, dayOffset);
       const month = checkDate.getMonth() + 1;
       if (crop.pruningMonths.includes(month)) {

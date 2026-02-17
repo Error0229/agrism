@@ -2,11 +2,21 @@
 
 import { use } from "react";
 import { notFound } from "next/navigation";
-import { getCropById } from "@/lib/data/crops-database";
+import { useCropById } from "@/lib/data/crop-lookup";
 import { CropDetail } from "@/components/crops/crop-detail";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+
+function CropDetailContent({ cropId }: { cropId: string }) {
+  const crop = useCropById(cropId);
+
+  if (!crop) {
+    notFound();
+  }
+
+  return <CropDetail crop={crop} />;
+}
 
 export default function CropDetailPage({
   params,
@@ -14,11 +24,6 @@ export default function CropDetailPage({
   params: Promise<{ cropId: string }>;
 }) {
   const { cropId } = use(params);
-  const crop = getCropById(cropId);
-
-  if (!crop) {
-    notFound();
-  }
 
   return (
     <div className="space-y-4">
@@ -28,7 +33,7 @@ export default function CropDetailPage({
           返回作物列表
         </Link>
       </Button>
-      <CropDetail crop={crop} />
+      <CropDetailContent cropId={cropId} />
     </div>
   );
 }

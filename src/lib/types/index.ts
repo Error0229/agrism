@@ -5,6 +5,7 @@ export enum CropCategory {
   茄果類 = "茄果類",
   辛香料 = "辛香料",
   水果類 = "水果類",
+  豆類 = "豆類",
 }
 
 export enum WaterLevel {
@@ -53,6 +54,12 @@ export interface Crop {
   hualienNotes: string;
 }
 
+export interface CustomCrop extends Crop {
+  isCustom: true;
+  createdAt: string;
+  baseCropId?: string;
+}
+
 export interface PlantedCrop {
   id: string;
   cropId: string;
@@ -61,6 +68,8 @@ export interface PlantedCrop {
   status: "growing" | "harvested" | "removed";
   position: { x: number; y: number };
   size: { width: number; height: number };
+  customGrowthDays?: number;
+  notes?: string;
 }
 
 export interface Field {
@@ -83,4 +92,43 @@ export interface Task {
     intervalDays: number;
     endDate?: string;
   };
+}
+
+export interface HarvestLog {
+  id: string;
+  plantedCropId?: string;
+  fieldId: string;
+  cropId: string;
+  date: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+}
+
+export interface FinanceRecord {
+  id: string;
+  type: "income" | "expense";
+  category: string;
+  amount: number;
+  date: string;
+  description: string;
+  relatedFieldId?: string;
+  relatedCropId?: string;
+}
+
+export interface SoilNote {
+  id: string;
+  fieldId: string;
+  date: string;
+  ph?: number;
+  content: string;
+}
+
+export interface WeatherLog {
+  id: string;
+  date: string;
+  temperature?: number;
+  rainfall?: number;
+  condition?: string;
+  notes?: string;
 }
