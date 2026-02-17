@@ -12,6 +12,7 @@ import { PlantingSuggestionsCard } from "@/components/dashboard/planting-suggest
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { HarvestCountdown } from "@/components/dashboard/harvest-countdown";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { prioritizeWeeklyTasks } from "@/lib/utils/task-prioritizer";
 import { Sprout, Map, CalendarDays, CheckCircle2, Check } from "lucide-react";
 import { isToday, isThisWeek, isBefore, addDays } from "date-fns";
 
@@ -31,10 +32,8 @@ export default function HomePage() {
     .filter((t) => !t.completed && isToday(new Date(t.dueDate)))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
-  const upcomingTasks = tasks
-    .filter((t) => !t.completed && !isToday(new Date(t.dueDate)))
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .slice(0, 5);
+  const prioritizedWeeklyTasks = prioritizeWeeklyTasks(tasks, allCrops).filter((entry) => !isToday(new Date(entry.task.dueDate)));
+  const upcomingTasks = prioritizedWeeklyTasks.slice(0, 5);
 
   const thisWeekTasks = tasks.filter((t) => !t.completed && isThisWeek(new Date(t.dueDate)));
   const harvestable = tasks.filter(
@@ -143,22 +142,27 @@ export default function HomePage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {upcomingTasks.map((task) => {
+                {upcomingTasks.map(({ task, reasons }) => {
                   const crop = allCrops.find((c) => c.id === task.cropId);
                   return (
-                    <div key={task.id} className="flex items-center gap-3">
-                      <button
-                        onClick={() => completeTask(task.id)}
-                        className="flex size-5 shrink-0 items-center justify-center rounded border border-muted-foreground/30 hover:bg-green-100 transition-colors"
-                      >
-                        {task.completed && <Check className="size-3" />}
-                      </button>
-                      <span className="text-lg">{crop?.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">{formatRelativeDate(task.dueDate)}</p>
+                    <div key={task.id} className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => completeTask(task.id)}
+                          className="flex size-5 shrink-0 items-center justify-center rounded border border-muted-foreground/30 hover:bg-green-100 transition-colors"
+                        >
+                          {task.completed && <Check className="size-3" />}
+                        </button>
+                        <span className="text-lg">{crop?.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">{formatRelativeDate(task.dueDate)}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
                       </div>
-                      <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
+                      {reasons.length > 0 && (
+                        <p className="text-xs text-muted-foreground pl-8">優先原因：{reasons.join("、")}</p>
+                      )}
                     </div>
                   );
                 })}
