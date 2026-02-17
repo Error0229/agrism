@@ -43,6 +43,10 @@ export function CustomCropDialog() {
   const [sunlight, setSunlight] = useState<string>(SunlightLevel.全日照);
   const [tempMin, setTempMin] = useState("18");
   const [tempMax, setTempMax] = useState("30");
+  const [soilPhMin, setSoilPhMin] = useState("5.8");
+  const [soilPhMax, setSoilPhMax] = useState("6.8");
+  const [pestSusceptibility, setPestSusceptibility] = useState<"低" | "中" | "高">("中");
+  const [yieldEstimateKgPerSqm, setYieldEstimateKgPerSqm] = useState("2.5");
   const [fertilizerDays, setFertilizerDays] = useState("14");
   const [needsPruning, setNeedsPruning] = useState(false);
   const [pruningMonths, setPruningMonths] = useState<number[]>([]);
@@ -86,6 +90,10 @@ export function CustomCropDialog() {
       setSunlight(data.sunlight || SunlightLevel.全日照);
       setTempMin(String(data.temperatureRange?.min || 18));
       setTempMax(String(data.temperatureRange?.max || 30));
+      setSoilPhMin(String(data.soilPhRange?.min || 5.8));
+      setSoilPhMax(String(data.soilPhRange?.max || 6.8));
+      setPestSusceptibility(data.pestSusceptibility || "中");
+      setYieldEstimateKgPerSqm(String(data.yieldEstimateKgPerSqm || 2.5));
       setFertilizerDays(String(data.fertilizerIntervalDays || 14));
       setNeedsPruning(data.needsPruning || false);
       setPruningMonths(data.pruningMonths || []);
@@ -113,6 +121,9 @@ export function CustomCropDialog() {
       water: water as WaterLevel,
       sunlight: sunlight as SunlightLevel,
       temperatureRange: { min: parseInt(tempMin) || 18, max: parseInt(tempMax) || 30 },
+      soilPhRange: { min: parseFloat(soilPhMin) || 5.8, max: parseFloat(soilPhMax) || 6.8 },
+      pestSusceptibility,
+      yieldEstimateKgPerSqm: parseFloat(yieldEstimateKgPerSqm) || 2.5,
       fertilizerIntervalDays: parseInt(fertilizerDays) || 14,
       needsPruning,
       pruningMonths: needsPruning ? pruningMonths : undefined,
@@ -139,6 +150,10 @@ export function CustomCropDialog() {
     setSunlight(SunlightLevel.全日照);
     setTempMin("18");
     setTempMax("30");
+    setSoilPhMin("5.8");
+    setSoilPhMax("6.8");
+    setPestSusceptibility("中");
+    setYieldEstimateKgPerSqm("2.5");
     setFertilizerDays("14");
     setNeedsPruning(false);
     setPruningMonths([]);
@@ -280,7 +295,7 @@ export function CustomCropDialog() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium">最低適溫</label>
                 <Input type="number" value={tempMin} onChange={(e) => setTempMin(e.target.value)} />
@@ -288,6 +303,35 @@ export function CustomCropDialog() {
               <div className="space-y-1">
                 <label className="text-xs font-medium">最高適溫</label>
                 <Input type="number" value={tempMax} onChange={(e) => setTempMax(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">最低 pH</label>
+                <Input type="number" step="0.1" value={soilPhMin} onChange={(e) => setSoilPhMin(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">最高 pH</label>
+                <Input type="number" step="0.1" value={soilPhMax} onChange={(e) => setSoilPhMax(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">病蟲害敏感度</label>
+                <Select value={pestSusceptibility} onValueChange={(v) => setPestSusceptibility(v as "低" | "中" | "高")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="低">低</SelectItem>
+                    <SelectItem value="中">中</SelectItem>
+                    <SelectItem value="高">高</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">預估產量(kg/m²)</label>
+                <Input type="number" step="0.1" value={yieldEstimateKgPerSqm} onChange={(e) => setYieldEstimateKgPerSqm(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">施肥間隔(天)</label>

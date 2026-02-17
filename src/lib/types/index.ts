@@ -35,6 +35,7 @@ export interface Crop {
   name: string;
   emoji: string;
   color: string;
+  schemaVersion: 2;
   category: CropCategory;
   plantingMonths: number[];
   harvestMonths: number[];
@@ -46,6 +47,9 @@ export interface Crop {
   water: WaterLevel;
   sunlight: SunlightLevel;
   temperatureRange: { min: number; max: number };
+  soilPhRange: { min: number; max: number };
+  pestSusceptibility: "低" | "中" | "高";
+  yieldEstimateKgPerSqm: number;
   fertilizerIntervalDays: number;
   needsPruning: boolean;
   pruningMonths?: number[];

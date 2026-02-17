@@ -25,7 +25,7 @@ import { useTasks } from "@/lib/store/tasks-context";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { getMonthName } from "@/lib/utils/date-helpers";
 import { parsePestEntry, getPestImageSearchUrl } from "@/lib/utils/pest-helpers";
-import { Droplets, Sun, Thermometer, Ruler, Bug, Wind, Plus } from "lucide-react";
+import { Droplets, Sun, Thermometer, Ruler, Bug, Wind, Plus, Beaker, BarChart3 } from "lucide-react";
 
 export function CropDetail({ crop }: { crop: Crop }) {
   const { fields, addPlantedCrop } = useFields();
@@ -182,7 +182,7 @@ export function CropDetail({ crop }: { crop: Crop }) {
       </Card>
 
       {/* 種植資訊格 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-6 text-center">
             <Ruler className="size-5 mx-auto mb-2 text-muted-foreground" />
@@ -210,6 +210,20 @@ export function CropDetail({ crop }: { crop: Crop }) {
             <Thermometer className="size-5 mx-auto mb-2 text-red-500" />
             <p className="text-sm font-medium">適溫範圍</p>
             <p className="text-xs text-muted-foreground">{crop.temperatureRange.min}°C ~ {crop.temperatureRange.max}°C</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Beaker className="size-5 mx-auto mb-2 text-violet-500" />
+            <p className="text-sm font-medium">土壤 pH</p>
+            <p className="text-xs text-muted-foreground">{crop.soilPhRange.min} - {crop.soilPhRange.max}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <BarChart3 className="size-5 mx-auto mb-2 text-emerald-600" />
+            <p className="text-sm font-medium">預估產量</p>
+            <p className="text-xs text-muted-foreground">{crop.yieldEstimateKgPerSqm} kg/m²</p>
           </CardContent>
         </Card>
       </div>
@@ -268,6 +282,10 @@ export function CropDetail({ crop }: { crop: Crop }) {
           <div className="mt-1">
             <span className="text-sm font-medium">生長天數：</span>
             <span className="text-sm text-muted-foreground">{crop.growthDays} 天</span>
+          </div>
+          <div className="mt-1">
+            <span className="text-sm font-medium">病蟲害敏感度：</span>
+            <span className="text-sm text-muted-foreground">{crop.pestSusceptibility}</span>
           </div>
           {crop.needsPruning && crop.pruningMonths && (
             <div className="mt-1">
