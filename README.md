@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 花蓮蔬果種植指南 (Agrism)
 
-## Getting Started
+花蓮在地化的農務管理 Web App（Next.js + React + TypeScript），提供作物資料、田地規劃、排程管理、天氣與 AI 農務建議。
 
-First, run the development server:
+## Core Features
+
+- 作物資料庫（含自訂作物與模板）
+- 田地規劃（2D 視覺化配置）
+- 種植任務排程與每週優先級建議
+- 播種時機與延後模擬
+- 輪作與相伴種植風險提醒
+- 花蓮天氣整合（預報、警示、信心度）
+- AI 助手（在地化花蓮農務建議）
+
+## Tech Stack
+
+- Next.js 16 / React 19 / TypeScript 5
+- Tailwind CSS v4 + shadcn/ui
+- react-konva（田地畫布）
+- Vercel AI SDK + OpenRouter（AI 功能）
+- LocalStorage persistence（目前無資料庫）
+
+## Local Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open: `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env` with:
 
-## Learn More
+```bash
+OPENROUTER_API_KEY=your_key_here
+```
 
-To learn more about Next.js, take a look at the following resources:
+If omitted, AI-related API routes/features will fail.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Quality Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+bun run lint
+bunx tsc --noEmit
+bun test
+bun run build
+```
 
-## Deploy on Vercel
+## Project Workflow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Repository workflow details: `AGENTS.md`
+- Brainstorming/design record: `docs/plans/2026-02-17-farmer-feature-breadth-design.md`
+- CI pipeline: `.github/workflows/ci.yml`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Architecture Snapshot
+
+- Routes: `src/app/`
+  - `/`, `/calendar`, `/crops`, `/field-planner`, `/farm-management`, `/ai-assistant`
+- API routes: `src/app/api/`
+  - `chat`, `crop-info`, `weather`
+- State and persistence: `src/lib/store/*` + `src/hooks/use-local-storage.ts`
+- Domain logic:
+  - Crop schema/migration: `src/lib/data/crop-schema.ts`
+  - Task prioritization: `src/lib/utils/task-prioritizer.ts`
+  - Rotation/companion checks: `src/lib/utils/rotation-companion-checker.ts`
+  - Weather providers/alerts/confidence: `src/lib/weather/*`
+
