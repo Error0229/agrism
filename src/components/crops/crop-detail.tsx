@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { useTasks } from "@/lib/store/tasks-context";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { STAGE_ORDER, getStageDisplayName } from "@/lib/utils/crop-stages";
 import { getMonthName } from "@/lib/utils/date-helpers";
+import { getPlantingWindow, simulatePlantingDelay } from "@/lib/utils/planting-window";
 import { parsePestEntry, getPestImageSearchUrl } from "@/lib/utils/pest-helpers";
 import { Droplets, Sun, Thermometer, Ruler, Bug, Wind, Plus, Beaker, BarChart3 } from "lucide-react";
 
@@ -36,6 +37,10 @@ export function CropDetail({ crop }: { crop: Crop }) {
   const [plantDate, setPlantDate] = useState(new Date().toISOString().split("T")[0]);
   const [customGrowthDays, setCustomGrowthDays] = useState("");
   const [showCustomTiming, setShowCustomTiming] = useState(false);
+  const [delayDays, setDelayDays] = useState("0");
+
+  const plantingWindow = useMemo(() => getPlantingWindow(crop), [crop]);
+  const delaySimulation = useMemo(() => simulatePlantingDelay(crop, parseInt(delayDays) || 0), [crop, delayDays]);
 
   const handleAddToField = () => {
     if (!selectedFieldId) return;
@@ -179,6 +184,50 @@ export function CropDetail({ crop }: { crop: Crop }) {
               <div className="size-3 rounded bg-amber-500" /> 收成期
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">播種時機與延後模擬</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">
+            本月播種建議：
+            <span className={plantingWindow.isCurrentMonthSuitable ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
+              {plantingWindow.isCurrentMonthSuitable ? "適合" : "建議等待較佳月份"}
+            </span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            後續建議播種月份：{plantingWindow.nextSuitableMonths.slice(0, 4).map((month) => `${month}月`).join("、")}
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 rounded-lg border p-3">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium">延後播種天數</label>
+              <Input type="number" min="0" value={delayDays} onChange={(e) => setDelayDays(e.target.value)} />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">原預估收成</p>
+              <p className="text-sm font-medium">{delaySimulation.baselineHarvestDate}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">延後後收成</p>
+              <p className="text-sm font-medium">{delaySimulation.delayedHarvestDate}</p>
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            風險：{delaySimulation.risk}・信心度：{delaySimulation.confidence}
+          </div>
+
+          {delaySimulation.notes.length > 0 && (
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {delaySimulation.notes.map((note) => (
+                <li key={note}>- {note}</li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
