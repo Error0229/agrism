@@ -4,10 +4,12 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import { FieldToolbar } from "@/components/field-planner/field-toolbar";
 import { FieldSettingsDialog } from "@/components/field-planner/field-settings-dialog";
 import { Button } from "@/components/ui/button";
+import { evaluateFieldPlanningRules } from "@/lib/utils/rotation-companion-checker";
 import { Trash2, Move, MousePointer } from "lucide-react";
 
 const FieldCanvas = dynamic(
@@ -17,6 +19,7 @@ const FieldCanvas = dynamic(
 
 export default function FieldPlannerPage() {
   const { fields, isLoaded, removeField } = useFields();
+  const allCrops = useAllCrops();
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
   const [resizeMode, setResizeMode] = useState(false);
@@ -27,8 +30,6 @@ export default function FieldPlannerPage() {
 
   // Set active tab to first field if not set
   const currentTab = activeTab || fields[0]?.id || "";
-
-  const activeField = fields.find((f) => f.id === currentTab);
 
   return (
     <div className="space-y-4">
@@ -62,6 +63,24 @@ export default function FieldPlannerPage() {
 
             {fields.map((field) => (
               <TabsContent key={field.id} value={field.id} className="mt-4 space-y-3">
+                {(() => {
+                  const warnings = evaluateFieldPlanningRules(field, allCrops);
+                  if (warnings.length === 0) return null;
+                  return (
+                    <Card className="border-amber-200 bg-amber-50/40">
+                      <CardContent className="pt-4 space-y-2">
+                        <p className="text-sm font-medium text-amber-700">輪作與相伴風險提醒</p>
+                        {warnings.slice(0, 4).map((warning) => (
+                          <div key={warning.id} className="text-sm">
+                            <p className="text-foreground">{warning.message}</p>
+                            <p className="text-xs text-muted-foreground">建議替代：{warning.suggestions.join("、")}</p>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <FieldToolbar

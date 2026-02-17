@@ -30,3 +30,30 @@ export const rotationSuggestions: Record<CropCategory, { next: CropCategory[]; r
     reason: "豆類固氮後，後作需氮量高的葉菜或瓜果類可充分利用。",
   },
 };
+
+export const companionConflicts: Record<string, { avoid: string[]; alternatives: string[] }> = {
+  tomato: {
+    avoid: ["potato", "cabbage"],
+    alternatives: ["basil", "green-onion"],
+  },
+  eggplant: {
+    avoid: ["potato"],
+    alternatives: ["green-onion", "ginger"],
+  },
+  cucumber: {
+    avoid: ["potato", "watermelon"],
+    alternatives: ["green-onion", "mustard-greens"],
+  },
+  cabbage: {
+    avoid: ["tomato"],
+    alternatives: ["green-onion", "ginger"],
+  },
+  pumpkin: {
+    avoid: ["potato"],
+    alternatives: ["mustard-greens", "green-onion"],
+  },
+  "bitter-gourd": {
+    avoid: ["potato"],
+    alternatives: ["mustard-greens", "ginger"],
+  },
+};
