@@ -17,6 +17,7 @@ import {
   type ZoneCandidate,
 } from "@/lib/utils/map-zone-detection";
 import { deriveFacilityTypeFromCrop } from "@/lib/utils/facility-metadata";
+import { safeRevokeObjectUrl } from "@/lib/utils/object-url";
 import { Upload } from "lucide-react";
 
 interface MapImportDialogProps {
@@ -54,6 +55,33 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
     setBulkCropId((prev) => prev || defaultCropId);
   }, [defaultCropId]);
 
+  useEffect(() => {
+    return () => {
+      safeRevokeObjectUrl(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const resetDialogState = () => {
+    setPreviewSize(null);
+    setImageData(null);
+    setZones([]);
+    setCalibrationPoints([]);
+    setStatus(null);
+    setProcessing(false);
+    setBulkCropId(defaultCropId);
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) return;
+
+    setPreviewUrl((prev) => {
+      safeRevokeObjectUrl(prev);
+      return null;
+    });
+    resetDialogState();
+  };
+
   const runDetection = (nextImageData: ImageLikeData, useCalibration: boolean) => {
     const detected = detectZonesFromImage(nextImageData, field, defaultCropId, {
       calibration:
@@ -78,7 +106,10 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
 
     try {
       const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl((prev) => {
+        safeRevokeObjectUrl(prev);
+        return url;
+      });
       const image = new window.Image();
       image.src = url;
       await new Promise<void>((resolve, reject) => {
@@ -106,6 +137,10 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
       setZones([]);
       setImageData(null);
       setPreviewSize(null);
+      setPreviewUrl((prev) => {
+        safeRevokeObjectUrl(prev);
+        return null;
+      });
     } finally {
       setProcessing(false);
     }
@@ -159,7 +194,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
       );
     });
     setStatus(`已套用 ${zones.length} 個區域。`);
-    setOpen(false);
+    handleOpenChange(false);
   };
 
   const handleBulkAssign = () => {
@@ -182,7 +217,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Upload className="size-4 mr-1" />
