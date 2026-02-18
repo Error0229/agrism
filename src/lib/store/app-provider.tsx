@@ -5,13 +5,17 @@ import { FieldsProvider } from "./fields-context";
 import { TasksProvider } from "./tasks-context";
 import { CustomCropsProvider } from "./custom-crops-context";
 import { FarmManagementProvider } from "./farm-management-context";
+import { PlannerBackupRuntime } from "./planner-backup-runtime";
 
 export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <CustomCropsProvider>
       <FieldsProvider>
         <TasksProvider>
-          <FarmManagementProvider>{children}</FarmManagementProvider>
+          <FarmManagementProvider>
+            <PlannerBackupRuntime />
+            {children}
+          </FarmManagementProvider>
         </TasksProvider>
       </FieldsProvider>
     </CustomCropsProvider>
