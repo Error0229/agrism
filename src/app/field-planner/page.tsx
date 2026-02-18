@@ -20,6 +20,7 @@ import {
   defaultUtilityVisibilitySettings,
   normalizeUtilityVisibilitySettings,
 } from "@/lib/utils/utility-visibility-settings";
+import { normalizeTimelineSelectedDate } from "@/lib/utils/timeline-date";
 import { Trash2, Move, MousePointer, AlertTriangle } from "lucide-react";
 
 const FieldCanvas = dynamic(() => import("@/components/field-planner/field-canvas"), {
@@ -85,7 +86,7 @@ export default function FieldPlannerPage() {
     "hualien-utility-visibility",
     defaultUtilityVisibilitySettings
   );
-  const [timelineDate, setTimelineDate] = useState("");
+  const [rawTimelineDate, setRawTimelineDate] = useLocalStorage("hualien-planner-timeline-date", "");
   const [remoteTimelineEvents, setRemoteTimelineEvents] = useState<PlannerEvent[] | null>(null);
   const [remoteAnchors, setRemoteAnchors] = useState<string[] | null>(null);
 
@@ -126,6 +127,7 @@ export default function FieldPlannerPage() {
     () => normalizeUtilityVisibilitySettings(rawUtilityVisibility),
     [rawUtilityVisibility]
   );
+  const timelineDate = useMemo(() => normalizeTimelineSelectedDate(rawTimelineDate), [rawTimelineDate]);
 
   const timelineAnchors = useMemo(() => {
     if (remoteAnchors && remoteAnchors.length > 0) return remoteAnchors;
@@ -246,8 +248,8 @@ export default function FieldPlannerPage() {
         anchors={timelineAnchors}
         value={timelineDate}
         events={mergedEvents}
-        onChange={setTimelineDate}
-        onReset={() => setTimelineDate("")}
+        onChange={(value) => setRawTimelineDate(normalizeTimelineSelectedDate(value))}
+        onReset={() => setRawTimelineDate("")}
       />
 
       <PlannerMemoPanel />
