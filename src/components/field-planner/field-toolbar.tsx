@@ -90,9 +90,12 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
         .filter((item) => Boolean(item.meta)),
     [allCrops, field.plantedCrops, selectedCropId]
   );
-  const utilityNodes = field.utilityNodes ?? [];
-  const utilityEdges = field.utilityEdges ?? [];
+  const utilityNodes = useMemo(() => field.utilityNodes ?? [], [field.utilityNodes]);
+  const utilityEdges = useMemo(() => field.utilityEdges ?? [], [field.utilityEdges]);
   const selectedUtilityNode = utilityNodes.find((node) => node.id === selectedUtilityNodeId) ?? null;
+  const connectableNodes = useMemo(() => utilityNodes.filter((node) => node.kind === edgeKind), [utilityNodes, edgeKind]);
+  const validFromNodeId = connectableNodes.some((node) => node.id === fromNodeId) ? fromNodeId : "";
+  const validToNodeId = connectableNodes.some((node) => node.id === toNodeId) ? toNodeId : "";
   const newNodeTypeOptions = useMemo(() => getUtilityNodeTypeOptions(newNodeKind), [newNodeKind]);
   const selectedNodeTypeOptions = useMemo(
     () => (selectedUtilityNode ? getUtilityNodeTypeOptions(selectedUtilityNode.kind) : []),
@@ -302,12 +305,14 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   };
 
   const handleConnectNodes = () => {
-    if (!fromNodeId || !toNodeId || fromNodeId === toNodeId) return;
+    if (!validFromNodeId || !validToNodeId || validFromNodeId === validToNodeId) return;
+    const nodeIds = new Set(connectableNodes.map((node) => node.id));
+    if (!nodeIds.has(validFromNodeId) || !nodeIds.has(validToNodeId)) return;
     const exists = utilityEdges.some(
       (edge) =>
         edge.kind === edgeKind &&
-        ((edge.fromNodeId === fromNodeId && edge.toNodeId === toNodeId) ||
-          (edge.fromNodeId === toNodeId && edge.toNodeId === fromNodeId))
+        ((edge.fromNodeId === validFromNodeId && edge.toNodeId === validToNodeId) ||
+          (edge.fromNodeId === validToNodeId && edge.toNodeId === validFromNodeId))
     );
     if (exists) {
       window.alert("相同類型的連線已存在。");
@@ -321,8 +326,8 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
           ...utilityEdges,
           {
             id: uuidv4(),
-            fromNodeId,
-            toNodeId,
+            fromNodeId: validFromNodeId,
+            toNodeId: validToNodeId,
             kind: edgeKind,
           },
         ],
@@ -487,7 +492,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
       </Popover>
       <Popover open={connectOpen} onOpenChange={setConnectOpen}>
         <PopoverTrigger asChild>
-          <Button size="sm" variant="outline" disabled={utilityNodes.length < 2}>
+          <Button size="sm" variant="outline" disabled={connectableNodes.length < 2}>
             連接節點
           </Button>
         </PopoverTrigger>
@@ -504,10 +509,10 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">起點</p>
-            <Select value={fromNodeId} onValueChange={setFromNodeId}>
+            <Select value={validFromNodeId} onValueChange={setFromNodeId}>
               <SelectTrigger><SelectValue placeholder="選擇起點" /></SelectTrigger>
               <SelectContent>
-                {utilityNodes.map((node) => (
+                {connectableNodes.map((node) => (
                   <SelectItem key={node.id} value={node.id}>{formatUtilityNodeDisplayLabel(node)}</SelectItem>
                 ))}
               </SelectContent>
@@ -515,16 +520,21 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
           </div>
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">終點</p>
-            <Select value={toNodeId} onValueChange={setToNodeId}>
+            <Select value={validToNodeId} onValueChange={setToNodeId}>
               <SelectTrigger><SelectValue placeholder="選擇終點" /></SelectTrigger>
               <SelectContent>
-                {utilityNodes.map((node) => (
+                {connectableNodes.map((node) => (
                   <SelectItem key={node.id} value={node.id}>{formatUtilityNodeDisplayLabel(node)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Button size="sm" className="w-full" onClick={handleConnectNodes} disabled={!fromNodeId || !toNodeId || fromNodeId === toNodeId}>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleConnectNodes}
+            disabled={!validFromNodeId || !validToNodeId || validFromNodeId === validToNodeId}
+          >
             建立連線
           </Button>
         </PopoverContent>

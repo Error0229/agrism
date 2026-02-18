@@ -74,11 +74,15 @@ export function normalizeUtilityNetwork(input?: {
   const nodes = (Array.isArray(input?.utilityNodes) ? input?.utilityNodes : [])
     .map((item) => normalizeUtilityNode(item))
     .filter((item): item is UtilityNode => item !== null);
-  const nodeIds = new Set(nodes.map((node) => node.id));
+  const nodeKindById = new Map(nodes.map((node) => [node.id, node.kind]));
   const edges = (Array.isArray(input?.utilityEdges) ? input?.utilityEdges : [])
     .map((item) => normalizeUtilityEdge(item))
     .filter((item): item is UtilityEdge => item !== null)
-    .filter((edge) => nodeIds.has(edge.fromNodeId) && nodeIds.has(edge.toNodeId));
+    .filter((edge) => {
+      const fromKind = nodeKindById.get(edge.fromNodeId);
+      const toKind = nodeKindById.get(edge.toNodeId);
+      return fromKind === edge.kind && toKind === edge.kind;
+    });
   return { utilityNodes: nodes, utilityEdges: edges };
 }
 
