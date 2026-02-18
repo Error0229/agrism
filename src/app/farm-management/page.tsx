@@ -8,6 +8,7 @@ import { FinanceTab } from "@/components/farm-management/finance-tab";
 import { SoilNotesTab } from "@/components/farm-management/soil-notes-tab";
 import { WeatherTab } from "@/components/farm-management/weather-tab";
 import { RotationTab } from "@/components/farm-management/rotation-tab";
+import { DataTransferPanel } from "@/components/farm-management/data-transfer-panel";
 
 function FarmManagementContent() {
   const searchParams = useSearchParams();
@@ -40,6 +41,7 @@ export default function FarmManagementPage() {
       </div>
 
       <Suspense fallback={<div className="text-center py-8 text-muted-foreground">載入中...</div>}>
+        <DataTransferPanel />
         <FarmManagementContent />
       </Suspense>
     </div>
