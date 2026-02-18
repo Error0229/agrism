@@ -43,9 +43,11 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   const [reassignOpen, setReassignOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [edgeKind, setEdgeKind] = useState<UtilityKind>("water");
   const [fromNodeId, setFromNodeId] = useState("");
   const [toNodeId, setToNodeId] = useState("");
+  const [selectedUtilityNodeId, setSelectedUtilityNodeId] = useState("");
   const [search, setSearch] = useState("");
   const [timingOpen, setTimingOpen] = useState(false);
   const [harvestOpen, setHarvestOpen] = useState(false);
@@ -71,6 +73,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   );
   const utilityNodes = field.utilityNodes ?? [];
   const utilityEdges = field.utilityEdges ?? [];
+  const selectedUtilityNode = utilityNodes.find((node) => node.id === selectedUtilityNodeId) ?? null;
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -256,6 +259,35 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
     setToNodeId("");
   };
 
+  const handleDeleteUtilityNode = () => {
+    if (!selectedUtilityNode) return;
+    const confirmed = window.confirm(`確定刪除 ${selectedUtilityNode.label}？相關連線會一起刪除。`);
+    if (!confirmed) return;
+
+    updateField(
+      field.id,
+      {
+        utilityNodes: utilityNodes.filter((node) => node.id !== selectedUtilityNode.id),
+        utilityEdges: utilityEdges.filter(
+          (edge) => edge.fromNodeId !== selectedUtilityNode.id && edge.toNodeId !== selectedUtilityNode.id
+        ),
+      },
+      { occurredAt }
+    );
+    setSelectedUtilityNodeId("");
+    setManageOpen(false);
+  };
+
+  const handleClearUtilityEdges = () => {
+    if (utilityEdges.length === 0) return;
+    const confirmed = window.confirm("確定清除所有水電連線嗎？節點會保留。");
+    if (!confirmed) return;
+
+    updateField(field.id, { utilityEdges: [] }, { occurredAt });
+    setConnectOpen(false);
+    setManageOpen(false);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -344,6 +376,39 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
           <Button size="sm" className="w-full" onClick={handleConnectNodes} disabled={!fromNodeId || !toNodeId || fromNodeId === toNodeId}>
             建立連線
           </Button>
+        </PopoverContent>
+      </Popover>
+      <Popover open={manageOpen} onOpenChange={setManageOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline" disabled={utilityNodes.length === 0 && utilityEdges.length === 0}>
+            管理水電
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 space-y-3" align="start">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">刪除節點</p>
+            <Select value={selectedUtilityNode?.id} onValueChange={setSelectedUtilityNodeId}>
+              <SelectTrigger>
+                <SelectValue placeholder="選擇節點" />
+              </SelectTrigger>
+              <SelectContent>
+                {utilityNodes.map((node) => (
+                  <SelectItem key={node.id} value={node.id}>
+                    {node.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="destructive" className="w-full" onClick={handleDeleteUtilityNode} disabled={!selectedUtilityNode}>
+              刪除節點
+            </Button>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">連線維護</p>
+            <Button size="sm" variant="outline" className="w-full" onClick={handleClearUtilityEdges} disabled={utilityEdges.length === 0}>
+              一鍵清除連線
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
 

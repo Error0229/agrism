@@ -157,6 +157,43 @@ describe("replayPlannerEvents", () => {
     });
   });
 
+  it("removes orphan utility edges during replay when nodes are deleted", () => {
+    const events: PlannerEvent[] = [
+      {
+        id: "1",
+        type: "field_created",
+        occurredAt: "2026-02-10T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: {
+          id: "field-1",
+          name: "A 區",
+          dimensions: { width: 5, height: 4 },
+          utilityNodes: [
+            { id: "n1", label: "水節點 1", kind: "water", position: { x: 30, y: 20 } },
+            { id: "n2", label: "電節點 1", kind: "electric", position: { x: 50, y: 40 } },
+          ],
+          utilityEdges: [
+            { id: "e1", fromNodeId: "n1", toNodeId: "n2", kind: "water" },
+            { id: "e2", fromNodeId: "n1", toNodeId: "missing", kind: "water" },
+          ],
+        },
+      },
+      {
+        id: "2",
+        type: "field_updated",
+        occurredAt: "2026-02-11T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: {
+          utilityNodes: [{ id: "n1", label: "水節點 1", kind: "water", position: { x: 30, y: 20 } }],
+        },
+      },
+    ];
+
+    const result = replayPlannerEvents(events);
+    expect(result[0]?.utilityNodes).toHaveLength(1);
+    expect(result[0]?.utilityEdges).toEqual([]);
+  });
+
   it("detects spatial conflict when polygon shape overlaps another region", () => {
     const events: PlannerEvent[] = [
       {
