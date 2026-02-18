@@ -4,6 +4,7 @@ export const PLANNER_BACKUP_SCHEMA_VERSION = 1;
 
 export const PLANNER_BACKUP_DATA_KEYS = [
   "hualien-planner-events",
+  "hualien-planner-memo",
   "hualien-show-harvested",
   "hualien-tasks",
   "hualien-custom-crops",
