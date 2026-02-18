@@ -12,6 +12,7 @@ import type {
 import { normalizeCustomCrop } from "@/lib/data/crop-schema";
 import { normalizeTaskEffort } from "@/lib/utils/task-effort";
 import { normalizeSoilAmendment, normalizeSoilProfile } from "@/lib/utils/soil-profile";
+import { normalizeHarvestLog } from "@/lib/utils/outcome-logs";
 import {
   bootstrapEventsFromFields,
   type PlannerEvent,
@@ -156,8 +157,13 @@ function normalizeHarvestLogs(value: unknown): HarvestLog[] {
       date: asIsoDate(log.date),
       quantity: Number(log.quantity ?? 0) || 0,
       unit: String(log.unit ?? "kg"),
+      qualityGrade: typeof log.qualityGrade === "string" ? (log.qualityGrade as HarvestLog["qualityGrade"]) : undefined,
+      pestIncidentLevel:
+        typeof log.pestIncidentLevel === "string" ? (log.pestIncidentLevel as HarvestLog["pestIncidentLevel"]) : undefined,
+      weatherImpact: typeof log.weatherImpact === "string" ? (log.weatherImpact as HarvestLog["weatherImpact"]) : undefined,
       notes: typeof log.notes === "string" ? log.notes : undefined,
-    }));
+    }))
+    .map((log) => normalizeHarvestLog(log));
 }
 
 function normalizeFinanceRecords(value: unknown): FinanceRecord[] {
@@ -334,7 +340,7 @@ export function exportTasksCsv(tasks: Task[]): string {
 
 export function exportHarvestCsv(harvestLogs: HarvestLog[]): string {
   return toCsv(
-    ["id", "fieldId", "cropId", "date", "quantity", "unit", "notes"],
+    ["id", "fieldId", "cropId", "date", "quantity", "unit", "qualityGrade", "pestIncidentLevel", "weatherImpact", "notes"],
     harvestLogs.map((log) => [
       log.id,
       log.fieldId,
@@ -342,6 +348,9 @@ export function exportHarvestCsv(harvestLogs: HarvestLog[]): string {
       log.date,
       String(log.quantity),
       log.unit,
+      String(log.qualityGrade ?? ""),
+      String(log.pestIncidentLevel ?? ""),
+      String(log.weatherImpact ?? ""),
       log.notes ?? "",
     ])
   );

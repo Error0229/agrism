@@ -5,6 +5,7 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import type { HarvestLog, FinanceRecord, SoilAmendment, SoilNote, SoilProfile, WeatherLog } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 import { normalizeSoilAmendment, normalizeSoilProfile } from "@/lib/utils/soil-profile";
+import { normalizeHarvestLog } from "@/lib/utils/outcome-logs";
 
 interface FarmManagementContextType {
   harvestLogs: HarvestLog[];
@@ -31,7 +32,7 @@ interface FarmManagementContextType {
 const FarmManagementContext = createContext<FarmManagementContextType | null>(null);
 
 export function FarmManagementProvider({ children }: { children: ReactNode }) {
-  const [harvestLogs, setHarvestLogs, harvestLoaded] = useLocalStorage<HarvestLog[]>("hualien-harvest-logs", []);
+  const [harvestLogsRaw, setHarvestLogs, harvestLoaded] = useLocalStorage<HarvestLog[]>("hualien-harvest-logs", []);
   const [financeRecords, setFinanceRecords, financeLoaded] = useLocalStorage<FinanceRecord[]>("hualien-finance", []);
   const [soilNotes, setSoilNotes, soilLoaded] = useLocalStorage<SoilNote[]>("hualien-soil-notes", []);
   const [soilProfilesRaw, setSoilProfiles, soilProfilesLoaded] = useLocalStorage<SoilProfile[]>("hualien-soil-profiles", []);
@@ -43,6 +44,14 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
 
   const isLoaded =
     harvestLoaded && financeLoaded && soilLoaded && soilProfilesLoaded && soilAmendmentsLoaded && weatherLoaded;
+
+  const harvestLogs = useMemo(
+    () =>
+      harvestLogsRaw
+        .filter((log) => Boolean(log?.id) && Boolean(log?.fieldId) && Boolean(log?.cropId))
+        .map((log) => normalizeHarvestLog(log)),
+    [harvestLogsRaw]
+  );
 
   const soilProfiles = useMemo(() => {
     const map = new Map<string, SoilProfile>();
@@ -63,7 +72,7 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
 
   const addHarvestLog = useCallback(
     (log: Omit<HarvestLog, "id">) => {
-      setHarvestLogs((prev) => [...prev, { ...log, id: uuidv4() }]);
+      setHarvestLogs((prev) => [...prev, normalizeHarvestLog({ ...log, id: uuidv4() })]);
     },
     [setHarvestLogs]
   );

@@ -143,6 +143,9 @@ export interface HarvestLog {
   date: string;
   quantity: number;
   unit: string;
+  qualityGrade?: "A" | "B" | "C" | "reject";
+  pestIncidentLevel?: "none" | "minor" | "moderate" | "severe";
+  weatherImpact?: "none" | "heat" | "rain" | "wind" | "cold" | "mixed";
   notes?: string;
 }
 

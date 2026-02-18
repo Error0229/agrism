@@ -23,6 +23,7 @@ import { useFarmManagement } from "@/lib/store/farm-management-context";
 import { useFields } from "@/lib/store/fields-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { formatDate } from "@/lib/utils/date-helpers";
+import { summarizeOutcomeLogs } from "@/lib/utils/outcome-logs";
 import { Plus, Trash2 } from "lucide-react";
 
 export function HarvestLogTab() {
@@ -35,6 +36,9 @@ export function HarvestLogTab() {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("公斤");
+  const [qualityGrade, setQualityGrade] = useState<"A" | "B" | "C" | "reject">("B");
+  const [pestIncidentLevel, setPestIncidentLevel] = useState<"none" | "minor" | "moderate" | "severe">("none");
+  const [weatherImpact, setWeatherImpact] = useState<"none" | "heat" | "rain" | "wind" | "cold" | "mixed">("none");
   const [notes, setNotes] = useState("");
 
   const handleAdd = () => {
@@ -45,6 +49,9 @@ export function HarvestLogTab() {
       date: new Date(date).toISOString(),
       quantity: parseFloat(quantity),
       unit,
+      qualityGrade,
+      pestIncidentLevel,
+      weatherImpact,
       notes: notes || undefined,
     });
     setQuantity("");
@@ -52,6 +59,7 @@ export function HarvestLogTab() {
   };
 
   const sorted = [...harvestLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const summary = summarizeOutcomeLogs(harvestLogs);
   const totalByUnit: Record<string, number> = {};
   harvestLogs.forEach((l) => {
     totalByUnit[l.unit] = (totalByUnit[l.unit] || 0) + l.quantity;
@@ -93,16 +101,66 @@ export function HarvestLogTab() {
               <Plus className="size-4 mr-1" />新增
             </Button>
           </div>
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            <Select value={qualityGrade} onValueChange={(value) => setQualityGrade(value as "A" | "B" | "C" | "reject")}>
+              <SelectTrigger><SelectValue placeholder="品質等級" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A">品質 A</SelectItem>
+                <SelectItem value="B">品質 B</SelectItem>
+                <SelectItem value="C">品質 C</SelectItem>
+                <SelectItem value="reject">不良品</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={pestIncidentLevel}
+              onValueChange={(value) => setPestIncidentLevel(value as "none" | "minor" | "moderate" | "severe")}
+            >
+              <SelectTrigger><SelectValue placeholder="病蟲害事件" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">無病蟲害</SelectItem>
+                <SelectItem value="minor">輕微</SelectItem>
+                <SelectItem value="moderate">中等</SelectItem>
+                <SelectItem value="severe">嚴重</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={weatherImpact}
+              onValueChange={(value) => setWeatherImpact(value as "none" | "heat" | "rain" | "wind" | "cold" | "mixed")}
+            >
+              <SelectTrigger><SelectValue placeholder="天候影響" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">無</SelectItem>
+                <SelectItem value="heat">高溫</SelectItem>
+                <SelectItem value="rain">降雨</SelectItem>
+                <SelectItem value="wind">強風</SelectItem>
+                <SelectItem value="cold">低溫</SelectItem>
+                <SelectItem value="mixed">複合</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Input className="mt-2" placeholder="備註（選填）" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </CardContent>
       </Card>
 
       {Object.keys(totalByUnit).length > 0 && (
-        <div className="flex gap-4 text-sm">
-          <span className="font-medium">總計：</span>
-          {Object.entries(totalByUnit).map(([u, total]) => (
-            <span key={u}>{total} {u}</span>
-          ))}
+        <div className="grid gap-2 md:grid-cols-3 text-sm">
+          <div className="rounded border p-2">
+            <p className="font-medium">總量</p>
+            <p className="text-muted-foreground">{Object.entries(totalByUnit).map(([u, total]) => `${total} ${u}`).join(" ・ ")}</p>
+          </div>
+          <div className="rounded border p-2">
+            <p className="font-medium">品質分佈</p>
+            <p className="text-muted-foreground">A {summary.qualityCounts.A} / B {summary.qualityCounts.B} / C {summary.qualityCounts.C} / 不良 {summary.qualityCounts.reject}</p>
+          </div>
+          <div className="rounded border p-2">
+            <p className="font-medium">病蟲與天候</p>
+            <p className="text-muted-foreground">
+              病蟲：輕微 {summary.pestCounts.minor} / 中等 {summary.pestCounts.moderate} / 嚴重 {summary.pestCounts.severe}
+            </p>
+            <p className="text-muted-foreground">
+              天候：雨 {summary.weatherImpactCounts.rain} / 熱 {summary.weatherImpactCounts.heat} / 風 {summary.weatherImpactCounts.wind}
+            </p>
+          </div>
         </div>
       )}
 
@@ -114,6 +172,9 @@ export function HarvestLogTab() {
               <TableHead>田地</TableHead>
               <TableHead>作物</TableHead>
               <TableHead>數量</TableHead>
+              <TableHead>品質</TableHead>
+              <TableHead>病蟲害</TableHead>
+              <TableHead>天候影響</TableHead>
               <TableHead>備註</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -128,6 +189,9 @@ export function HarvestLogTab() {
                   <TableCell className="text-sm">{field?.name || "-"}</TableCell>
                   <TableCell className="text-sm">{crop?.emoji} {crop?.name || log.cropId}</TableCell>
                   <TableCell className="text-sm">{log.quantity} {log.unit}</TableCell>
+                  <TableCell className="text-sm">{log.qualityGrade || "-"}</TableCell>
+                  <TableCell className="text-sm">{log.pestIncidentLevel || "-"}</TableCell>
+                  <TableCell className="text-sm">{log.weatherImpact || "-"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{log.notes || "-"}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" onClick={() => removeHarvestLog(log.id)}>
