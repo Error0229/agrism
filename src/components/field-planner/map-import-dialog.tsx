@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import type { Field } from "@/lib/types";
-import { detectZonesFromImage, type ZoneCandidate } from "@/lib/utils/map-zone-detection";
+import { detectZonesFromImage, type ImageLikeData, type ZoneCandidate } from "@/lib/utils/map-zone-detection";
 import { Upload } from "lucide-react";
 
 interface MapImportDialogProps {
@@ -23,7 +23,11 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
   const allCrops = useAllCrops();
   const [open, setOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSize, setPreviewSize] = useState<{ width: number; height: number } | null>(null);
+  const [imageData, setImageData] = useState<ImageLikeData | null>(null);
   const [zones, setZones] = useState<ZoneCandidate[]>([]);
+  const [calibrationPoints, setCalibrationPoints] = useState<{ x: number; y: number }[]>([]);
+  const [calibrationDistance, setCalibrationDistance] = useState("5");
   const [status, setStatus] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -33,11 +37,29 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
     () => zones.length > 0 && zones.every((zone) => Boolean(zone.cropId)),
     [zones]
   );
+  const calibrationDistanceMeters = Number(calibrationDistance);
+  const canCalibrate = calibrationPoints.length === 2 && Number.isFinite(calibrationDistanceMeters) && calibrationDistanceMeters > 0;
+
+  const runDetection = (nextImageData: ImageLikeData, useCalibration: boolean) => {
+    const detected = detectZonesFromImage(nextImageData, field, defaultCropId, {
+      calibration:
+        useCalibration && canCalibrate
+          ? {
+              pointA: calibrationPoints[0],
+              pointB: calibrationPoints[1],
+              distanceMeters: calibrationDistanceMeters,
+            }
+          : undefined,
+    });
+    setZones(detected);
+    setStatus(detected.length > 0 ? `已偵測 ${detected.length} 個候選區域。` : "未偵測到可用分區，請換一張對比更高的圖。");
+  };
 
   const handleFileSelect = async (file: File | null) => {
     if (!file || !defaultCropId) return;
     setProcessing(true);
     setStatus(null);
+    setCalibrationPoints([]);
 
     try {
       const url = URL.createObjectURL(file);
@@ -60,15 +82,45 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
       if (!ctx) throw new Error("canvas-context");
 
       ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-      const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-      const detected = detectZonesFromImage(imageData, field, defaultCropId);
-      setZones(detected);
-      setStatus(detected.length > 0 ? `已偵測 ${detected.length} 個候選區域。` : "未偵測到可用分區，請換一張對比更高的圖。");
+      const nextImageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+      setPreviewSize({ width: targetWidth, height: targetHeight });
+      setImageData(nextImageData);
+      runDetection(nextImageData, false);
     } catch {
       setStatus("圖片分析失敗，請更換檔案後再試。");
       setZones([]);
+      setImageData(null);
+      setPreviewSize(null);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handlePreviewClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!previewSize) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const x = ((event.clientX - rect.left) / rect.width) * previewSize.width;
+    const y = ((event.clientY - rect.top) / rect.height) * previewSize.height;
+    const point = { x, y };
+    setCalibrationPoints((prev) => (prev.length >= 2 ? [point] : [...prev, point]));
+  };
+
+  const handleRunCalibratedDetection = () => {
+    if (!imageData) return;
+    if (!canCalibrate) {
+      setStatus("請先在預覽圖選取兩個校正點，並輸入實際距離。");
+      return;
+    }
+    runDetection(imageData, true);
+    setStatus("已套用兩點比例校正並重新偵測分區。");
+  };
+
+  const handleResetCalibration = () => {
+    setCalibrationPoints([]);
+    if (imageData) {
+      runDetection(imageData, false);
+      setStatus("已清除比例校正，恢復原始偵測。");
     }
   };
 
@@ -112,15 +164,54 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
             onChange={(event) => handleFileSelect(event.target.files?.[0] ?? null)}
           />
 
-          {previewUrl && (
-            <NextImage
-              src={previewUrl}
-              alt="map-preview"
-              width={480}
-              height={240}
-              unoptimized
-              className="max-h-48 rounded border object-contain"
-            />
+          {previewUrl && previewSize && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                在預覽圖上點兩下建立比例尺校正點，再輸入實際距離（公尺）。
+              </p>
+              <div
+                className="relative inline-block cursor-crosshair select-none"
+                style={{ width: previewSize.width, height: previewSize.height }}
+                onClick={handlePreviewClick}
+              >
+                <NextImage
+                  src={previewUrl}
+                  alt="map-preview"
+                  width={previewSize.width}
+                  height={previewSize.height}
+                  unoptimized
+                  className="rounded border"
+                />
+                {calibrationPoints.map((point, index) => (
+                  <span
+                    key={`${point.x}-${point.y}-${index}`}
+                    className="pointer-events-none absolute block size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-red-500"
+                    style={{
+                      left: `${(point.x / previewSize.width) * 100}%`,
+                      top: `${(point.y / previewSize.height) * 100}%`,
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-muted-foreground">兩點實際距離（公尺）</label>
+                <input
+                  className="h-8 w-24 rounded border px-2 text-sm"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={calibrationDistance}
+                  onChange={(event) => setCalibrationDistance(event.target.value)}
+                />
+                <Button size="sm" variant="outline" onClick={handleRunCalibratedDetection} disabled={!imageData}>
+                  套用校正重算
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleResetCalibration} disabled={calibrationPoints.length === 0}>
+                  清除校正點
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">已選取校正點：{calibrationPoints.length}/2（選第 3 次會重新開始）</p>
+            </div>
           )}
 
           {zones.length > 0 && (
