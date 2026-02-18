@@ -16,6 +16,7 @@ import {
   type ImageLikeData,
   type ZoneCandidate,
 } from "@/lib/utils/map-zone-detection";
+import { deriveFacilityTypeFromCrop } from "@/lib/utils/facility-metadata";
 import { Upload } from "lucide-react";
 
 interface MapImportDialogProps {
@@ -39,6 +40,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
 
   const defaultCropId = allCrops[0]?.id ?? "";
   const [bulkCropId, setBulkCropId] = useState("");
+  const cropById = useMemo(() => new Map(allCrops.map((crop) => [crop.id, crop])), [allCrops]);
 
   const canApply = useMemo(
     () => zones.length > 0 && zones.every((zone) => Boolean(zone.cropId)),
@@ -141,6 +143,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
     if (!canApply) return;
     const plantedDate = occurredAt ?? new Date().toISOString();
     zones.forEach((zone) => {
+      const crop = cropById.get(zone.cropId);
       addPlantedCrop(
         field.id,
         {
@@ -150,6 +153,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
           status: "growing",
           position: { x: zone.x, y: zone.y },
           size: { width: zone.width, height: zone.height },
+          facilityType: deriveFacilityTypeFromCrop(crop),
         },
         { occurredAt: plantedDate }
       );

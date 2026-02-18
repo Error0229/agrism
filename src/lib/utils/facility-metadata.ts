@@ -11,6 +11,13 @@ const facilityTypeLabels: Record<FacilityType, string> = {
 
 const facilityTypeOptions = Object.keys(facilityTypeLabels) as FacilityType[];
 const facilityTypeSet = new Set<FacilityType>(facilityTypeOptions);
+const facilityTypeByCropName: Record<string, FacilityType> = {
+  蓄水池: "water_tank",
+  馬達: "motor",
+  道路: "road",
+  工具間: "tool_shed",
+  房舍: "house",
+};
 
 export function getFacilityTypeOptions(): Array<{ value: FacilityType; label: string }> {
   return facilityTypeOptions.map((value) => ({
@@ -35,6 +42,22 @@ export function normalizeFacilityName(input: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+export function inferFacilityTypeFromCropName(cropName: unknown): FacilityType | undefined {
+  if (typeof cropName !== "string") return undefined;
+  const normalizedName = cropName.trim();
+  if (!normalizedName) return undefined;
+  return facilityTypeByCropName[normalizedName];
+}
+
+export function deriveFacilityTypeFromCrop(crop?: { category: CropCategory; name: string }): FacilityType | undefined {
+  if (!crop || crop.category !== CropCategory.其它類) return undefined;
+  return inferFacilityTypeFromCropName(crop.name);
+}
+
+function resolveFacilityTypeWithFallback(facilityType: unknown, cropName?: string): FacilityType | undefined {
+  return normalizeFacilityType(facilityType) ?? inferFacilityTypeFromCropName(cropName);
+}
+
 export function normalizeLinkedUtilityNodeIds(input: unknown, validNodeIds?: Set<string>): string[] | undefined {
   if (!Array.isArray(input)) return undefined;
 
@@ -56,7 +79,8 @@ export function normalizeLinkedUtilityNodeIds(input: unknown, validNodeIds?: Set
 export function normalizePlantedCropFacilityMetadata(
   plantedCrop: PlantedCrop,
   category?: CropCategory,
-  validUtilityNodeIds?: Set<string>
+  validUtilityNodeIds?: Set<string>,
+  cropName?: string
 ): PlantedCrop {
   if (category === undefined) {
     return {
@@ -77,7 +101,7 @@ export function normalizePlantedCropFacilityMetadata(
 
   return {
     ...plantedCrop,
-    facilityType: normalizeFacilityType(plantedCrop.facilityType),
+    facilityType: resolveFacilityTypeWithFallback(plantedCrop.facilityType, cropName),
     facilityName: normalizeFacilityName(plantedCrop.facilityName),
     linkedUtilityNodeIds: normalizeLinkedUtilityNodeIds(plantedCrop.linkedUtilityNodeIds, validUtilityNodeIds),
   };

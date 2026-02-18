@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CropCategory, type PlantedCrop } from "@/lib/types";
 import {
+  deriveFacilityTypeFromCrop,
   getLinkedUtilitySummary,
   getPlantedCropDisplayLabel,
+  inferFacilityTypeFromCropName,
   normalizeFacilityName,
   normalizeFacilityType,
   normalizeLinkedUtilityNodeIds,
@@ -56,6 +58,26 @@ describe("facility metadata normalization", () => {
     expect(normalizeFacilityName("   ")).toBeUndefined();
   });
 
+  it("derives facility type from infrastructure crop name when missing", () => {
+    const normalized = normalizePlantedCropFacilityMetadata(
+      planted({ facilityType: undefined }),
+      CropCategory.其它類,
+      undefined,
+      "道路"
+    );
+    expect(normalized.facilityType).toBe("road");
+  });
+
+  it("does not override valid facility type with inferred value", () => {
+    const normalized = normalizePlantedCropFacilityMetadata(
+      planted({ facilityType: "motor" }),
+      CropCategory.其它類,
+      undefined,
+      "道路"
+    );
+    expect(normalized.facilityType).toBe("motor");
+  });
+
   it("filters linked utility ids by validity and node set", () => {
     const valid = new Set(["n1", "n3"]);
     expect(normalizeLinkedUtilityNodeIds(["n1", "n1", "n2", " ", "n3"], valid)).toEqual(["n1", "n3"]);
@@ -86,5 +108,18 @@ describe("facility display label", () => {
   it("formats linked utility summary for infrastructure regions", () => {
     expect(getLinkedUtilitySummary({ linkedUtilityNodeIds: ["n1", "n1", "n2"] }, CropCategory.其它類)).toBe("已連結 2 節點");
     expect(getLinkedUtilitySummary({ linkedUtilityNodeIds: ["n1"] }, CropCategory.茄果類)).toBeNull();
+  });
+});
+
+describe("facility type inference", () => {
+  it("maps crop names to facility types", () => {
+    expect(inferFacilityTypeFromCropName("道路")).toBe("road");
+    expect(inferFacilityTypeFromCropName("蓄水池")).toBe("water_tank");
+    expect(inferFacilityTypeFromCropName("未知")).toBeUndefined();
+  });
+
+  it("derives only for infrastructure crops", () => {
+    expect(deriveFacilityTypeFromCrop({ category: CropCategory.其它類, name: "房舍" })).toBe("house");
+    expect(deriveFacilityTypeFromCrop({ category: CropCategory.茄果類, name: "番茄" })).toBeUndefined();
   });
 });
