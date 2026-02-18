@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +18,11 @@ import {
 } from "@/lib/utils/map-zone-detection";
 import { deriveFacilityTypeFromCrop } from "@/lib/utils/facility-metadata";
 import { safeRevokeObjectUrl } from "@/lib/utils/object-url";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import {
+  normalizeCalibrationDistanceStored,
+  parseCalibrationDistanceMeters,
+} from "@/lib/utils/map-import-settings";
 import { Upload } from "lucide-react";
 
 interface MapImportDialogProps {
@@ -35,7 +40,10 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
   const [imageData, setImageData] = useState<ImageLikeData | null>(null);
   const [zones, setZones] = useState<ZoneCandidate[]>([]);
   const [calibrationPoints, setCalibrationPoints] = useState<{ x: number; y: number }[]>([]);
-  const [calibrationDistance, setCalibrationDistance] = useState("5");
+  const [calibrationDistance, setCalibrationDistance, calibrationDistanceLoaded] = useLocalStorage(
+    "hualien-map-import-calibration-distance",
+    "5"
+  );
   const [status, setStatus] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -47,13 +55,24 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
     () => zones.length > 0 && zones.every((zone) => Boolean(zone.cropId)),
     [zones]
   );
-  const calibrationDistanceMeters = Number(calibrationDistance);
-  const canCalibrate = calibrationPoints.length === 2 && Number.isFinite(calibrationDistanceMeters) && calibrationDistanceMeters > 0;
+  const calibrationDistanceMeters = parseCalibrationDistanceMeters(calibrationDistance);
+  const hasValidCalibrationDistance = calibrationDistanceMeters !== null && calibrationDistanceMeters > 0;
+  const canCalibrate = calibrationPoints.length === 2 && hasValidCalibrationDistance;
+  const hasNormalizedStoredDistance = useRef(false);
 
   useEffect(() => {
     if (!defaultCropId) return;
     setBulkCropId((prev) => prev || defaultCropId);
   }, [defaultCropId]);
+
+  useEffect(() => {
+    if (!calibrationDistanceLoaded) return;
+    if (hasNormalizedStoredDistance.current) return;
+    hasNormalizedStoredDistance.current = true;
+    const normalized = normalizeCalibrationDistanceStored(calibrationDistance);
+    if (normalized === calibrationDistance) return;
+    setCalibrationDistance(normalized);
+  }, [calibrationDistance, calibrationDistanceLoaded, setCalibrationDistance]);
 
   useEffect(() => {
     return () => {
@@ -89,7 +108,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
           ? {
               pointA: calibrationPoints[0],
               pointB: calibrationPoints[1],
-              distanceMeters: calibrationDistanceMeters,
+              distanceMeters: calibrationDistanceMeters ?? 5,
             }
           : undefined,
     });
