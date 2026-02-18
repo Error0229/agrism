@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import type { Field, PlantedCrop } from "@/lib/types";
+import type { Field, FieldContext, PlantedCrop } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 import { bootstrapEventsFromFields, createPlannerEvent, replayPlannerEvents, type PlannerEvent } from "@/lib/planner/events";
+import { normalizeField, normalizeFieldContext, type LegacyField } from "@/lib/utils/field-context";
 
 interface FieldsContextType {
   fields: Field[];
@@ -12,7 +13,12 @@ interface FieldsContextType {
   isLoaded: boolean;
   showHarvestedCrops: boolean;
   setShowHarvestedCrops: (show: boolean) => void;
-  addField: (name: string, width: number, height: number, options?: { occurredAt?: string }) => Field;
+  addField: (
+    name: string,
+    width: number,
+    height: number,
+    options?: { occurredAt?: string; context?: Partial<FieldContext> }
+  ) => Field;
   updateField: (id: string, updates: Partial<Omit<Field, "id">>, options?: { occurredAt?: string }) => void;
   removeField: (id: string, options?: { occurredAt?: string }) => void;
   addPlantedCrop: (fieldId: string, crop: Omit<PlantedCrop, "id">, options?: { occurredAt?: string }) => PlantedCrop;
@@ -37,7 +43,7 @@ const FieldsContext = createContext<FieldsContextType | null>(null);
 export function FieldsProvider({ children }: { children: ReactNode }) {
   const [plannerEvents, setPlannerEvents, isLoaded] = useLocalStorage<PlannerEvent[]>("hualien-planner-events", []);
   const [showHarvestedCrops, setShowHarvestedCrops] = useLocalStorage<boolean>("hualien-show-harvested", true);
-  const fields = useMemo(() => replayPlannerEvents(plannerEvents), [plannerEvents]);
+  const fields = useMemo(() => replayPlannerEvents(plannerEvents).map(normalizeField), [plannerEvents]);
 
   const appendEvent = useCallback(
     (event: PlannerEvent) => {
@@ -61,23 +67,24 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
     try {
       const rawFields = window.localStorage.getItem("hualien-fields");
       if (!rawFields) return;
-      const legacyFields = JSON.parse(rawFields) as Field[];
+      const legacyFields = JSON.parse(rawFields) as LegacyField[];
       if (!Array.isArray(legacyFields) || legacyFields.length === 0) return;
-      setPlannerEvents(bootstrapEventsFromFields(legacyFields));
+      setPlannerEvents(bootstrapEventsFromFields(legacyFields.map(normalizeField)));
     } catch {
       // Ignore migration failure and keep empty stream.
     }
   }, [isLoaded, plannerEvents.length, setPlannerEvents]);
 
   const addField = useCallback(
-    (name: string, width: number, height: number, options?: { occurredAt?: string }) => {
-      const newField: Field = { id: uuidv4(), name, dimensions: { width, height }, plantedCrops: [] };
+    (name: string, width: number, height: number, options?: { occurredAt?: string; context?: Partial<FieldContext> }) => {
+      const context = normalizeFieldContext(options?.context);
+      const newField: Field = { id: uuidv4(), name, dimensions: { width, height }, context, plantedCrops: [] };
       appendEvent(
         createPlannerEvent({
           type: "field_created",
           occurredAt: options?.occurredAt,
           fieldId: newField.id,
-          payload: { id: newField.id, name, dimensions: { width, height } },
+          payload: { id: newField.id, name, dimensions: { width, height }, context },
         })
       );
       return newField;
@@ -179,7 +186,7 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
 
   const getFieldsAt = useCallback(
     (at: string | Date, options?: { respectPlantedDate?: boolean }) =>
-      replayPlannerEvents(plannerEvents, { at, respectPlantedDate: options?.respectPlantedDate }),
+      replayPlannerEvents(plannerEvents, { at, respectPlantedDate: options?.respectPlantedDate }).map(normalizeField),
     [plannerEvents]
   );
 

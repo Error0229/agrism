@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlantedCrop } from "@/lib/types";
 import { detectSpatialConflictsAt, replayPlannerEvents, type PlannerEvent } from "@/lib/planner/events";
+import { defaultFieldContext } from "@/lib/utils/field-context";
 
 function plantedCrop(overrides?: Partial<PlantedCrop>): PlantedCrop {
   return {
@@ -129,5 +130,30 @@ describe("replayPlannerEvents", () => {
     expect(duringOverlap.length).toBeGreaterThan(0);
     expect(afterHarvest).toHaveLength(0);
     expect(stateAfterHarvest[0]?.plantedCrops.find((crop) => crop.id === "pc-1")?.status).toBe("harvested");
+  });
+
+  it("fills default field context for legacy field events and merges partial context updates", () => {
+    const events: PlannerEvent[] = [
+      {
+        id: "1",
+        type: "field_created",
+        occurredAt: "2026-02-10T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: { id: "field-1", name: "A 區", dimensions: { width: 5, height: 4 } },
+      },
+      {
+        id: "2",
+        type: "field_updated",
+        occurredAt: "2026-02-11T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: { context: { sunHours: "lt4" } },
+      },
+    ];
+
+    const result = replayPlannerEvents(events);
+    expect(result[0]?.context).toEqual({
+      ...defaultFieldContext,
+      sunHours: "lt4",
+    });
   });
 });

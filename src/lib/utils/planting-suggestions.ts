@@ -1,9 +1,10 @@
 import type { Crop, Field } from "@/lib/types";
 import { rotationSuggestions } from "@/lib/data/crop-companions";
 import { addDays, differenceInDays } from "date-fns";
+import { formatSunHoursLabel, isSunlightCompatible } from "@/lib/utils/field-context";
 
 export interface PlantingSuggestion {
-  type: "pruning" | "rotation" | "seasonal" | "harvest-soon";
+  type: "pruning" | "rotation" | "seasonal" | "harvest-soon" | "field-context";
   title: string;
   description: string;
   cropId?: string;
@@ -48,6 +49,17 @@ export function generatePlantingSuggestions(
           type: "harvest-soon",
           title: `${crop.emoji} ${crop.name} 即將收成`,
           description: `${field.name} 的${crop.name}預計 ${daysUntilHarvest} 天後可收成。`,
+          cropId: crop.id,
+          cropName: crop.name,
+          fieldId: field.id,
+        });
+      }
+
+      if (!isSunlightCompatible(crop.sunlight, field.context.sunHours)) {
+        suggestions.push({
+          type: "field-context",
+          title: `${crop.emoji} ${crop.name} 可能日照不足`,
+          description: `${field.name} 目前日照 ${formatSunHoursLabel(field.context.sunHours)}，與${crop.name}需求（${crop.sunlight}）可能不匹配。`,
           cropId: crop.id,
           cropName: crop.name,
           fieldId: field.id,

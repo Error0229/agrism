@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+import { CropCategory, SunlightLevel, type Field } from "@/lib/types";
+import { normalizeCrop } from "@/lib/data/crop-schema";
+import { defaultFieldContext } from "@/lib/utils/field-context";
+import { generatePlantingSuggestions } from "@/lib/utils/planting-suggestions";
+
+const crop = normalizeCrop({
+  id: "tomato",
+  name: "番茄",
+  category: CropCategory.茄果類,
+  sunlight: SunlightLevel.全日照,
+  plantingMonths: [2, 3, 4],
+  growthDays: 90,
+});
+
+function makeField(sunHours: Field["context"]["sunHours"]): Field {
+  return {
+    id: "field-1",
+    name: "後院",
+    dimensions: { width: 5, height: 4 },
+    context: { ...defaultFieldContext, sunHours },
+    plantedCrops: [
+      {
+        id: "pc-1",
+        cropId: crop.id,
+        fieldId: "field-1",
+        plantedDate: "2026-02-01T00:00:00.000Z",
+        status: "growing",
+        position: { x: 0, y: 0 },
+        size: { width: 10, height: 10 },
+      },
+    ],
+  };
+}
+
+describe("generatePlantingSuggestions field context support", () => {
+  it("adds field-context suggestion for sunlight mismatch", () => {
+    const suggestions = generatePlantingSuggestions([makeField("lt4")], [crop], 2);
+    expect(suggestions.some((item) => item.type === "field-context")).toBe(true);
+  });
+
+  it("does not add field-context suggestion when sunlight is compatible", () => {
+    const suggestions = generatePlantingSuggestions([makeField("gt8")], [crop], 2);
+    expect(suggestions.some((item) => item.type === "field-context")).toBe(false);
+  });
+});

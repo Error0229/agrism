@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Field, PlantedCrop } from "@/lib/types";
+import type { Field, FieldContext, PlantedCrop } from "@/lib/types";
+import { normalizeFieldContext } from "@/lib/utils/field-context";
 
 export type PlannerEventType =
   | "field_created"
@@ -53,11 +54,17 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
 
     switch (event.type) {
       case "field_created": {
-        const payload = event.payload as { id: string; name: string; dimensions: Field["dimensions"] };
+        const payload = event.payload as {
+          id: string;
+          name: string;
+          dimensions: Field["dimensions"];
+          context?: Partial<FieldContext>;
+        };
         fieldsMap.set(payload.id, {
           id: payload.id,
           name: payload.name,
           dimensions: payload.dimensions,
+          context: normalizeFieldContext(payload.context),
           plantedCrops: [],
         });
         break;
@@ -66,8 +73,12 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
         if (!event.fieldId) break;
         const field = fieldsMap.get(event.fieldId);
         if (!field) break;
-        const payload = event.payload as Partial<Omit<Field, "id">>;
-        fieldsMap.set(event.fieldId, { ...field, ...payload });
+        const payload = event.payload as Partial<Omit<Field, "id">> & { context?: Partial<FieldContext> };
+        fieldsMap.set(event.fieldId, {
+          ...field,
+          ...payload,
+          context: payload.context ? normalizeFieldContext({ ...field.context, ...payload.context }) : field.context,
+        });
         break;
       }
       case "field_removed": {
@@ -165,6 +176,7 @@ export function bootstrapEventsFromFields(fields: Field[]): PlannerEvent[] {
           id: field.id,
           name: field.name,
           dimensions: field.dimensions,
+          context: normalizeFieldContext(field.context),
         },
       })
     );
