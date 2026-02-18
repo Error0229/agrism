@@ -1,14 +1,17 @@
 "use client";
 
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useMemo, type ReactNode } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import type { HarvestLog, FinanceRecord, SoilNote, WeatherLog } from "@/lib/types";
+import type { HarvestLog, FinanceRecord, SoilAmendment, SoilNote, SoilProfile, WeatherLog } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
+import { normalizeSoilAmendment, normalizeSoilProfile } from "@/lib/utils/soil-profile";
 
 interface FarmManagementContextType {
   harvestLogs: HarvestLog[];
   financeRecords: FinanceRecord[];
   soilNotes: SoilNote[];
+  soilProfiles: SoilProfile[];
+  soilAmendments: SoilAmendment[];
   weatherLogs: WeatherLog[];
   isLoaded: boolean;
   addHarvestLog: (log: Omit<HarvestLog, "id">) => void;
@@ -17,6 +20,10 @@ interface FarmManagementContextType {
   removeFinanceRecord: (id: string) => void;
   addSoilNote: (note: Omit<SoilNote, "id">) => void;
   removeSoilNote: (id: string) => void;
+  upsertSoilProfile: (profile: Omit<SoilProfile, "updatedAt"> & { updatedAt?: string }) => void;
+  removeSoilProfile: (fieldId: string) => void;
+  addSoilAmendment: (amendment: Omit<SoilAmendment, "id">) => void;
+  removeSoilAmendment: (id: string) => void;
   addWeatherLog: (log: Omit<WeatherLog, "id">) => void;
   removeWeatherLog: (id: string) => void;
 }
@@ -27,9 +34,32 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
   const [harvestLogs, setHarvestLogs, harvestLoaded] = useLocalStorage<HarvestLog[]>("hualien-harvest-logs", []);
   const [financeRecords, setFinanceRecords, financeLoaded] = useLocalStorage<FinanceRecord[]>("hualien-finance", []);
   const [soilNotes, setSoilNotes, soilLoaded] = useLocalStorage<SoilNote[]>("hualien-soil-notes", []);
+  const [soilProfilesRaw, setSoilProfiles, soilProfilesLoaded] = useLocalStorage<SoilProfile[]>("hualien-soil-profiles", []);
+  const [soilAmendmentsRaw, setSoilAmendments, soilAmendmentsLoaded] = useLocalStorage<SoilAmendment[]>(
+    "hualien-soil-amendments",
+    []
+  );
   const [weatherLogs, setWeatherLogs, weatherLoaded] = useLocalStorage<WeatherLog[]>("hualien-weather-logs", []);
 
-  const isLoaded = harvestLoaded && financeLoaded && soilLoaded && weatherLoaded;
+  const isLoaded =
+    harvestLoaded && financeLoaded && soilLoaded && soilProfilesLoaded && soilAmendmentsLoaded && weatherLoaded;
+
+  const soilProfiles = useMemo(() => {
+    const map = new Map<string, SoilProfile>();
+    for (const item of soilProfilesRaw) {
+      if (!item?.fieldId) continue;
+      map.set(item.fieldId, normalizeSoilProfile(item));
+    }
+    return Array.from(map.values());
+  }, [soilProfilesRaw]);
+
+  const soilAmendments = useMemo(
+    () =>
+      soilAmendmentsRaw
+        .filter((item) => item?.id && item?.fieldId)
+        .map((item) => normalizeSoilAmendment(item)),
+    [soilAmendmentsRaw]
+  );
 
   const addHarvestLog = useCallback(
     (log: Omit<HarvestLog, "id">) => {
@@ -73,6 +103,39 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
     [setSoilNotes]
   );
 
+  const upsertSoilProfile = useCallback(
+    (profile: Omit<SoilProfile, "updatedAt"> & { updatedAt?: string }) => {
+      const normalized = normalizeSoilProfile({ ...profile, updatedAt: profile.updatedAt ?? new Date().toISOString() });
+      setSoilProfiles((prev) => {
+        const next = prev.filter((item) => item.fieldId !== normalized.fieldId);
+        return [...next, normalized];
+      });
+    },
+    [setSoilProfiles]
+  );
+
+  const removeSoilProfile = useCallback(
+    (fieldId: string) => {
+      setSoilProfiles((prev) => prev.filter((item) => item.fieldId !== fieldId));
+    },
+    [setSoilProfiles]
+  );
+
+  const addSoilAmendment = useCallback(
+    (amendment: Omit<SoilAmendment, "id">) => {
+      const normalized = normalizeSoilAmendment({ ...amendment, id: uuidv4() });
+      setSoilAmendments((prev) => [...prev, normalized]);
+    },
+    [setSoilAmendments]
+  );
+
+  const removeSoilAmendment = useCallback(
+    (id: string) => {
+      setSoilAmendments((prev) => prev.filter((item) => item.id !== id));
+    },
+    [setSoilAmendments]
+  );
+
   const addWeatherLog = useCallback(
     (log: Omit<WeatherLog, "id">) => {
       setWeatherLogs((prev) => [...prev, { ...log, id: uuidv4() }]);
@@ -93,6 +156,8 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
         harvestLogs,
         financeRecords,
         soilNotes,
+        soilProfiles,
+        soilAmendments,
         weatherLogs,
         isLoaded,
         addHarvestLog,
@@ -101,6 +166,10 @@ export function FarmManagementProvider({ children }: { children: ReactNode }) {
         removeFinanceRecord,
         addSoilNote,
         removeSoilNote,
+        upsertSoilProfile,
+        removeSoilProfile,
+        addSoilAmendment,
+        removeSoilAmendment,
         addWeatherLog,
         removeWeatherLog,
       }}

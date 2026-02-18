@@ -1,10 +1,10 @@
-import type { Crop, Field } from "@/lib/types";
+import type { Crop, Field, SoilProfile } from "@/lib/types";
 import { rotationSuggestions } from "@/lib/data/crop-companions";
 import { addDays, differenceInDays } from "date-fns";
 import { formatSunHoursLabel, isSunlightCompatible } from "@/lib/utils/field-context";
 
 export interface PlantingSuggestion {
-  type: "pruning" | "rotation" | "seasonal" | "harvest-soon" | "field-context";
+  type: "pruning" | "rotation" | "seasonal" | "harvest-soon" | "field-context" | "soil-profile";
   title: string;
   description: string;
   cropId?: string;
@@ -15,7 +15,8 @@ export interface PlantingSuggestion {
 export function generatePlantingSuggestions(
   fields: Field[],
   allCrops: Crop[],
-  currentMonth: number
+  currentMonth: number,
+  options?: { soilProfilesByFieldId?: Map<string, SoilProfile> }
 ): PlantingSuggestion[] {
   const suggestions: PlantingSuggestion[] = [];
   const today = new Date();
@@ -60,6 +61,18 @@ export function generatePlantingSuggestions(
           type: "field-context",
           title: `${crop.emoji} ${crop.name} 可能日照不足`,
           description: `${field.name} 目前日照 ${formatSunHoursLabel(field.context.sunHours)}，與${crop.name}需求（${crop.sunlight}）可能不匹配。`,
+          cropId: crop.id,
+          cropName: crop.name,
+          fieldId: field.id,
+        });
+      }
+
+      const soilProfile = options?.soilProfilesByFieldId?.get(field.id);
+      if (soilProfile?.ph != null && (soilProfile.ph < crop.soilPhRange.min || soilProfile.ph > crop.soilPhRange.max)) {
+        suggestions.push({
+          type: "soil-profile",
+          title: `${crop.emoji} ${crop.name} 土壤 pH 需調整`,
+          description: `${field.name} 目前 pH ${soilProfile.ph.toFixed(1)}，${crop.name}建議範圍 ${crop.soilPhRange.min}-${crop.soilPhRange.max}。`,
           cropId: crop.id,
           cropName: crop.name,
           fieldId: field.id,

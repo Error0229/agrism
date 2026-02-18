@@ -43,4 +43,24 @@ describe("generatePlantingSuggestions field context support", () => {
     const suggestions = generatePlantingSuggestions([makeField("gt8")], [crop], 2);
     expect(suggestions.some((item) => item.type === "field-context")).toBe(false);
   });
+
+  it("adds soil-profile suggestion when soil pH is out of crop range", () => {
+    const suggestions = generatePlantingSuggestions([makeField("gt8")], [crop], 2, {
+      soilProfilesByFieldId: new Map([
+        [
+          "field-1",
+          {
+            fieldId: "field-1",
+            texture: "loam",
+            ph: 4.5,
+            ec: null,
+            organicMatterPct: null,
+            updatedAt: "2026-02-01T00:00:00.000Z",
+          },
+        ],
+      ]),
+    });
+
+    expect(suggestions.some((item) => item.type === "soil-profile")).toBe(true);
+  });
 });
