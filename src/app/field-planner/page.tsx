@@ -20,6 +20,7 @@ import {
   defaultUtilityVisibilitySettings,
   normalizeUtilityVisibilitySettings,
 } from "@/lib/utils/utility-visibility-settings";
+import { defaultPlannerGridSettings, normalizePlannerGridSettings } from "@/lib/utils/planner-grid-settings";
 import { normalizeTimelineSelectedDate } from "@/lib/utils/timeline-date";
 import { Trash2, Move, MousePointer, AlertTriangle } from "lucide-react";
 
@@ -86,6 +87,7 @@ export default function FieldPlannerPage() {
     "hualien-utility-visibility",
     defaultUtilityVisibilitySettings
   );
+  const [rawGridSettings, setRawGridSettings] = useLocalStorage("hualien-planner-grid-settings", defaultPlannerGridSettings);
   const [rawTimelineDate, setRawTimelineDate] = useLocalStorage("hualien-planner-timeline-date", "");
   const [remoteTimelineEvents, setRemoteTimelineEvents] = useState<PlannerEvent[] | null>(null);
   const [remoteAnchors, setRemoteAnchors] = useState<string[] | null>(null);
@@ -127,6 +129,7 @@ export default function FieldPlannerPage() {
     () => normalizeUtilityVisibilitySettings(rawUtilityVisibility),
     [rawUtilityVisibility]
   );
+  const gridSettings = useMemo(() => normalizePlannerGridSettings(rawGridSettings), [rawGridSettings]);
   const timelineDate = useMemo(() => normalizeTimelineSelectedDate(rawTimelineDate), [rawTimelineDate]);
 
   const timelineAnchors = useMemo(() => {
@@ -348,6 +351,13 @@ export default function FieldPlannerPage() {
                             return { ...current, showElectricUtilities: !current.showElectricUtilities };
                           });
                         }}
+                        gridSettings={gridSettings}
+                        onUpdateGridSettings={(updates) =>
+                          setRawGridSettings((prev) => {
+                            const current = normalizePlannerGridSettings(prev);
+                            return normalizePlannerGridSettings({ ...current, ...updates });
+                          })
+                        }
                       />
                       <MapImportDialog field={field} occurredAt={currentOccurredAt} />
                       <Button size="sm" variant={resizeMode ? "default" : "outline"} onClick={() => setResizeMode(!resizeMode)}>
@@ -398,6 +408,7 @@ export default function FieldPlannerPage() {
                     showUtilities={utilityVisibility.showUtilities}
                     showWaterUtilities={utilityVisibility.showWaterUtilities}
                     showElectricUtilities={utilityVisibility.showElectricUtilities}
+                    gridSettings={gridSettings}
                   />
                 </TabsContent>
               ))}
