@@ -93,10 +93,25 @@ export interface PlantedCrop {
   notes?: string;
 }
 
+export type FieldPlotType = "open_field" | "raised_bed" | "container" | "greenhouse";
+export type FieldSunHours = "lt4" | "h4_6" | "h6_8" | "gt8";
+export type FieldDrainage = "poor" | "moderate" | "good";
+export type FieldSlope = "flat" | "gentle" | "steep";
+export type FieldWindExposure = "sheltered" | "moderate" | "exposed";
+
+export interface FieldContext {
+  plotType: FieldPlotType;
+  sunHours: FieldSunHours;
+  drainage: FieldDrainage;
+  slope: FieldSlope;
+  windExposure: FieldWindExposure;
+}
+
 export interface Field {
   id: string;
   name: string;
   dimensions: { width: number; height: number }; // 公尺
+  context: FieldContext;
   plantedCrops: PlantedCrop[];
 }
 

@@ -26,6 +26,7 @@ export function PlantingSuggestionsCard() {
     rotation: "bg-purple-100 text-purple-700",
     seasonal: "bg-green-100 text-green-700",
     "harvest-soon": "bg-amber-100 text-amber-700",
+    "field-context": "bg-rose-100 text-rose-700",
   };
 
   const typeLabel: Record<string, string> = {
@@ -33,6 +34,7 @@ export function PlantingSuggestionsCard() {
     rotation: "輪作",
     seasonal: "當季推薦",
     "harvest-soon": "即將收成",
+    "field-context": "田區條件",
   };
 
   return (
