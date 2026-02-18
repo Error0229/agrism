@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { PlannerEvent } from "@/lib/planner/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { resolveTimelineShortcut } from "@/lib/utils/timeline-shortcuts";
 import { pruneTimelineDays } from "@/lib/utils/timeline-window";
 import { History, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -67,6 +68,12 @@ function markerClass(type: PlannerEvent["type"]) {
 
 function isDateKey(input: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(input);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
 export function TimelineSlider({ anchors, value, events, onChange, onReset }: TimelineSliderProps) {
@@ -171,8 +178,29 @@ export function TimelineSlider({ anchors, value, events, onChange, onReset }: Ti
 
   const hasAnchorMarkers = anchors.length > 0;
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (isEditableTarget(event.target)) return;
+    const action = resolveTimelineShortcut({ key: event.key, shiftKey: event.shiftKey });
+    if (!action) return;
+
+    event.preventDefault();
+    if (action.type === "days") {
+      moveByDays(action.delta);
+      return;
+    }
+    if (action.type === "months") {
+      moveByMonths(action.delta);
+      return;
+    }
+    onReset();
+  };
+
   return (
-    <div className="rounded-md border px-3 py-2.5">
+    <div
+      className="rounded-md border px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <History className="size-4" />
