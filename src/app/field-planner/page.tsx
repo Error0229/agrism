@@ -15,6 +15,11 @@ import { TimelineSlider } from "@/components/field-planner/timeline-slider";
 import { Button } from "@/components/ui/button";
 import { evaluateFieldPlanningRules } from "@/lib/utils/rotation-companion-checker";
 import { detectSpatialConflictsAt, replayPlannerEvents, type PlannerEvent } from "@/lib/planner/events";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import {
+  defaultUtilityVisibilitySettings,
+  normalizeUtilityVisibilitySettings,
+} from "@/lib/utils/utility-visibility-settings";
 import { Trash2, Move, MousePointer, AlertTriangle } from "lucide-react";
 
 const FieldCanvas = dynamic(() => import("@/components/field-planner/field-canvas"), {
@@ -76,9 +81,10 @@ export default function FieldPlannerPage() {
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
   const [resizeMode, setResizeMode] = useState(false);
-  const [showUtilities, setShowUtilities] = useState(true);
-  const [showWaterUtilities, setShowWaterUtilities] = useState(true);
-  const [showElectricUtilities, setShowElectricUtilities] = useState(true);
+  const [rawUtilityVisibility, setRawUtilityVisibility] = useLocalStorage(
+    "hualien-utility-visibility",
+    defaultUtilityVisibilitySettings
+  );
   const [timelineDate, setTimelineDate] = useState("");
   const [remoteTimelineEvents, setRemoteTimelineEvents] = useState<PlannerEvent[] | null>(null);
   const [remoteAnchors, setRemoteAnchors] = useState<string[] | null>(null);
@@ -115,6 +121,11 @@ export default function FieldPlannerPage() {
       return a.id.localeCompare(b.id);
     });
   }, [plannerEvents, remoteTimelineEvents]);
+
+  const utilityVisibility = useMemo(
+    () => normalizeUtilityVisibilitySettings(rawUtilityVisibility),
+    [rawUtilityVisibility]
+  );
 
   const timelineAnchors = useMemo(() => {
     if (remoteAnchors && remoteAnchors.length > 0) return remoteAnchors;
@@ -313,16 +324,27 @@ export default function FieldPlannerPage() {
                         selectedCropId={selectedCropId}
                         onSelectCrop={setSelectedCropId}
                         occurredAt={currentOccurredAt}
-                        showUtilities={showUtilities}
-                        showWaterUtilities={showWaterUtilities}
-                        showElectricUtilities={showElectricUtilities}
-                        onToggleUtilities={() => setShowUtilities((prev) => !prev)}
+                        showUtilities={utilityVisibility.showUtilities}
+                        showWaterUtilities={utilityVisibility.showWaterUtilities}
+                        showElectricUtilities={utilityVisibility.showElectricUtilities}
+                        onToggleUtilities={() =>
+                          setRawUtilityVisibility((prev) => {
+                            const current = normalizeUtilityVisibilitySettings(prev);
+                            return { ...current, showUtilities: !current.showUtilities };
+                          })
+                        }
                         onToggleUtilityKind={(kind) => {
                           if (kind === "water") {
-                            setShowWaterUtilities((prev) => !prev);
+                            setRawUtilityVisibility((prev) => {
+                              const current = normalizeUtilityVisibilitySettings(prev);
+                              return { ...current, showWaterUtilities: !current.showWaterUtilities };
+                            });
                             return;
                           }
-                          setShowElectricUtilities((prev) => !prev);
+                          setRawUtilityVisibility((prev) => {
+                            const current = normalizeUtilityVisibilitySettings(prev);
+                            return { ...current, showElectricUtilities: !current.showElectricUtilities };
+                          });
                         }}
                       />
                       <MapImportDialog field={field} occurredAt={currentOccurredAt} />
@@ -371,9 +393,9 @@ export default function FieldPlannerPage() {
                     occurredAt={currentOccurredAt}
                     showHarvestedCrops={showHarvestedCrops}
                     conflictedCropIds={Array.from(conflictedByField.get(field.id) ?? [])}
-                    showUtilities={showUtilities}
-                    showWaterUtilities={showWaterUtilities}
-                    showElectricUtilities={showElectricUtilities}
+                    showUtilities={utilityVisibility.showUtilities}
+                    showWaterUtilities={utilityVisibility.showWaterUtilities}
+                    showElectricUtilities={utilityVisibility.showElectricUtilities}
                   />
                 </TabsContent>
               ))}
