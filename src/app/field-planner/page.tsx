@@ -9,6 +9,7 @@ import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import { FieldToolbar } from "@/components/field-planner/field-toolbar";
 import { FieldSettingsDialog } from "@/components/field-planner/field-settings-dialog";
+import { MapImportDialog } from "@/components/field-planner/map-import-dialog";
 import { TimelineSlider } from "@/components/field-planner/timeline-slider";
 import { Button } from "@/components/ui/button";
 import { evaluateFieldPlanningRules } from "@/lib/utils/rotation-companion-checker";
@@ -310,6 +311,7 @@ export default function FieldPlannerPage() {
                         showUtilities={showUtilities}
                         onToggleUtilities={() => setShowUtilities((prev) => !prev)}
                       />
+                      <MapImportDialog field={field} occurredAt={currentOccurredAt} />
                       <Button size="sm" variant={resizeMode ? "default" : "outline"} onClick={() => setResizeMode(!resizeMode)}>
                         {resizeMode ? (
                           <>
