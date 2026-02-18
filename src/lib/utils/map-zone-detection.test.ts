@@ -37,4 +37,22 @@ describe("detectZonesFromImage", () => {
     expect(zones.every((zone) => zone.cropId === "crop-1")).toBe(true);
     expect(zones.some((zone) => zone.width >= 180)).toBe(true);
   });
+
+  it("applies two-point calibration to convert pixels into scaled centimeters", () => {
+    const imageData = makeImageData(10, 2, (x) => (x < 5 ? [200, 0, 0, 255] : [0, 200, 0, 255]));
+    const withoutCalibration = detectZonesFromImage(imageData, field, "crop-1");
+    const withCalibration = detectZonesFromImage(imageData, field, "crop-1", {
+      calibration: {
+        pointA: { x: 0, y: 0 },
+        pointB: { x: 10, y: 0 },
+        distanceMeters: 2,
+      },
+    });
+
+    const rawWideZone = withoutCalibration.find((zone) => zone.width >= 190);
+    const calibratedZone = withCalibration.find((zone) => zone.width >= 90 && zone.width <= 130);
+
+    expect(rawWideZone).toBeDefined();
+    expect(calibratedZone).toBeDefined();
+  });
 });
