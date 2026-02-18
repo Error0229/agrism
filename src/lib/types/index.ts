@@ -30,6 +30,8 @@ export enum TaskType {
   病蟲害防治 = "病蟲害防治",
 }
 
+export type TaskDifficulty = "low" | "medium" | "high";
+
 export interface Crop {
   id: string;
   name: string;
@@ -124,6 +126,9 @@ export interface Task {
   fieldId?: string;
   dueDate: string; // ISO date string
   completed: boolean;
+  effortMinutes?: number;
+  difficulty?: TaskDifficulty;
+  requiredTools?: string[];
   recurring?: {
     intervalDays: number;
     endDate?: string;

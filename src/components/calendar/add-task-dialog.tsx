@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTasks } from "@/lib/store/tasks-context";
-import { TaskType } from "@/lib/types";
+import { TaskType, type TaskDifficulty } from "@/lib/types";
 import { useAllCrops } from "@/lib/data/crop-lookup";
+import { getTaskEffortPreset, parseToolList } from "@/lib/utils/task-effort";
 import { Plus } from "lucide-react";
 
 export function AddTaskDialog() {
@@ -30,6 +31,18 @@ export function AddTaskDialog() {
   const [cropId, setCropId] = useState<string>("");
   const [dueDate, setDueDate] = useState(new Date().toISOString().split("T")[0]);
   const [title, setTitle] = useState("");
+  const [effortMinutes, setEffortMinutes] = useState("");
+  const [difficulty, setDifficulty] = useState<TaskDifficulty>("medium");
+  const [toolsInput, setToolsInput] = useState("");
+
+  const handleTaskTypeChange = (value: string) => {
+    setTaskType(value);
+    if (!value) return;
+    const preset = getTaskEffortPreset(value as TaskType);
+    setEffortMinutes(String(preset.effortMinutes));
+    setDifficulty(preset.difficulty);
+    setToolsInput(preset.requiredTools.join(", "));
+  };
 
   const handleSubmit = () => {
     if (!taskType || !cropId || !dueDate) return;
@@ -40,11 +53,17 @@ export function AddTaskDialog() {
       title: finalTitle,
       cropId,
       dueDate: new Date(dueDate).toISOString(),
+      effortMinutes: effortMinutes ? parseInt(effortMinutes, 10) : undefined,
+      difficulty,
+      requiredTools: parseToolList(toolsInput),
     });
     setOpen(false);
     setTitle("");
     setTaskType("");
     setCropId("");
+    setEffortMinutes("");
+    setDifficulty("medium");
+    setToolsInput("");
   };
 
   return (
@@ -62,7 +81,7 @@ export function AddTaskDialog() {
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">任務類型</label>
-            <Select value={taskType} onValueChange={setTaskType}>
+            <Select value={taskType} onValueChange={handleTaskTypeChange}>
               <SelectTrigger>
                 <SelectValue placeholder="選擇任務類型" />
               </SelectTrigger>
@@ -98,6 +117,39 @@ export function AddTaskDialog() {
               placeholder="留空將自動產生"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">預估工時（分鐘）</label>
+              <Input
+                type="number"
+                min="5"
+                max="480"
+                value={effortMinutes}
+                onChange={(e) => setEffortMinutes(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">難度</label>
+              <Select value={difficulty} onValueChange={(value) => setDifficulty(value as TaskDifficulty)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">低</SelectItem>
+                  <SelectItem value="medium">中</SelectItem>
+                  <SelectItem value="high">高</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">工具需求（逗號分隔）</label>
+            <Input
+              placeholder="例如：手鏟, 水管"
+              value={toolsInput}
+              onChange={(e) => setToolsInput(e.target.value)}
             />
           </div>
           <Button onClick={handleSubmit} disabled={!taskType || !cropId} className="w-full">
