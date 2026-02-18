@@ -11,6 +11,7 @@ import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { isInfrastructureCategory, type Field } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
+import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -27,6 +28,8 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
   const allCrops = useAllCrops();
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [timingOpen, setTimingOpen] = useState(false);
   const [harvestOpen, setHarvestOpen] = useState(false);
@@ -39,6 +42,17 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
     [selectedPlanted, allCrops]
   );
   const selectedIsInfrastructure = selectedCropMeta ? isInfrastructureCategory(selectedCropMeta.category) : false;
+  const mergeCandidates = useMemo(
+    () =>
+      field.plantedCrops
+        .filter((crop) => crop.id !== selectedCropId && crop.status === "growing")
+        .map((crop) => ({
+          planted: crop,
+          meta: allCrops.find((item) => item.id === crop.cropId),
+        }))
+        .filter((item) => Boolean(item.meta)),
+    [allCrops, field.plantedCrops, selectedCropId]
+  );
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -93,6 +107,88 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
       },
       { occurredAt }
     );
+  };
+
+  const handleReassignSelected = (nextCropId: string) => {
+    if (!selectedPlanted) return;
+    const nextCrop = allCrops.find((crop) => crop.id === nextCropId);
+    if (!nextCrop) return;
+
+    updatePlantedCrop(field.id, selectedPlanted.id, { cropId: nextCropId }, { occurredAt });
+    removeTasksByPlantedCrop(selectedPlanted.id);
+    if (selectedPlanted.status === "growing" && !isInfrastructureCategory(nextCrop.category)) {
+      const nextTasks = generateTasksForPlantedCrop(nextCrop, { ...selectedPlanted, cropId: nextCropId });
+      addTasks(nextTasks);
+    }
+    setReassignOpen(false);
+  };
+
+  const handleSplitSelected = (direction: SplitDirection) => {
+    if (!selectedPlanted || selectedPlanted.status !== "growing") return;
+    const split = splitCropRegion(selectedPlanted, direction);
+    if (!split) {
+      window.alert("目前區域太小，無法再切分。");
+      return;
+    }
+
+    const confirmed = window.confirm(`確定要將區域${direction === "vertical" ? "左右" : "上下"}切分嗎？`);
+    if (!confirmed) return;
+
+    const [first, second] = split;
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      {
+        position: { x: first.x, y: first.y },
+        size: { width: first.width, height: first.height },
+        shape: undefined,
+      },
+      { occurredAt }
+    );
+
+    const created = addPlantedCrop(
+      field.id,
+      {
+        cropId: selectedPlanted.cropId,
+        fieldId: field.id,
+        plantedDate: selectedPlanted.plantedDate,
+        harvestedDate: selectedPlanted.harvestedDate,
+        status: selectedPlanted.status,
+        position: { x: second.x, y: second.y },
+        size: { width: second.width, height: second.height },
+        customGrowthDays: selectedPlanted.customGrowthDays,
+        notes: selectedPlanted.notes,
+      },
+      { occurredAt: occurredAt ?? selectedPlanted.plantedDate }
+    );
+
+    if (selectedCropMeta && !isInfrastructureCategory(selectedCropMeta.category)) {
+      addTasks(generateTasksForPlantedCrop(selectedCropMeta, created));
+    }
+  };
+
+  const handleMergeWith = (targetCropId: string) => {
+    if (!selectedPlanted || selectedPlanted.status !== "growing") return;
+    const target = field.plantedCrops.find((crop) => crop.id === targetCropId && crop.status === "growing");
+    if (!target) return;
+
+    const confirmed = window.confirm("確定要合併這兩個區域嗎？合併後會保留目前選取區域並移除另一區域。");
+    if (!confirmed) return;
+
+    const merged = mergeCropRegions(selectedPlanted, target);
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      {
+        position: { x: merged.x, y: merged.y },
+        size: { width: merged.width, height: merged.height },
+        shape: undefined,
+      },
+      { occurredAt }
+    );
+    removeTasksByPlantedCrop(target.id);
+    removePlantedCrop(field.id, target.id, { occurredAt });
+    setMergeOpen(false);
   };
 
   return (
@@ -156,6 +252,62 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
           >
             梯形/多邊形
           </Button>
+          <Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" disabled={selectedPlanted?.status !== "growing"}>
+                更改作物
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="start">
+              <ScrollArea className="h-48">
+                <div className="space-y-1">
+                  {allCrops
+                    .filter((crop) => crop.id !== selectedCropMeta?.id)
+                    .map((crop) => (
+                      <button
+                        key={crop.id}
+                        onClick={() => handleReassignSelected(crop.id)}
+                        className="flex w-full items-center gap-2 rounded p-2 text-left text-sm transition-colors hover:bg-accent"
+                      >
+                        <span className="text-lg">{crop.emoji}</span>
+                        <span>{crop.name}</span>
+                      </button>
+                    ))}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+          <Button size="sm" variant="outline" onClick={() => handleSplitSelected("vertical")} disabled={selectedPlanted?.status !== "growing"}>
+            左右切分
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleSplitSelected("horizontal")} disabled={selectedPlanted?.status !== "growing"}>
+            上下切分
+          </Button>
+          <Popover open={mergeOpen} onOpenChange={setMergeOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" disabled={selectedPlanted?.status !== "growing" || mergeCandidates.length === 0}>
+                合併區域
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="start">
+              {mergeCandidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">沒有可合併的區域。</p>
+              ) : (
+                <div className="space-y-1">
+                  {mergeCandidates.map((candidate) => (
+                    <button
+                      key={candidate.planted.id}
+                      onClick={() => handleMergeWith(candidate.planted.id)}
+                      className="flex w-full items-center gap-2 rounded p-2 text-left text-sm transition-colors hover:bg-accent"
+                    >
+                      <span className="text-lg">{candidate.meta?.emoji}</span>
+                      <span>{candidate.meta?.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
             <Trash2 className="size-4 mr-1" />
             刪除選取
