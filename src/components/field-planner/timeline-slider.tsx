@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlannerEvent } from "@/lib/planner/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { pruneTimelineDays } from "@/lib/utils/timeline-window";
 import { History, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface TimelineSliderProps {
@@ -85,6 +86,7 @@ export function TimelineSlider({ anchors, value, events, onChange, onReset }: Ti
   const [jumpDate, setJumpDate] = useState(activeDate);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const extendingRef = useRef(false);
+  const pendingScrollShiftPxRef = useRef(0);
 
   const activeIndex = days.findIndex((day) => day === activeDate);
 
@@ -127,10 +129,18 @@ export function TimelineSlider({ anchors, value, events, onChange, onReset }: Ti
       const first = days[0];
       const prependStart = addDaysToKey(first, -EXTEND_RANGE_DAYS);
       const prependDays = Array.from({ length: EXTEND_RANGE_DAYS }, (_, index) => addDaysToKey(prependStart, index));
-      setDays((prev) => [...prependDays, ...prev]);
+      setDays((prev) => {
+        const next = [...prependDays, ...prev];
+        const pruned = pruneTimelineDays(next, activeDate);
+        pendingScrollShiftPxRef.current = (prependDays.length - pruned.trimmedLeft) * DAY_CELL_WIDTH;
+        return pruned.days;
+      });
       requestAnimationFrame(() => {
         const current = scrollerRef.current;
-        if (current) current.scrollLeft += prependDays.length * DAY_CELL_WIDTH;
+        if (current && pendingScrollShiftPxRef.current !== 0) {
+          current.scrollLeft += pendingScrollShiftPxRef.current;
+          pendingScrollShiftPxRef.current = 0;
+        }
         extendingRef.current = false;
       });
       return;
@@ -142,8 +152,18 @@ export function TimelineSlider({ anchors, value, events, onChange, onReset }: Ti
       const last = days[days.length - 1];
       const appendStart = addDaysToKey(last, 1);
       const appendDays = Array.from({ length: EXTEND_RANGE_DAYS }, (_, index) => addDaysToKey(appendStart, index));
-      setDays((prev) => [...prev, ...appendDays]);
+      setDays((prev) => {
+        const next = [...prev, ...appendDays];
+        const pruned = pruneTimelineDays(next, activeDate);
+        pendingScrollShiftPxRef.current = -pruned.trimmedLeft * DAY_CELL_WIDTH;
+        return pruned.days;
+      });
       requestAnimationFrame(() => {
+        const current = scrollerRef.current;
+        if (current && pendingScrollShiftPxRef.current !== 0) {
+          current.scrollLeft += pendingScrollShiftPxRef.current;
+          pendingScrollShiftPxRef.current = 0;
+        }
         extendingRef.current = false;
       });
     }
