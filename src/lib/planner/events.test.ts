@@ -194,6 +194,30 @@ describe("replayPlannerEvents", () => {
     expect(result[0]?.utilityEdges).toEqual([]);
   });
 
+  it("filters utility edges with node kind mismatch during replay", () => {
+    const events: PlannerEvent[] = [
+      {
+        id: "1",
+        type: "field_created",
+        occurredAt: "2026-02-10T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: {
+          id: "field-1",
+          name: "A 區",
+          dimensions: { width: 5, height: 4 },
+          utilityNodes: [
+            { id: "w1", label: "水節點", kind: "water", position: { x: 30, y: 20 } },
+            { id: "e1", label: "電節點", kind: "electric", position: { x: 60, y: 20 } },
+          ],
+          utilityEdges: [{ id: "x1", fromNodeId: "w1", toNodeId: "e1", kind: "water" }],
+        },
+      },
+    ];
+
+    const result = replayPlannerEvents(events);
+    expect(result[0]?.utilityEdges).toEqual([]);
+  });
+
   it("detects spatial conflict when polygon shape overlaps another region", () => {
     const events: PlannerEvent[] = [
       {

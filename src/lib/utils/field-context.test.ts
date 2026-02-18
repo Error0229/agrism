@@ -39,9 +39,10 @@ describe("field context normalization", () => {
       utilityNodes: [
         { id: "n1", label: "水節點 1", kind: "water", position: { x: 10, y: 10 } },
         { id: "n2", label: "電節點 1", kind: "electric", position: { x: 30, y: 20 } },
+        { id: "n3", label: "水節點 2", kind: "water", position: { x: 50, y: 20 } },
       ],
       utilityEdges: [
-        { id: "e1", fromNodeId: "n1", toNodeId: "n2", kind: "water" },
+        { id: "e1", fromNodeId: "n1", toNodeId: "n3", kind: "water" },
         { id: "e2", fromNodeId: "n1", toNodeId: "missing", kind: "water" },
       ],
     } as unknown as Omit<Field, "context">;
@@ -50,24 +51,28 @@ describe("field context normalization", () => {
     expect(normalized.utilityNodes).toEqual([
       { id: "n1", label: "水節點 1", kind: "water", nodeType: "junction", position: { x: 10, y: 10 } },
       { id: "n2", label: "電節點 1", kind: "electric", nodeType: "outlet", position: { x: 30, y: 20 } },
+      { id: "n3", label: "水節點 2", kind: "water", nodeType: "junction", position: { x: 50, y: 20 } },
     ]);
-    expect(normalized.utilityEdges).toEqual([{ id: "e1", fromNodeId: "n1", toNodeId: "n2", kind: "water" }]);
+    expect(normalized.utilityEdges).toEqual([{ id: "e1", fromNodeId: "n1", toNodeId: "n3", kind: "water" }]);
   });
 
   it("normalizes utility nodes/edges and filters invalid entries", () => {
     const normalized = normalizeUtilityNetwork({
       utilityNodes: [
         { id: "n1", label: "水節點", kind: "water", position: { x: "12", y: 30 } },
+        { id: "n2", label: "電節點", kind: "electric", position: { x: 40, y: 30 } },
         { id: "", label: "無效", kind: "water", position: { x: 0, y: 0 } },
       ],
       utilityEdges: [
         { id: "e1", fromNodeId: "n1", toNodeId: "n2", kind: "water" },
         { id: "e2", fromNodeId: "n1", toNodeId: "n1", kind: "water" },
+        { id: "e3", fromNodeId: "n1", toNodeId: "n2", kind: "electric" },
       ],
     });
 
     expect(normalized.utilityNodes).toEqual([
       { id: "n1", label: "水節點", kind: "water", nodeType: "junction", position: { x: 12, y: 30 } },
+      { id: "n2", label: "電節點", kind: "electric", nodeType: "outlet", position: { x: 40, y: 30 } },
     ]);
     expect(normalized.utilityEdges).toEqual([]);
   });
