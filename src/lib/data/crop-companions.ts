@@ -1,6 +1,8 @@
 import { CropCategory } from "@/lib/types";
 
-export const rotationSuggestions: Record<CropCategory, { next: CropCategory[]; reason: string }> = {
+export type RotationSuggestion = { next: CropCategory[]; reason: string };
+
+export const rotationSuggestions: Partial<Record<CropCategory, RotationSuggestion>> = {
   [CropCategory.葉菜類]: {
     next: [CropCategory.豆類, CropCategory.根莖類],
     reason: "葉菜類消耗大量氮肥，後作種豆類可固氮恢復地力，根莖類可利用不同土層養分。",

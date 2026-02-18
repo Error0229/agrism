@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useFields } from "@/lib/store/fields-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { rotationSuggestions } from "@/lib/data/crop-companions";
-import type { CropCategory } from "@/lib/types";
+import { isRotationEligibleCategory, type CropCategory } from "@/lib/types";
 
 export function RotationTab() {
   const { fields } = useFields();
@@ -26,6 +26,7 @@ export function RotationTab() {
         if (planted.status !== "growing") continue;
         const crop = allCrops.find((c) => c.id === planted.cropId);
         if (!crop) continue;
+        if (!isRotationEligibleCategory(crop.category)) continue;
 
         const rotation = rotationSuggestions[crop.category];
         if (!rotation) continue;
@@ -96,12 +97,15 @@ export function RotationTab() {
         <CardHeader><CardTitle className="text-base">輪作原則</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
-            {Object.entries(rotationSuggestions).map(([cat, info]) => (
-              <div key={cat} className="flex items-start gap-2">
-                <Badge variant="outline" className="shrink-0">{cat}</Badge>
-                <span className="text-muted-foreground">→ {info.next.join("、")}：{info.reason}</span>
-              </div>
-            ))}
+            {Object.entries(rotationSuggestions).map(([cat, info]) => {
+              if (!info) return null;
+              return (
+                <div key={cat} className="flex items-start gap-2">
+                  <Badge variant="outline" className="shrink-0">{cat}</Badge>
+                  <span className="text-muted-foreground">→ {info.next.join("、")}：{info.reason}</span>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

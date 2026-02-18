@@ -1,13 +1,17 @@
 import { addDays } from "date-fns";
 import type { Task } from "@/lib/types";
 import { TaskType } from "@/lib/types";
-import type { Crop, PlantedCrop } from "@/lib/types";
+import { isInfrastructureCategory, type Crop, type PlantedCrop } from "@/lib/types";
 import { getTaskEffortPreset } from "@/lib/utils/task-effort";
 
 export function generateTasksForPlantedCrop(
   crop: Crop,
   plantedCrop: PlantedCrop
 ): Omit<Task, "id" | "completed">[] {
+  if (isInfrastructureCategory(crop.category)) {
+    return [];
+  }
+
   const tasks: Omit<Task, "id" | "completed">[] = [];
   const plantDate = new Date(plantedCrop.plantedDate);
   const growthDays = plantedCrop.customGrowthDays ?? crop.growthDays;

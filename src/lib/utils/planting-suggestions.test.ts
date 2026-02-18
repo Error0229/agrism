@@ -13,6 +13,15 @@ const crop = normalizeCrop({
   growthDays: 90,
 });
 
+const facility = normalizeCrop({
+  id: "facility-road",
+  name: "道路",
+  category: CropCategory.其它類,
+  plantingMonths: [1, 2, 3],
+  harvestMonths: [1, 2, 3],
+  growthDays: 3650,
+});
+
 function makeField(sunHours: Field["context"]["sunHours"]): Field {
   return {
     id: "field-1",
@@ -62,5 +71,25 @@ describe("generatePlantingSuggestions field context support", () => {
     });
 
     expect(suggestions.some((item) => item.type === "soil-profile")).toBe(true);
+  });
+
+  it("does not generate planting suggestions for infrastructure categories", () => {
+    const field = {
+      ...makeField("gt8"),
+      plantedCrops: [
+        {
+          id: "pc-facility",
+          cropId: facility.id,
+          fieldId: "field-1",
+          plantedDate: "2026-02-01T00:00:00.000Z",
+          status: "growing" as const,
+          position: { x: 0, y: 0 },
+          size: { width: 10, height: 10 },
+        },
+      ],
+    };
+
+    const suggestions = generatePlantingSuggestions([field], [facility], 2);
+    expect(suggestions).toHaveLength(0);
   });
 });

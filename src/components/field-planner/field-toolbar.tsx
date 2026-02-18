@@ -9,7 +9,7 @@ import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
-import type { Field } from "@/lib/types";
+import { isInfrastructureCategory, type Field } from "@/lib/types";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -37,6 +37,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
     () => (selectedPlanted ? allCrops.find((crop) => crop.id === selectedPlanted.cropId) : null),
     [selectedPlanted, allCrops]
   );
+  const selectedIsInfrastructure = selectedCropMeta ? isInfrastructureCategory(selectedCropMeta.category) : false;
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -57,8 +58,10 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
       },
       { occurredAt: plantedDate }
     );
-    const tasks = generateTasksForPlantedCrop(crop, plantedCrop);
-    addTasks(tasks);
+    if (!isInfrastructureCategory(crop.category)) {
+      const tasks = generateTasksForPlantedCrop(crop, plantedCrop);
+      addTasks(tasks);
+    }
     setPopoverOpen(false);
     setSearch("");
   };
@@ -115,7 +118,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
 
       {selectedCropId && (
         <>
-          <Button size="sm" variant="outline" onClick={() => setTimingOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => setTimingOpen(true)} disabled={selectedIsInfrastructure}>
             <Clock className="size-4 mr-1" />
             調整播種時間
           </Button>
@@ -123,7 +126,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
             size="sm"
             variant="outline"
             onClick={() => setHarvestOpen(true)}
-            disabled={selectedPlanted?.status === "harvested"}
+            disabled={selectedPlanted?.status === "harvested" || selectedIsInfrastructure}
           >
             <Scissors className="size-4 mr-1" />
             標記收成
@@ -138,7 +141,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
       <CropTimingDialog
         open={timingOpen}
         onOpenChange={setTimingOpen}
-        plantedCrop={selectedPlanted}
+        plantedCrop={selectedIsInfrastructure ? null : selectedPlanted}
         fieldId={field.id}
         occurredAt={occurredAt}
       />

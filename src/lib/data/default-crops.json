@@ -5,16 +5,38 @@
     "emoji": "🍠",
     "color": "#c2410c",
     "category": "根莖類",
-    "plantingMonths": [2, 3, 4, 8, 9],
-    "harvestMonths": [6, 7, 8, 12, 1],
+    "plantingMonths": [
+      2,
+      3,
+      4,
+      8,
+      9
+    ],
+    "harvestMonths": [
+      6,
+      7,
+      8,
+      12,
+      1
+    ],
     "growthDays": 120,
-    "spacing": { "row": 80, "plant": 30 },
+    "spacing": {
+      "row": 80,
+      "plant": 30
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 20, "max": 30 },
+    "temperatureRange": {
+      "min": 20,
+      "max": 30
+    },
     "fertilizerIntervalDays": 30,
     "needsPruning": false,
-    "pestControl": ["甘藷蟻象：使用性費洛蒙誘殺", "蟻象幼蟲：培土覆蓋薯塊", "葉蟎：噴施礦物油乳劑"],
+    "pestControl": [
+      "甘藷蟻象：使用性費洛蒙誘殺",
+      "蟻象幼蟲：培土覆蓋薯塊",
+      "葉蟎：噴施礦物油乳劑"
+    ],
     "typhoonResistance": "高",
     "hualienNotes": "花蓮土壤排水良好適合種植，秋作品質較佳。颱風後可快速恢復生長。"
   },
@@ -24,17 +46,45 @@
     "emoji": "🎃",
     "color": "#ea580c",
     "category": "瓜果類",
-    "plantingMonths": [2, 3, 4, 8, 9],
-    "harvestMonths": [5, 6, 7, 11, 12],
+    "plantingMonths": [
+      2,
+      3,
+      4,
+      8,
+      9
+    ],
+    "harvestMonths": [
+      5,
+      6,
+      7,
+      11,
+      12
+    ],
     "growthDays": 90,
-    "spacing": { "row": 200, "plant": 150 },
+    "spacing": {
+      "row": 200,
+      "plant": 150
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 18, "max": 32 },
+    "temperatureRange": {
+      "min": 18,
+      "max": 32
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [3, 4, 5, 9, 10],
-    "pestControl": ["白粉病：通風管理、避免葉面澆水", "瓜實蠅：套袋保護果實", "蚜蟲：黃色黏紙誘捕"],
+    "pruningMonths": [
+      3,
+      4,
+      5,
+      9,
+      10
+    ],
+    "pestControl": [
+      "白粉病：通風管理、避免葉面澆水",
+      "瓜實蠅：套袋保護果實",
+      "蚜蟲：黃色黏紙誘捕"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮春作為主，需搭設棚架。颱風季前務必提前採收或加強固定藤蔓。"
   },
@@ -44,17 +94,42 @@
     "emoji": "🥒",
     "color": "#16a34a",
     "category": "瓜果類",
-    "plantingMonths": [3, 4, 5],
-    "harvestMonths": [5, 6, 7, 8, 9],
+    "plantingMonths": [
+      3,
+      4,
+      5
+    ],
+    "harvestMonths": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
     "growthDays": 60,
-    "spacing": { "row": 150, "plant": 100 },
+    "spacing": {
+      "row": 150,
+      "plant": 100
+    },
     "water": "大量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 22, "max": 35 },
+    "temperatureRange": {
+      "min": 22,
+      "max": 35
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [5, 6, 7, 8],
-    "pestControl": ["瓜實蠅：誘殺器設置", "露菌病：避免傍晚澆水", "銀葉粉蝨：懸掛黃色黏紙"],
+    "pruningMonths": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "pestControl": [
+      "瓜實蠅：誘殺器設置",
+      "露菌病：避免傍晚澆水",
+      "銀葉粉蝨：懸掛黃色黏紙"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮夏季高溫多濕，絲瓜生長快速。棚架需加強抗風能力。"
   },
@@ -64,17 +139,41 @@
     "emoji": "🥬",
     "color": "#65a30d",
     "category": "瓜果類",
-    "plantingMonths": [3, 4, 5],
-    "harvestMonths": [6, 7, 8, 9],
+    "plantingMonths": [
+      3,
+      4,
+      5
+    ],
+    "harvestMonths": [
+      6,
+      7,
+      8,
+      9
+    ],
     "growthDays": 70,
-    "spacing": { "row": 150, "plant": 80 },
+    "spacing": {
+      "row": 150,
+      "plant": 80
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 20, "max": 35 },
+    "temperatureRange": {
+      "min": 20,
+      "max": 35
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [5, 6, 7, 8],
-    "pestControl": ["瓜實蠅：含毒甲基丁香油誘殺", "白粉病：保持通風、降低密度", "薊馬：藍色黏紙誘捕"],
+    "pruningMonths": [
+      5,
+      6,
+      7,
+      8
+    ],
+    "pestControl": [
+      "瓜實蠅：含毒甲基丁香油誘殺",
+      "白粉病：保持通風、降低密度",
+      "薊馬：藍色黏紙誘捕"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮山苦瓜品質優良，適合有機栽培。建議搭設堅固棚架。"
   },
@@ -84,16 +183,42 @@
     "emoji": "🥬",
     "color": "#15803d",
     "category": "葉菜類",
-    "plantingMonths": [3, 4, 5, 6, 7, 8, 9],
-    "harvestMonths": [4, 5, 6, 7, 8, 9, 10],
+    "plantingMonths": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "harvestMonths": [
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
     "growthDays": 30,
-    "spacing": { "row": 20, "plant": 15 },
+    "spacing": {
+      "row": 20,
+      "plant": 15
+    },
     "water": "大量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 25, "max": 35 },
+    "temperatureRange": {
+      "min": 25,
+      "max": 35
+    },
     "fertilizerIntervalDays": 10,
     "needsPruning": false,
-    "pestControl": ["斜紋夜蛾：使用蘇力菌防治", "白鏽病：避免連作、保持排水", "蚜蟲：噴施苦楝油"],
+    "pestControl": [
+      "斜紋夜蛾：使用蘇力菌防治",
+      "白鏽病：避免連作、保持排水",
+      "蚜蟲：噴施苦楝油"
+    ],
     "typhoonResistance": "中",
     "hualienNotes": "花蓮水源充沛，適合大面積種植。可連續採收多次。颱風後恢復力強。"
   },
@@ -103,16 +228,42 @@
     "emoji": "🥬",
     "color": "#22c55e",
     "category": "葉菜類",
-    "plantingMonths": [9, 10, 11, 12, 1, 2, 3],
-    "harvestMonths": [10, 11, 12, 1, 2, 3, 4],
+    "plantingMonths": [
+      9,
+      10,
+      11,
+      12,
+      1,
+      2,
+      3
+    ],
+    "harvestMonths": [
+      10,
+      11,
+      12,
+      1,
+      2,
+      3,
+      4
+    ],
     "growthDays": 25,
-    "spacing": { "row": 20, "plant": 15 },
+    "spacing": {
+      "row": 20,
+      "plant": 15
+    },
     "water": "適量",
     "sunlight": "半日照",
-    "temperatureRange": { "min": 15, "max": 25 },
+    "temperatureRange": {
+      "min": 15,
+      "max": 25
+    },
     "fertilizerIntervalDays": 10,
     "needsPruning": false,
-    "pestControl": ["小菜蛾：蘇力菌噴施", "黃條葉蚤：覆蓋防蟲網", "根瘤病：輪作管理"],
+    "pestControl": [
+      "小菜蛾：蘇力菌噴施",
+      "黃條葉蚤：覆蓋防蟲網",
+      "根瘤病：輪作管理"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "秋冬為主要產期，花蓮冬季溫暖適合生長。夏季高溫需遮陰處理。"
   },
@@ -122,16 +273,40 @@
     "emoji": "🧅",
     "color": "#4ade80",
     "category": "辛香料",
-    "plantingMonths": [9, 10, 11, 12, 1, 2],
-    "harvestMonths": [11, 12, 1, 2, 3, 4],
+    "plantingMonths": [
+      9,
+      10,
+      11,
+      12,
+      1,
+      2
+    ],
+    "harvestMonths": [
+      11,
+      12,
+      1,
+      2,
+      3,
+      4
+    ],
     "growthDays": 60,
-    "spacing": { "row": 20, "plant": 10 },
+    "spacing": {
+      "row": 20,
+      "plant": 10
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 15, "max": 25 },
+    "temperatureRange": {
+      "min": 15,
+      "max": 25
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": false,
-    "pestControl": ["甜菜夜蛾：性費洛蒙誘殺", "銹病：避免密植、保持通風", "薊馬：藍色黏紙"],
+    "pestControl": [
+      "甜菜夜蛾：性費洛蒙誘殺",
+      "銹病：避免密植、保持通風",
+      "薊馬：藍色黏紙"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮三星蔥品質聞名，秋冬種植品質最佳。夏季容易軟腐需注意排水。"
   },
@@ -141,16 +316,35 @@
     "emoji": "🫚",
     "color": "#ca8a04",
     "category": "根莖類",
-    "plantingMonths": [2, 3, 4],
-    "harvestMonths": [8, 9, 10, 11],
+    "plantingMonths": [
+      2,
+      3,
+      4
+    ],
+    "harvestMonths": [
+      8,
+      9,
+      10,
+      11
+    ],
     "growthDays": 180,
-    "spacing": { "row": 40, "plant": 25 },
+    "spacing": {
+      "row": 40,
+      "plant": 25
+    },
     "water": "適量",
     "sunlight": "半日照",
-    "temperatureRange": { "min": 20, "max": 30 },
+    "temperatureRange": {
+      "min": 20,
+      "max": 30
+    },
     "fertilizerIntervalDays": 21,
     "needsPruning": false,
-    "pestControl": ["軟腐病：避免積水、種薑消毒", "紋枯病：降低密度", "薑螟蛾：清除被害莖"],
+    "pestControl": [
+      "軟腐病：避免積水、種薑消毒",
+      "紋枯病：降低密度",
+      "薑螟蛾：清除被害莖"
+    ],
     "typhoonResistance": "中",
     "hualienNotes": "花蓮山區種薑品質優良，需注意排水。建議覆蓋稻草保濕並抑制雜草。"
   },
@@ -160,17 +354,54 @@
     "emoji": "🍌",
     "color": "#eab308",
     "category": "水果類",
-    "plantingMonths": [2, 3, 4, 5],
-    "harvestMonths": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "plantingMonths": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
     "growthDays": 365,
-    "spacing": { "row": 300, "plant": 250 },
+    "spacing": {
+      "row": 300,
+      "plant": 250
+    },
     "water": "大量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 20, "max": 35 },
+    "temperatureRange": {
+      "min": 20,
+      "max": 35
+    },
     "fertilizerIntervalDays": 30,
     "needsPruning": true,
-    "pruningMonths": [3, 4, 5, 6, 7, 8, 9, 10],
-    "pestControl": ["香蕉黃葉病：使用健康種苗", "花薊馬：套袋保護", "象鼻蟲：清除殘株"],
+    "pruningMonths": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "pestControl": [
+      "香蕉黃葉病：使用健康種苗",
+      "花薊馬：套袋保護",
+      "象鼻蟲：清除殘株"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮為重要香蕉產區，颱風是最大威脅。建議種植矮性品種並做好防風措施。"
   },
@@ -180,16 +411,43 @@
     "emoji": "🫒",
     "color": "#f97316",
     "category": "水果類",
-    "plantingMonths": [3, 4, 5],
-    "harvestMonths": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "plantingMonths": [
+      3,
+      4,
+      5
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
     "growthDays": 270,
-    "spacing": { "row": 250, "plant": 200 },
+    "spacing": {
+      "row": 250,
+      "plant": 200
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 22, "max": 35 },
+    "temperatureRange": {
+      "min": 22,
+      "max": 35
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": false,
-    "pestControl": ["輪點病毒：種植抗病品種", "果實蠅：套袋或誘殺", "紅蜘蛛：噴水沖洗葉背"],
+    "pestControl": [
+      "輪點病毒：種植抗病品種",
+      "果實蠅：套袋或誘殺",
+      "紅蜘蛛：噴水沖洗葉背"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮木瓜甜度高，但極怕颱風。建議種植矮化品種，颱風前採收青木瓜。"
   },
@@ -199,17 +457,44 @@
     "emoji": "🍅",
     "color": "#dc2626",
     "category": "茄果類",
-    "plantingMonths": [9, 10, 11],
-    "harvestMonths": [12, 1, 2, 3, 4],
+    "plantingMonths": [
+      9,
+      10,
+      11
+    ],
+    "harvestMonths": [
+      12,
+      1,
+      2,
+      3,
+      4
+    ],
     "growthDays": 90,
-    "spacing": { "row": 60, "plant": 40 },
+    "spacing": {
+      "row": 60,
+      "plant": 40
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 18, "max": 28 },
+    "temperatureRange": {
+      "min": 18,
+      "max": 28
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [10, 11, 12, 1, 2, 3],
-    "pestControl": ["晚疫病：避免葉面濕潤過久", "番茄斑潛蠅：黃色黏紙", "青枯病：輪作、嫁接抗病砧木"],
+    "pruningMonths": [
+      10,
+      11,
+      12,
+      1,
+      2,
+      3
+    ],
+    "pestControl": [
+      "晚疫病：避免葉面濕潤過久",
+      "番茄斑潛蠅：黃色黏紙",
+      "青枯病：輪作、嫁接抗病砧木"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮秋冬種植品質佳，日夜溫差大有助糖度累積。需搭設支架防倒伏。"
   },
@@ -219,17 +504,47 @@
     "emoji": "🌶️",
     "color": "#ef4444",
     "category": "茄果類",
-    "plantingMonths": [2, 3, 4, 8, 9],
-    "harvestMonths": [5, 6, 7, 8, 11, 12],
+    "plantingMonths": [
+      2,
+      3,
+      4,
+      8,
+      9
+    ],
+    "harvestMonths": [
+      5,
+      6,
+      7,
+      8,
+      11,
+      12
+    ],
     "growthDays": 80,
-    "spacing": { "row": 50, "plant": 35 },
+    "spacing": {
+      "row": 50,
+      "plant": 35
+    },
     "water": "少量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 20, "max": 30 },
+    "temperatureRange": {
+      "min": 20,
+      "max": 30
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [4, 5, 6, 9, 10, 11],
-    "pestControl": ["炭疽病：避免密植、通風良好", "蚜蟲：噴施苦楝油", "疫病：排水良好、輪作"],
+    "pruningMonths": [
+      4,
+      5,
+      6,
+      9,
+      10,
+      11
+    ],
+    "pestControl": [
+      "炭疽病：避免密植、通風良好",
+      "蚜蟲：噴施苦楝油",
+      "疫病：排水良好、輪作"
+    ],
     "typhoonResistance": "中",
     "hualienNotes": "花蓮辣椒風味獨特，春秋兩季皆可種植。注意排水以防根部病害。"
   },
@@ -239,17 +554,48 @@
     "emoji": "🍆",
     "color": "#7c3aed",
     "category": "茄果類",
-    "plantingMonths": [2, 3, 4, 8, 9],
-    "harvestMonths": [5, 6, 7, 8, 11, 12],
+    "plantingMonths": [
+      2,
+      3,
+      4,
+      8,
+      9
+    ],
+    "harvestMonths": [
+      5,
+      6,
+      7,
+      8,
+      11,
+      12
+    ],
     "growthDays": 75,
-    "spacing": { "row": 60, "plant": 45 },
+    "spacing": {
+      "row": 60,
+      "plant": 45
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 22, "max": 32 },
+    "temperatureRange": {
+      "min": 22,
+      "max": 32
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": true,
-    "pruningMonths": [4, 5, 6, 7, 9, 10, 11],
-    "pestControl": ["二點葉蟎：噴水沖洗", "茄黃萎病：嫁接抗病砧木", "茄螟蛾：摘除被害果"],
+    "pruningMonths": [
+      4,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "pestControl": [
+      "二點葉蟎：噴水沖洗",
+      "茄黃萎病：嫁接抗病砧木",
+      "茄螟蛾：摘除被害果"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮茄子品質優良，需搭設支架。高溫期注意紅蜘蛛為害。"
   },
@@ -259,16 +605,37 @@
     "emoji": "🥬",
     "color": "#86efac",
     "category": "葉菜類",
-    "plantingMonths": [8, 9, 10, 11],
-    "harvestMonths": [11, 12, 1, 2, 3],
+    "plantingMonths": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "harvestMonths": [
+      11,
+      12,
+      1,
+      2,
+      3
+    ],
     "growthDays": 90,
-    "spacing": { "row": 50, "plant": 40 },
+    "spacing": {
+      "row": 50,
+      "plant": 40
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 15, "max": 25 },
+    "temperatureRange": {
+      "min": 15,
+      "max": 25
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": false,
-    "pestControl": ["紋白蝶：防蟲網覆蓋", "小菜蛾：蘇力菌防治", "黑腐病：輪作、排水管理"],
+    "pestControl": [
+      "紋白蝶：防蟲網覆蓋",
+      "小菜蛾：蘇力菌防治",
+      "黑腐病：輪作、排水管理"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮秋冬高麗菜品質好，但需注意秋颱影響。建議9月後定植較安全。"
   },
@@ -278,17 +645,372 @@
     "emoji": "🥬",
     "color": "#059669",
     "category": "葉菜類",
-    "plantingMonths": [9, 10, 11],
-    "harvestMonths": [12, 1, 2],
+    "plantingMonths": [
+      9,
+      10,
+      11
+    ],
+    "harvestMonths": [
+      12,
+      1,
+      2
+    ],
     "growthDays": 60,
-    "spacing": { "row": 40, "plant": 30 },
+    "spacing": {
+      "row": 40,
+      "plant": 30
+    },
     "water": "適量",
     "sunlight": "全日照",
-    "temperatureRange": { "min": 15, "max": 22 },
+    "temperatureRange": {
+      "min": 15,
+      "max": 22
+    },
     "fertilizerIntervalDays": 14,
     "needsPruning": false,
-    "pestControl": ["蚜蟲：苦楝油防治", "黃條葉蚤：輪作管理", "軟腐病：避免積水"],
+    "pestControl": [
+      "蚜蟲：苦楝油防治",
+      "黃條葉蚤：輪作管理",
+      "軟腐病：避免積水"
+    ],
     "typhoonResistance": "低",
     "hualienNotes": "花蓮客家庄傳統作物，適合製作酸菜、福菜。冬季種植品質最佳。"
+  },
+  {
+    "id": "bougainvillea",
+    "name": "九重葛",
+    "emoji": "🌺",
+    "color": "#e11d48",
+    "category": "花草園藝",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 180,
+    "spacing": {
+      "row": 120,
+      "plant": 100
+    },
+    "water": "少量",
+    "sunlight": "全日照",
+    "temperatureRange": {
+      "min": 16,
+      "max": 34
+    },
+    "fertilizerIntervalDays": 45,
+    "needsPruning": true,
+    "pruningMonths": [
+      3,
+      4,
+      5,
+      9,
+      10
+    ],
+    "pestControl": [
+      "介殼蟲：修剪密枝並以苦楝油防治",
+      "白粉蝨：黃色黏紙監測",
+      "煤煙病：先控制害蟲來源"
+    ],
+    "typhoonResistance": "中",
+    "hualienNotes": "可作庭園觀賞與圍籬綠化。花蓮颱風季建議先修剪過長枝條並加固支架。"
+  },
+  {
+    "id": "facility-water-tank",
+    "name": "蓄水池",
+    "emoji": "🛢️",
+    "color": "#0ea5e9",
+    "category": "其它類",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 3650,
+    "spacing": {
+      "row": 300,
+      "plant": 300
+    },
+    "water": "少量",
+    "sunlight": "全日照",
+    "temperatureRange": {
+      "min": -10,
+      "max": 50
+    },
+    "fertilizerIntervalDays": 365,
+    "needsPruning": false,
+    "pestControl": [
+      "固定設施：不適用",
+      "定期巡檢：檢查滲漏",
+      "周邊清理：避免青苔堆積"
+    ],
+    "typhoonResistance": "高",
+    "hualienNotes": "用於庭園設施標示，不屬於植栽。可在規劃圖中標記蓄水位置。"
+  },
+  {
+    "id": "facility-motor",
+    "name": "馬達設備",
+    "emoji": "⚙️",
+    "color": "#64748b",
+    "category": "其它類",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 3650,
+    "spacing": {
+      "row": 120,
+      "plant": 120
+    },
+    "water": "少量",
+    "sunlight": "半日照",
+    "temperatureRange": {
+      "min": -10,
+      "max": 50
+    },
+    "fertilizerIntervalDays": 365,
+    "needsPruning": false,
+    "pestControl": [
+      "固定設施：不適用",
+      "防水檢查：確認電控箱密封",
+      "保養週期：依設備手冊執行"
+    ],
+    "typhoonResistance": "高",
+    "hualienNotes": "用於灌溉/抽水設備位置標示，便於田區維修與路徑規劃。"
+  },
+  {
+    "id": "facility-road",
+    "name": "道路動線",
+    "emoji": "🛣️",
+    "color": "#94a3b8",
+    "category": "其它類",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 3650,
+    "spacing": {
+      "row": 150,
+      "plant": 150
+    },
+    "water": "少量",
+    "sunlight": "全日照",
+    "temperatureRange": {
+      "min": -10,
+      "max": 50
+    },
+    "fertilizerIntervalDays": 365,
+    "needsPruning": false,
+    "pestControl": [
+      "固定設施：不適用",
+      "排水維護：保持路面排水暢通",
+      "防滑檢查：雨後巡檢"
+    ],
+    "typhoonResistance": "高",
+    "hualienNotes": "用於標示主要行走/運輸動線，方便規劃工具搬運與採收路徑。"
+  },
+  {
+    "id": "facility-tool-shed",
+    "name": "工具間",
+    "emoji": "🧰",
+    "color": "#b45309",
+    "category": "其它類",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 3650,
+    "spacing": {
+      "row": 200,
+      "plant": 160
+    },
+    "water": "少量",
+    "sunlight": "耐陰",
+    "temperatureRange": {
+      "min": -10,
+      "max": 50
+    },
+    "fertilizerIntervalDays": 365,
+    "needsPruning": false,
+    "pestControl": [
+      "固定設施：不適用",
+      "防潮管理：保持通風",
+      "器材盤點：每月一次"
+    ],
+    "typhoonResistance": "高",
+    "hualienNotes": "用於標示農具、肥料與耗材儲放區。"
+  },
+  {
+    "id": "facility-house",
+    "name": "房舍",
+    "emoji": "🏠",
+    "color": "#475569",
+    "category": "其它類",
+    "plantingMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "harvestMonths": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "growthDays": 3650,
+    "spacing": {
+      "row": 260,
+      "plant": 220
+    },
+    "water": "少量",
+    "sunlight": "半日照",
+    "temperatureRange": {
+      "min": -10,
+      "max": 50
+    },
+    "fertilizerIntervalDays": 365,
+    "needsPruning": false,
+    "pestControl": [
+      "固定設施：不適用",
+      "外牆巡檢：颱風後檢查",
+      "排水清理：避免積水"
+    ],
+    "typhoonResistance": "高",
+    "hualienNotes": "用於庭園建築範圍標示，方便避開種植區與動線衝突。"
   }
 ]

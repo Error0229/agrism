@@ -1,5 +1,5 @@
 import { companionConflicts, rotationSuggestions } from "@/lib/data/crop-companions";
-import type { Crop, Field, PlantedCrop } from "@/lib/types";
+import { isRotationEligibleCategory, type Crop, type Field, type PlantedCrop } from "@/lib/types";
 
 export interface PlanningRuleWarning {
   id: string;
@@ -35,6 +35,9 @@ export function evaluateFieldPlanningRules(field: Field, allCrops: Crop[]): Plan
     const previous = findPreviousCrop(planted, field);
     const previousCrop = previous ? cropMap.get(previous.cropId) : undefined;
     if (previousCrop) {
+      if (!isRotationEligibleCategory(previousCrop.category) || !isRotationEligibleCategory(crop.category)) {
+        continue;
+      }
       const rotation = rotationSuggestions[previousCrop.category];
       if (rotation && !rotation.next.includes(crop.category)) {
         const alternatives = rotation.next
@@ -58,6 +61,7 @@ export function evaluateFieldPlanningRules(field: Field, allCrops: Crop[]): Plan
       const first = cropMap.get(growing[i].cropId);
       const second = cropMap.get(growing[j].cropId);
       if (!first || !second) continue;
+      if (!isRotationEligibleCategory(first.category) || !isRotationEligibleCategory(second.category)) continue;
 
       const firstConflict = companionConflicts[first.id];
       const secondConflict = companionConflicts[second.id];
