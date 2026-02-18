@@ -12,11 +12,12 @@ import { getCropPolygon, polygonBounds, translatePoints } from "@/lib/utils/crop
 import { getLinkedUtilitySummary, getPlantedCropDisplayLabel } from "@/lib/utils/facility-metadata";
 import { formatUtilityNodeDisplayLabel } from "@/lib/utils/utility-node";
 import { filterVisibleUtilityEdges, filterVisibleUtilityNodes } from "@/lib/utils/utility-visibility";
+import { buildPlannerGridLines, snapToGrid } from "@/lib/utils/planner-grid";
+import type { PlannerGridSettings } from "@/lib/utils/planner-grid-settings";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
 const HANDLE_SIZE = 12;
-const SNAP_METERS = 0.5;
 const CROP_HANDLE_SIZE = 8;
 const MIN_CROP_SIZE = 10; // minimum 10cm
 
@@ -43,6 +44,7 @@ interface FieldCanvasProps {
   showUtilities: boolean;
   showWaterUtilities: boolean;
   showElectricUtilities: boolean;
+  gridSettings: PlannerGridSettings;
 }
 
 export default function FieldCanvas({
@@ -56,6 +58,7 @@ export default function FieldCanvas({
   showUtilities,
   showWaterUtilities,
   showElectricUtilities,
+  gridSettings,
 }: FieldCanvasProps) {
   const { updateField, updatePlantedCrop } = useFields();
   const allCrops = useAllCrops();
@@ -100,6 +103,17 @@ export default function FieldCanvas({
   const dims = tempDimensions ?? field.dimensions;
   const canvasWidth = dims.width * PIXELS_PER_METER;
   const canvasHeight = dims.height * PIXELS_PER_METER;
+  const gridStepMeters = gridSettings.gridSizeMeters;
+  const gridStepPixels = gridStepMeters * PIXELS_PER_METER;
+  const snapMeters = useCallback(
+    (meters: number): number =>
+      gridSettings.snapToGrid ? snapToGrid(meters, gridStepMeters, MIN_SIZE_METERS) : Math.max(MIN_SIZE_METERS, meters),
+    [gridSettings.snapToGrid, gridStepMeters]
+  );
+  const snapPixels = useCallback(
+    (value: number): number => (gridSettings.snapToGrid ? snapToGrid(value, gridStepPixels, 0) : Math.max(0, value)),
+    [gridSettings.snapToGrid, gridStepPixels]
+  );
 
   const handleWheel = useCallback(
     (e: KonvaEventObject<WheelEvent>) => {
@@ -117,8 +131,8 @@ export default function FieldCanvas({
       const node = e.target;
       const maxX = field.dimensions.width * PIXELS_PER_METER - plantedCrop.size.width;
       const maxY = field.dimensions.height * PIXELS_PER_METER - plantedCrop.size.height;
-      const x = Math.max(0, Math.min(maxX, node.x()));
-      const y = Math.max(0, Math.min(maxY, node.y()));
+      const x = Math.max(0, Math.min(maxX, snapPixels(node.x())));
+      const y = Math.max(0, Math.min(maxY, snapPixels(node.y())));
       node.x(x);
       node.y(y);
       updatePlantedCrop(
@@ -130,7 +144,7 @@ export default function FieldCanvas({
         { occurredAt }
       );
     },
-    [field.id, field.dimensions, occurredAt, updatePlantedCrop]
+    [field.id, field.dimensions, occurredAt, snapPixels, updatePlantedCrop]
   );
 
   const handleStageClick = useCallback(
@@ -141,10 +155,6 @@ export default function FieldCanvas({
     },
     [onSelectCrop]
   );
-
-  const snapToGrid = (meters: number): number => {
-    return Math.max(MIN_SIZE_METERS, Math.round(meters / SNAP_METERS) * SNAP_METERS);
-  };
 
   const handleResizeStart = useCallback(
     (handle: ResizeHandle, e: KonvaEventObject<MouseEvent>) => {
@@ -181,10 +191,10 @@ export default function FieldCanvas({
     if (activeHandle === "bottom" || activeHandle.includes("bottom")) newH = field.dimensions.height + dyMeters;
     if (activeHandle === "top" || activeHandle.includes("top")) newH = field.dimensions.height - dyMeters;
 
-    newW = snapToGrid(newW);
-    newH = snapToGrid(newH);
+    newW = snapMeters(newW);
+    newH = snapMeters(newH);
     setTempDimensions({ width: newW, height: newH });
-  }, [activeHandle, dragStart, tempDimensions, field.dimensions, scale]);
+  }, [activeHandle, dragStart, tempDimensions, field.dimensions, scale, snapMeters]);
 
   const handleResizeEnd = useCallback(() => {
     if (tempDimensions && activeHandle) {
@@ -290,12 +300,18 @@ export default function FieldCanvas({
 
   const handleCropResizeEnd = useCallback(() => {
     if (tempCropRect && cropResizeId) {
+      const snappedW = Math.max(MIN_CROP_SIZE, gridSettings.snapToGrid ? snapToGrid(tempCropRect.w, gridStepPixels, MIN_CROP_SIZE) : tempCropRect.w);
+      const snappedH = Math.max(MIN_CROP_SIZE, gridSettings.snapToGrid ? snapToGrid(tempCropRect.h, gridStepPixels, MIN_CROP_SIZE) : tempCropRect.h);
+      const maxX = field.dimensions.width * PIXELS_PER_METER - snappedW;
+      const maxY = field.dimensions.height * PIXELS_PER_METER - snappedH;
+      const snappedX = Math.max(0, Math.min(maxX, snapPixels(tempCropRect.x)));
+      const snappedY = Math.max(0, Math.min(maxY, snapPixels(tempCropRect.y)));
       updatePlantedCrop(
         field.id,
         cropResizeId,
         {
-          position: { x: tempCropRect.x, y: tempCropRect.y },
-          size: { width: tempCropRect.w, height: tempCropRect.h },
+          position: { x: snappedX, y: snappedY },
+          size: { width: snappedW, height: snappedH },
         },
         { occurredAt }
       );
@@ -305,7 +321,18 @@ export default function FieldCanvas({
     setCropDragStart(null);
     setCropOriginal(null);
     setTempCropRect(null);
-  }, [tempCropRect, cropResizeId, field.id, updatePlantedCrop, occurredAt]);
+  }, [
+    cropResizeId,
+    field.dimensions.height,
+    field.dimensions.width,
+    field.id,
+    gridSettings.snapToGrid,
+    gridStepPixels,
+    occurredAt,
+    snapPixels,
+    tempCropRect,
+    updatePlantedCrop,
+  ]);
 
   const updatePolygonShape = useCallback(
     (cropId: string, points: CropPoint[]) => {
@@ -365,14 +392,14 @@ export default function FieldCanvas({
 
   const handleUtilityNodeDragEnd = useCallback(
     (nodeId: string, e: KonvaEventObject<DragEvent>) => {
-      const nextX = Math.max(0, Math.min(field.dimensions.width * PIXELS_PER_METER, e.target.x()));
-      const nextY = Math.max(0, Math.min(field.dimensions.height * PIXELS_PER_METER, e.target.y()));
+      const nextX = Math.max(0, Math.min(field.dimensions.width * PIXELS_PER_METER, snapPixels(e.target.x())));
+      const nextY = Math.max(0, Math.min(field.dimensions.height * PIXELS_PER_METER, snapPixels(e.target.y())));
       const nextNodes = (field.utilityNodes ?? []).map((node) =>
         node.id === nodeId ? { ...node, position: { x: nextX, y: nextY } } : node
       );
       updateField(field.id, { utilityNodes: nextNodes }, { occurredAt });
     },
-    [field.dimensions.height, field.dimensions.width, field.id, field.utilityNodes, occurredAt, updateField]
+    [field.dimensions.height, field.dimensions.width, field.id, field.utilityNodes, occurredAt, snapPixels, updateField]
   );
 
   const handleMouseMove = useCallback(() => {
@@ -409,17 +436,33 @@ export default function FieldCanvas({
   };
 
   const gridLines = useMemo(() => {
-    const lines = [];
-    for (let x = 0; x <= canvasWidth; x += PIXELS_PER_METER) {
-      lines.push(<Line key={`v-${x}`} points={[x, 0, x, canvasHeight]} stroke="#e5e7eb" strokeWidth={1} />);
-      lines.push(<Text key={`vl-${x}`} x={x + 2} y={-16} text={`${x / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />);
-    }
-    for (let y = 0; y <= canvasHeight; y += PIXELS_PER_METER) {
-      lines.push(<Line key={`h-${y}`} points={[0, y, canvasWidth, y]} stroke="#e5e7eb" strokeWidth={1} />);
-      lines.push(<Text key={`hl-${y}`} x={-28} y={y + 2} text={`${y / PIXELS_PER_METER}m`} fontSize={10} fill="#9ca3af" />);
-    }
-    return lines;
-  }, [canvasWidth, canvasHeight]);
+    if (!gridSettings.showGrid) return [];
+    const lines = buildPlannerGridLines(dims.width, dims.height, PIXELS_PER_METER, gridSettings.gridSizeMeters);
+    return lines.map((line) => {
+      if (line.orientation === "vertical") {
+        return (
+          <Group key={`v-${line.position}`}>
+            <Line
+              points={[line.position, 0, line.position, canvasHeight]}
+              stroke={line.major ? "#d1d5db" : "#e5e7eb"}
+              strokeWidth={line.major ? 1.2 : 0.8}
+            />
+            {line.label && <Text x={line.position + 2} y={-16} text={line.label} fontSize={10} fill="#9ca3af" />}
+          </Group>
+        );
+      }
+      return (
+        <Group key={`h-${line.position}`}>
+          <Line
+            points={[0, line.position, canvasWidth, line.position]}
+            stroke={line.major ? "#d1d5db" : "#e5e7eb"}
+            strokeWidth={line.major ? 1.2 : 0.8}
+          />
+          {line.label && <Text x={-28} y={line.position + 2} text={line.label} fontSize={10} fill="#9ca3af" />}
+        </Group>
+      );
+    });
+  }, [canvasHeight, canvasWidth, dims.height, dims.width, gridSettings.gridSizeMeters, gridSettings.showGrid]);
 
   const handlePositions = useMemo(() => {
     const hs = HANDLE_SIZE / scale;

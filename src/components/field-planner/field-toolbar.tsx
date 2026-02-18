@@ -13,6 +13,8 @@ import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { isInfrastructureCategory, type Field, type UtilityKind, type UtilityNodeType } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
+import { splitPlannerItemsByUsage } from "@/lib/utils/planner-item-groups";
+import { findNextPlannerPlacement } from "@/lib/utils/planner-placement";
 import {
   deriveFacilityTypeFromCrop,
   getFacilityTypeOptions,
@@ -27,6 +29,10 @@ import {
   getUtilityNodeTypeOptions,
   normalizeUtilityNodeType,
 } from "@/lib/utils/utility-node";
+import {
+  plannerGridSizeOptions,
+  type PlannerGridSettings,
+} from "@/lib/utils/planner-grid-settings";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -42,6 +48,8 @@ interface FieldToolbarProps {
   showElectricUtilities: boolean;
   onToggleUtilities: () => void;
   onToggleUtilityKind: (kind: UtilityKind) => void;
+  gridSettings: PlannerGridSettings;
+  onUpdateGridSettings: (updates: Partial<PlannerGridSettings>) => void;
 }
 
 export function FieldToolbar({
@@ -54,6 +62,8 @@ export function FieldToolbar({
   showElectricUtilities,
   onToggleUtilities,
   onToggleUtilityKind,
+  gridSettings,
+  onUpdateGridSettings,
 }: FieldToolbarProps) {
   const {
     addPlantedCrop,
@@ -66,9 +76,11 @@ export function FieldToolbar({
   } = useFields();
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
   const allCrops = useAllCrops();
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [cropPopoverOpen, setCropPopoverOpen] = useState(false);
+  const [facilityPopoverOpen, setFacilityPopoverOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [gridOpen, setGridOpen] = useState(false);
   const [addUtilityOpen, setAddUtilityOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -79,11 +91,17 @@ export function FieldToolbar({
   const [fromNodeId, setFromNodeId] = useState("");
   const [toNodeId, setToNodeId] = useState("");
   const [selectedUtilityNodeId, setSelectedUtilityNodeId] = useState("");
-  const [search, setSearch] = useState("");
+  const [cropSearch, setCropSearch] = useState("");
+  const [facilitySearch, setFacilitySearch] = useState("");
   const [timingOpen, setTimingOpen] = useState(false);
   const [harvestOpen, setHarvestOpen] = useState(false);
 
-  const filteredCrops = useMemo(() => allCrops.filter((c) => c.name.includes(search)), [allCrops, search]);
+  const { cropItems, facilityItems } = useMemo(() => splitPlannerItemsByUsage(allCrops), [allCrops]);
+  const filteredCropItems = useMemo(() => cropItems.filter((crop) => crop.name.includes(cropSearch)), [cropItems, cropSearch]);
+  const filteredFacilityItems = useMemo(
+    () => facilityItems.filter((crop) => crop.name.includes(facilitySearch)),
+    [facilityItems, facilitySearch]
+  );
   const facilityTypeOptions = useMemo(() => getFacilityTypeOptions(), []);
 
   const selectedPlanted = selectedCropId ? field.plantedCrops.find((c) => c.id === selectedCropId) ?? null : null;
@@ -115,12 +133,27 @@ export function FieldToolbar({
     [selectedUtilityNode]
   );
 
+  const getNextPlacement = (width: number, height: number) =>
+    findNextPlannerPlacement(
+      {
+        width: field.dimensions.width * 100,
+        height: field.dimensions.height * 100,
+      },
+      { width, height },
+      field.plantedCrops
+        .filter((crop) => crop.status === "growing")
+        .map((crop) => ({
+          x: crop.position.x,
+          y: crop.position.y,
+          width: crop.size.width,
+          height: crop.size.height,
+        }))
+    );
+
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
     if (!crop) return;
-    const existingCount = field.plantedCrops.filter((item) => item.status === "growing").length;
-    const column = existingCount % 5;
-    const row = Math.floor(existingCount / 5);
+    const placement = getNextPlacement(crop.spacing.plant, crop.spacing.row);
     const plantedDate = occurredAt ?? new Date().toISOString();
     const plantedCrop = addPlantedCrop(
       field.id,
@@ -129,7 +162,7 @@ export function FieldToolbar({
         fieldId: field.id,
         plantedDate,
         status: "growing",
-        position: { x: 50 + column * 70, y: 50 + row * 70 },
+        position: placement,
         size: { width: crop.spacing.plant, height: crop.spacing.row },
         facilityType: deriveFacilityTypeFromCrop(crop),
       },
@@ -139,8 +172,10 @@ export function FieldToolbar({
       const tasks = generateTasksForPlantedCrop(crop, plantedCrop);
       addTasks(tasks);
     }
-    setPopoverOpen(false);
-    setSearch("");
+    setCropPopoverOpen(false);
+    setFacilityPopoverOpen(false);
+    setCropSearch("");
+    setFacilitySearch("");
   };
 
   const handleDeleteSelected = () => {
@@ -418,23 +453,23 @@ export function FieldToolbar({
 
   return (
     <div className="flex items-center gap-2">
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+      <Popover open={cropPopoverOpen} onOpenChange={setCropPopoverOpen}>
         <PopoverTrigger asChild>
           <Button size="sm">
             <Plus className="size-4 mr-1" />
-            新增作物
+            新增植栽區
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-2" align="start">
           <Input
-            placeholder="搜尋作物..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜尋植栽..."
+            value={cropSearch}
+            onChange={(e) => setCropSearch(e.target.value)}
             className="mb-2"
           />
           <ScrollArea className="h-48">
             <div className="space-y-1">
-              {filteredCrops.map((crop) => (
+              {filteredCropItems.map((crop) => (
                 <button
                   key={crop.id}
                   onClick={() => handleAddCrop(crop.id)}
@@ -446,6 +481,83 @@ export function FieldToolbar({
               ))}
             </div>
           </ScrollArea>
+        </PopoverContent>
+      </Popover>
+      <Popover open={facilityPopoverOpen} onOpenChange={setFacilityPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline">
+            <Plus className="size-4 mr-1" />
+            新增設施區
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-2" align="start">
+          <Input
+            placeholder="搜尋設施..."
+            value={facilitySearch}
+            onChange={(e) => setFacilitySearch(e.target.value)}
+            className="mb-2"
+          />
+          <ScrollArea className="h-48">
+            <div className="space-y-1">
+              {filteredFacilityItems.map((crop) => (
+                <button
+                  key={crop.id}
+                  onClick={() => handleAddCrop(crop.id)}
+                  className="flex w-full items-center gap-2 rounded p-2 text-left text-sm transition-colors hover:bg-accent"
+                >
+                  <span className="text-lg">{crop.emoji}</span>
+                  <span>{crop.name}</span>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </PopoverContent>
+      </Popover>
+      <Popover open={gridOpen} onOpenChange={setGridOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline">格線設定</Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 space-y-2" align="start">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">格線顯示</p>
+            <Button
+              size="sm"
+              variant={gridSettings.showGrid ? "default" : "outline"}
+              className="w-full"
+              onClick={() => onUpdateGridSettings({ showGrid: !gridSettings.showGrid })}
+            >
+              {gridSettings.showGrid ? "已開啟" : "已關閉"}
+            </Button>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">格線密度</p>
+            <Select
+              value={String(gridSettings.gridSizeMeters)}
+              onValueChange={(value) => onUpdateGridSettings({ gridSizeMeters: Number(value) as PlannerGridSettings["gridSizeMeters"] })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {plannerGridSizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size} 公尺
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">吸附到格線</p>
+            <Button
+              size="sm"
+              variant={gridSettings.snapToGrid ? "default" : "outline"}
+              className="w-full"
+              onClick={() => onUpdateGridSettings({ snapToGrid: !gridSettings.snapToGrid })}
+            >
+              {gridSettings.snapToGrid ? "已開啟" : "已關閉"}
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
 
