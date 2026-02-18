@@ -13,6 +13,7 @@ import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { isInfrastructureCategory, type Field, type UtilityKind } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
+import { getFacilityTypeOptions, normalizeFacilityName, normalizeFacilityType } from "@/lib/utils/facility-metadata";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -53,6 +54,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   const [harvestOpen, setHarvestOpen] = useState(false);
 
   const filteredCrops = useMemo(() => allCrops.filter((c) => c.name.includes(search)), [allCrops, search]);
+  const facilityTypeOptions = useMemo(() => getFacilityTypeOptions(), []);
 
   const selectedPlanted = selectedCropId ? field.plantedCrops.find((c) => c.id === selectedCropId) ?? null : null;
   const selectedCropMeta = useMemo(
@@ -135,7 +137,15 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
     const nextCrop = allCrops.find((crop) => crop.id === nextCropId);
     if (!nextCrop) return;
 
-    updatePlantedCrop(field.id, selectedPlanted.id, { cropId: nextCropId }, { occurredAt });
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      {
+        cropId: nextCropId,
+        ...(isInfrastructureCategory(nextCrop.category) ? {} : { facilityType: undefined, facilityName: undefined }),
+      },
+      { occurredAt }
+    );
     removeTasksByPlantedCrop(selectedPlanted.id);
     if (selectedPlanted.status === "growing" && !isInfrastructureCategory(nextCrop.category)) {
       const nextTasks = generateTasksForPlantedCrop(nextCrop, { ...selectedPlanted, cropId: nextCropId });
@@ -286,6 +296,25 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
     updateField(field.id, { utilityEdges: [] }, { occurredAt });
     setConnectOpen(false);
     setManageOpen(false);
+  };
+
+  const handleUpdateFacilityType = (value: string) => {
+    if (!selectedPlanted || !selectedIsInfrastructure) return;
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      {
+        facilityType: value === "__none" ? undefined : normalizeFacilityType(value),
+      },
+      { occurredAt }
+    );
+  };
+
+  const handleUpdateFacilityName = (rawValue: string) => {
+    if (!selectedPlanted || !selectedIsInfrastructure) return;
+    const normalized = normalizeFacilityName(rawValue);
+    if (normalized === selectedPlanted.facilityName) return;
+    updatePlantedCrop(field.id, selectedPlanted.id, { facilityName: normalized }, { occurredAt });
   };
 
   return (
@@ -466,6 +495,42 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
           <Button size="sm" variant="outline" onClick={() => handleSplitSelected("horizontal")} disabled={selectedPlanted?.status !== "growing"}>
             上下切分
           </Button>
+          {selectedIsInfrastructure && selectedPlanted?.status === "growing" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline">
+                  設施設定
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 space-y-2" align="start">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">設施類型</p>
+                  <Select value={selectedPlanted.facilityType ?? "__none"} onValueChange={handleUpdateFacilityType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇類型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">未設定</SelectItem>
+                      {facilityTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">設施名稱</p>
+                  <Input
+                    key={`facility-name-${selectedPlanted.id}-${selectedPlanted.facilityName ?? ""}`}
+                    defaultValue={selectedPlanted.facilityName ?? ""}
+                    placeholder="例如：北側蓄水池"
+                    onBlur={(event) => handleUpdateFacilityName(event.target.value)}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
           <Popover open={mergeOpen} onOpenChange={setMergeOpen}>
             <PopoverTrigger asChild>
               <Button size="sm" variant="outline" disabled={selectedPlanted?.status !== "growing" || mergeCandidates.length === 0}>
