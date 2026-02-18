@@ -1,4 +1,4 @@
-import { SunlightLevel, type Field, type FieldContext, type FieldSunHours } from "@/lib/types";
+import { SunlightLevel, type Field, type FieldContext, type FieldSunHours, type UtilityEdge, type UtilityNode } from "@/lib/types";
 
 export const defaultFieldContext: FieldContext = {
   plotType: "open_field",
@@ -29,12 +29,64 @@ export function normalizeFieldContext(input?: Partial<FieldContext> | null): Fie
   };
 }
 
+function normalizeUtilityNode(input: unknown): UtilityNode | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Partial<UtilityNode>;
+  if (typeof raw.id !== "string" || raw.id.trim().length === 0) return null;
+  if (typeof raw.label !== "string" || raw.label.trim().length === 0) return null;
+  if (raw.kind !== "water" && raw.kind !== "electric") return null;
+  if (!raw.position || typeof raw.position !== "object") return null;
+  const x = Number(raw.position.x);
+  const y = Number(raw.position.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+  return {
+    id: raw.id,
+    label: raw.label,
+    kind: raw.kind,
+    position: { x, y },
+  };
+}
+
+function normalizeUtilityEdge(input: unknown): UtilityEdge | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Partial<UtilityEdge>;
+  if (typeof raw.id !== "string" || raw.id.trim().length === 0) return null;
+  if (typeof raw.fromNodeId !== "string" || raw.fromNodeId.trim().length === 0) return null;
+  if (typeof raw.toNodeId !== "string" || raw.toNodeId.trim().length === 0) return null;
+  if (raw.fromNodeId === raw.toNodeId) return null;
+  if (raw.kind !== "water" && raw.kind !== "electric") return null;
+
+  return {
+    id: raw.id,
+    fromNodeId: raw.fromNodeId,
+    toNodeId: raw.toNodeId,
+    kind: raw.kind,
+  };
+}
+
+export function normalizeUtilityNetwork(input?: {
+  utilityNodes?: unknown;
+  utilityEdges?: unknown;
+}): { utilityNodes: UtilityNode[]; utilityEdges: UtilityEdge[] } {
+  const nodes = (Array.isArray(input?.utilityNodes) ? input?.utilityNodes : [])
+    .map((item) => normalizeUtilityNode(item))
+    .filter((item): item is UtilityNode => item !== null);
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges = (Array.isArray(input?.utilityEdges) ? input?.utilityEdges : [])
+    .map((item) => normalizeUtilityEdge(item))
+    .filter((item): item is UtilityEdge => item !== null)
+    .filter((edge) => nodeIds.has(edge.fromNodeId) && nodeIds.has(edge.toNodeId));
+  return { utilityNodes: nodes, utilityEdges: edges };
+}
+
 export function normalizeField(field: LegacyField): Field {
+  const utility = normalizeUtilityNetwork(field);
   return {
     ...field,
     context: normalizeFieldContext(field.context),
-    utilityNodes: Array.isArray(field.utilityNodes) ? field.utilityNodes : [],
-    utilityEdges: Array.isArray(field.utilityEdges) ? field.utilityEdges : [],
+    utilityNodes: utility.utilityNodes,
+    utilityEdges: utility.utilityEdges,
   };
 }
 

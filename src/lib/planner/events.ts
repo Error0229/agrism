@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Field, FieldContext, PlantedCrop } from "@/lib/types";
-import { normalizeFieldContext } from "@/lib/utils/field-context";
+import { normalizeFieldContext, normalizeUtilityNetwork } from "@/lib/utils/field-context";
 import { getCropPolygon, polygonsOverlap } from "@/lib/utils/crop-shape";
 
 export type PlannerEventType =
@@ -63,13 +63,17 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
           utilityNodes?: Field["utilityNodes"];
           utilityEdges?: Field["utilityEdges"];
         };
+        const utility = normalizeUtilityNetwork({
+          utilityNodes: payload.utilityNodes,
+          utilityEdges: payload.utilityEdges,
+        });
         fieldsMap.set(payload.id, {
           id: payload.id,
           name: payload.name,
           dimensions: payload.dimensions,
           context: normalizeFieldContext(payload.context),
-          utilityNodes: Array.isArray(payload.utilityNodes) ? payload.utilityNodes : [],
-          utilityEdges: Array.isArray(payload.utilityEdges) ? payload.utilityEdges : [],
+          utilityNodes: utility.utilityNodes,
+          utilityEdges: utility.utilityEdges,
           plantedCrops: [],
         });
         break;
@@ -79,10 +83,16 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
         const field = fieldsMap.get(event.fieldId);
         if (!field) break;
         const payload = event.payload as Partial<Omit<Field, "id">> & { context?: Partial<FieldContext> };
+        const utility = normalizeUtilityNetwork({
+          utilityNodes: payload.utilityNodes ?? field.utilityNodes,
+          utilityEdges: payload.utilityEdges ?? field.utilityEdges,
+        });
         fieldsMap.set(event.fieldId, {
           ...field,
           ...payload,
           context: payload.context ? normalizeFieldContext({ ...field.context, ...payload.context }) : field.context,
+          utilityNodes: utility.utilityNodes,
+          utilityEdges: utility.utilityEdges,
         });
         break;
       }
