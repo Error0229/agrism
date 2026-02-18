@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useFarmManagement } from "@/lib/store/farm-management-context";
+import { useFields } from "@/lib/store/fields-context";
 import { formatDate } from "@/lib/utils/date-helpers";
+import {
+  buildFieldContextSignature,
+  evaluateReplanTriggers,
+  evaluateWeatherAnomalies,
+  type AutomationSnapshot,
+  type ReplanTrigger,
+} from "@/lib/automation/rules";
 import {
   Plus,
   Trash2,
@@ -86,9 +94,12 @@ interface WeatherData {
 const CONDITIONS = ["晴天", "多雲", "陰天", "小雨", "大雨", "雷雨", "颱風"];
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
+const BEGINNER_DEFAULTS_KEY = "hualien-automation-beginner-defaults";
+const AUTOMATION_SNAPSHOT_KEY = "hualien-automation-last-snapshot";
 
 export function WeatherTab() {
   const { weatherLogs, addWeatherLog, removeWeatherLog } = useFarmManagement();
+  const { fields } = useFields();
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [temperature, setTemperature] = useState("");
@@ -101,6 +112,11 @@ export function WeatherTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [replanTriggers, setReplanTriggers] = useState<ReplanTrigger[]>([]);
+  const [beginnerDefaults, setBeginnerDefaults] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(BEGINNER_DEFAULTS_KEY) === "1";
+  });
 
   const fetchWeather = useCallback(async () => {
     setLoading(true);
@@ -112,16 +128,55 @@ export function WeatherTab() {
       if (data.error) throw new Error(data.error);
       setWeather(data);
       setLastFetched(new Date());
+
+      if (typeof window !== "undefined") {
+        let prevSnapshot: AutomationSnapshot | null = null;
+        try {
+          const raw = window.localStorage.getItem(AUTOMATION_SNAPSHOT_KEY);
+          if (raw) prevSnapshot = JSON.parse(raw) as AutomationSnapshot;
+        } catch {
+          prevSnapshot = null;
+        }
+
+        const nextSnapshot: AutomationSnapshot = {
+          alertIds: Array.isArray(data.alerts) ? data.alerts.map((alert: WeatherAlert) => alert.id).sort() : [],
+          confidenceLevel: data.meta?.confidence?.confidenceLevel,
+          fieldContextSignature: buildFieldContextSignature(fields.map((field) => ({ id: field.id, context: field.context }))),
+        };
+        setReplanTriggers(evaluateReplanTriggers(prevSnapshot, nextSnapshot));
+        window.localStorage.setItem(AUTOMATION_SNAPSHOT_KEY, JSON.stringify(nextSnapshot));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "取得天氣資料失敗");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fields]);
 
   useEffect(() => {
     fetchWeather();
   }, [fetchWeather]);
+
+  const automationSuggestions = useMemo(() => {
+    if (!weather) return [];
+    return evaluateWeatherAnomalies({
+      current: {
+        temperatureC: weather.current.temperature_2m,
+        windSpeedKmh: weather.current.wind_speed_10m,
+      },
+      forecastRainMm: weather.daily.precipitation_sum,
+      alerts: weather.alerts ?? [],
+      confidenceLevel: weather.meta?.confidence?.confidenceLevel,
+      beginnerDefaults,
+    });
+  }, [weather, beginnerDefaults]);
+
+  const toggleBeginnerDefaults = (nextValue: boolean) => {
+    setBeginnerDefaults(nextValue);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(BEGINNER_DEFAULTS_KEY, nextValue ? "1" : "0");
+    }
+  };
 
   const handleAdd = () => {
     if (!condition && !temperature && !rainfall) return;
@@ -148,6 +203,15 @@ export function WeatherTab() {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">花蓮即時天氣</h3>
         <div className="flex items-center gap-2">
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-3.5 rounded border-muted-foreground/40"
+              checked={beginnerDefaults}
+              onChange={(event) => toggleBeginnerDefaults(event.target.checked)}
+            />
+            新手保守模式
+          </label>
           <a
             href="https://www.cwa.gov.tw/V8/C/W/Town/Town.html?TID=1001504"
             target="_blank"
@@ -290,6 +354,66 @@ export function WeatherTab() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Automation suggestions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">自動調整建議（需確認）</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {automationSuggestions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">目前沒有需要調整的規則建議。</p>
+              ) : (
+                <ul className="space-y-2">
+                  {automationSuggestions.map((suggestion) => (
+                    <li
+                      key={suggestion.id}
+                      className={
+                        suggestion.severity === "critical"
+                          ? "rounded border border-red-200 bg-red-50/40 p-3"
+                          : suggestion.severity === "warning"
+                          ? "rounded border border-amber-200 bg-amber-50/40 p-3"
+                          : "rounded border border-sky-200 bg-sky-50/40 p-3"
+                      }
+                    >
+                      <p className="text-sm font-medium">{suggestion.title}</p>
+                      <p className="text-xs mt-1">{suggestion.action}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{suggestion.rationale}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {suggestion.requiresConfirmation ? "需使用者確認後執行" : "僅提供操作提醒"}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {replanTriggers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">重規劃觸發條件</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {replanTriggers.map((trigger) => (
+                    <li
+                      key={trigger.id}
+                      className={
+                        trigger.severity === "critical"
+                          ? "text-red-600"
+                          : trigger.severity === "warning"
+                          ? "text-amber-600"
+                          : "text-blue-600"
+                      }
+                    >
+                      {trigger.reason}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Farming insights from weather */}
           <Card>
