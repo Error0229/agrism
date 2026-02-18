@@ -13,8 +13,15 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { HarvestCountdown } from "@/components/dashboard/harvest-countdown";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { prioritizeWeeklyTasks } from "@/lib/utils/task-prioritizer";
+import { forecastWorkload } from "@/lib/utils/workload-forecast";
 import { Sprout, Map, CalendarDays, CheckCircle2, Check } from "lucide-react";
 import { isToday, isThisWeek, isBefore, addDays } from "date-fns";
+
+const difficultyLabel: Record<string, string> = {
+  low: "低",
+  medium: "中",
+  high: "高",
+};
 
 export default function HomePage() {
   const { fields, isLoaded: fieldsLoaded } = useFields();
@@ -34,6 +41,8 @@ export default function HomePage() {
 
   const prioritizedWeeklyTasks = prioritizeWeeklyTasks(tasks, allCrops).filter((entry) => !isToday(new Date(entry.task.dueDate)));
   const upcomingTasks = prioritizedWeeklyTasks.slice(0, 5);
+  const workloadForecast = forecastWorkload(tasks, { horizonDays: 7, dailyCapacityMinutes: 180 });
+  const topBottleneck = workloadForecast.warnings[0];
 
   const thisWeekTasks = tasks.filter((t) => !t.completed && isThisWeek(new Date(t.dueDate)));
   const harvestable = tasks.filter(
@@ -136,6 +145,18 @@ export default function HomePage() {
             <CardTitle className="text-lg">即將到來的任務</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/40 p-3 text-sm">
+              <p className="font-medium">
+                7 天工作量：{workloadForecast.totalMinutes} / {workloadForecast.capacityMinutes} 分鐘
+              </p>
+              {topBottleneck ? (
+                <p className="mt-1 text-amber-700">
+                  瓶頸預警：{topBottleneck.date} 超出 {topBottleneck.overloadMinutes} 分鐘（{topBottleneck.taskCount} 件任務）。
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">目前 7 天內工作量在容量範圍內。</p>
+              )}
+            </div>
             {upcomingTasks.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 尚無排程任務。前往<Link href="/crops" className="text-primary underline mx-1">作物資料庫</Link>種植作物以自動產生任務。
@@ -156,7 +177,10 @@ export default function HomePage() {
                         <span className="text-lg">{crop?.emoji}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{task.title}</p>
-                          <p className="text-xs text-muted-foreground">{formatRelativeDate(task.dueDate)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatRelativeDate(task.dueDate)} ・ {task.effortMinutes ?? 0} 分鐘 ・ 難度{" "}
+                            {difficultyLabel[task.difficulty ?? "medium"]}
+                          </p>
                         </div>
                         <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
                       </div>

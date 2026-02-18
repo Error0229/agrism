@@ -47,6 +47,15 @@ function getRiskScore(task: Task, crop: Crop | undefined, now: Date) {
     score += crop?.pestSusceptibility === "高" ? 10 : crop?.pestSusceptibility === "中" ? 6 : 3;
   }
 
+  if ((task.effortMinutes ?? 0) >= 120) {
+    score += 8;
+  } else if ((task.effortMinutes ?? 0) >= 60) {
+    score += 4;
+  }
+
+  if (task.difficulty === "high") score += 6;
+  if (task.difficulty === "medium") score += 3;
+
   return score;
 }
 
@@ -62,6 +71,8 @@ function buildReasons(task: Task, crop: Crop | undefined, now: Date) {
   if (task.type === "防颱") reasons.push("降低天候損失風險");
   if (task.type === "病蟲害防治") reasons.push("降低病蟲害擴散風險");
   if (task.type === "澆水") reasons.push("維持作物生長穩定");
+  if ((task.effortMinutes ?? 0) >= 120) reasons.push("高工時任務，需預留時段");
+  if (task.difficulty === "high") reasons.push("執行難度高，建議優先安排");
 
   if (crop?.typhoonResistance === "低" && task.type === "防颱") reasons.push("作物抗風性較低");
   if (crop?.pestSusceptibility === "高" && task.type === "病蟲害防治") reasons.push("作物病蟲害敏感度高");

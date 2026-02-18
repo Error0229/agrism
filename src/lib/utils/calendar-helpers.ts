@@ -2,6 +2,7 @@ import { addDays } from "date-fns";
 import type { Task } from "@/lib/types";
 import { TaskType } from "@/lib/types";
 import type { Crop, PlantedCrop } from "@/lib/types";
+import { getTaskEffortPreset } from "@/lib/utils/task-effort";
 
 export function generateTasksForPlantedCrop(
   crop: Crop,
@@ -19,6 +20,7 @@ export function generateTasksForPlantedCrop(
     plantedCropId: plantedCrop.id,
     fieldId: plantedCrop.fieldId,
     dueDate: plantedCrop.plantedDate,
+    ...getTaskEffortPreset(TaskType.播種),
   });
 
   // 定期施肥任務
@@ -32,6 +34,7 @@ export function generateTasksForPlantedCrop(
       plantedCropId: plantedCrop.id,
       fieldId: plantedCrop.fieldId,
       dueDate: fertDate.toISOString(),
+      ...getTaskEffortPreset(TaskType.施肥),
     });
     fertDate = addDays(fertDate, crop.fertilizerIntervalDays);
   }
@@ -49,6 +52,7 @@ export function generateTasksForPlantedCrop(
           plantedCropId: plantedCrop.id,
           fieldId: plantedCrop.fieldId,
           dueDate: checkDate.toISOString(),
+          ...getTaskEffortPreset(TaskType.剪枝),
         });
       }
     }
@@ -62,6 +66,7 @@ export function generateTasksForPlantedCrop(
     plantedCropId: plantedCrop.id,
     fieldId: plantedCrop.fieldId,
     dueDate: harvestDate.toISOString(),
+    ...getTaskEffortPreset(TaskType.收成),
   });
 
   // 防颱任務（生長期跨 6-10 月）
@@ -76,6 +81,7 @@ export function generateTasksForPlantedCrop(
         plantedCropId: plantedCrop.id,
         fieldId: plantedCrop.fieldId,
         dueDate: checkDate.toISOString(),
+        ...getTaskEffortPreset(TaskType.防颱),
       });
       break; // 只加一次防颱提醒
     }

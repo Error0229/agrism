@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useMemo, type ReactNode } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import type { Task } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
+import { normalizeTaskEffort } from "@/lib/utils/task-effort";
 
 interface TasksContextType {
   tasks: Task[];
@@ -19,11 +20,12 @@ interface TasksContextType {
 const TasksContext = createContext<TasksContextType | null>(null);
 
 export function TasksProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks, isLoaded] = useLocalStorage<Task[]>("hualien-tasks", []);
+  const [tasksRaw, setTasks, isLoaded] = useLocalStorage<Task[]>("hualien-tasks", []);
+  const tasks = useMemo(() => tasksRaw.map((task) => normalizeTaskEffort(task)), [tasksRaw]);
 
   const addTask = useCallback(
     (task: Omit<Task, "id" | "completed">) => {
-      const newTask: Task = { ...task, id: uuidv4(), completed: false };
+      const newTask: Task = normalizeTaskEffort({ ...task, id: uuidv4(), completed: false });
       setTasks((prev) => [...prev, newTask]);
       return newTask;
     },
@@ -32,7 +34,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const addTasks = useCallback(
     (newTasks: Omit<Task, "id" | "completed">[]) => {
-      const tasksWithIds = newTasks.map((t) => ({ ...t, id: uuidv4(), completed: false }));
+      const tasksWithIds = newTasks.map((t) => normalizeTaskEffort({ ...t, id: uuidv4(), completed: false }));
       setTasks((prev) => [...prev, ...tasksWithIds]);
     },
     [setTasks]
@@ -40,7 +42,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const updateTask = useCallback(
     (id: string, updates: Partial<Task>) => {
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+      setTasks((prev) => prev.map((t) => (t.id === id ? normalizeTaskEffort({ ...t, ...updates }) : t)));
     },
     [setTasks]
   );
@@ -54,7 +56,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const completeTask = useCallback(
     (id: string) => {
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: true } : t)));
+      setTasks((prev) => prev.map((t) => (t.id === id ? normalizeTaskEffort({ ...t, completed: true }) : t)));
     },
     [setTasks]
   );

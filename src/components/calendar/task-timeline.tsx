@@ -71,7 +71,9 @@ export function TaskTimeline() {
                       <p className={`text-sm font-medium ${task.completed ? "line-through" : ""}`}>
                         {task.title}
                       </p>
-                      <p className="text-xs text-muted-foreground">{formatDate(task.dueDate)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(task.dueDate)} ・ {task.effortMinutes ?? 0} 分鐘
+                      </p>
                     </div>
                     <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
                   </div>
