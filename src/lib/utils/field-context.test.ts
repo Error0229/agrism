@@ -47,7 +47,10 @@ describe("field context normalization", () => {
     } as unknown as Omit<Field, "context">;
 
     const normalized = normalizeField(legacy);
-    expect(normalized.utilityNodes).toHaveLength(2);
+    expect(normalized.utilityNodes).toEqual([
+      { id: "n1", label: "水節點 1", kind: "water", nodeType: "junction", position: { x: 10, y: 10 } },
+      { id: "n2", label: "電節點 1", kind: "electric", nodeType: "outlet", position: { x: 30, y: 20 } },
+    ]);
     expect(normalized.utilityEdges).toEqual([{ id: "e1", fromNodeId: "n1", toNodeId: "n2", kind: "water" }]);
   });
 
@@ -64,9 +67,24 @@ describe("field context normalization", () => {
     });
 
     expect(normalized.utilityNodes).toEqual([
-      { id: "n1", label: "水節點", kind: "water", position: { x: 12, y: 30 } },
+      { id: "n1", label: "水節點", kind: "water", nodeType: "junction", position: { x: 12, y: 30 } },
     ]);
     expect(normalized.utilityEdges).toEqual([]);
+  });
+
+  it("normalizes utility node type by kind and falls back for invalid combos", () => {
+    const normalized = normalizeUtilityNetwork({
+      utilityNodes: [
+        { id: "w1", label: "水點", kind: "water", nodeType: "outlet", position: { x: 10, y: 10 } },
+        { id: "e1", label: "電點", kind: "electric", nodeType: "pump", position: { x: 20, y: 20 } },
+      ],
+      utilityEdges: [],
+    });
+
+    expect(normalized.utilityNodes).toEqual([
+      { id: "w1", label: "水點", kind: "water", nodeType: "junction", position: { x: 10, y: 10 } },
+      { id: "e1", label: "電點", kind: "electric", nodeType: "outlet", position: { x: 20, y: 20 } },
+    ]);
   });
 });
 

@@ -10,7 +10,7 @@ import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
-import { isInfrastructureCategory, type Field, type UtilityKind } from "@/lib/types";
+import { isInfrastructureCategory, type Field, type UtilityKind, type UtilityNodeType } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
 import {
@@ -19,6 +19,13 @@ import {
   normalizeFacilityType,
   normalizeLinkedUtilityNodeIds,
 } from "@/lib/utils/facility-metadata";
+import {
+  formatUtilityNodeDisplayLabel,
+  getDefaultUtilityNodeType,
+  getUtilityNodeTypeLabel,
+  getUtilityNodeTypeOptions,
+  normalizeUtilityNodeType,
+} from "@/lib/utils/utility-node";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -48,9 +55,13 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [addUtilityOpen, setAddUtilityOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [edgeKind, setEdgeKind] = useState<UtilityKind>("water");
+  const [newNodeKind, setNewNodeKind] = useState<UtilityKind>("water");
+  const [newNodeType, setNewNodeType] = useState<UtilityNodeType>(getDefaultUtilityNodeType("water"));
+  const [newNodeLabel, setNewNodeLabel] = useState("");
   const [fromNodeId, setFromNodeId] = useState("");
   const [toNodeId, setToNodeId] = useState("");
   const [selectedUtilityNodeId, setSelectedUtilityNodeId] = useState("");
@@ -81,6 +92,11 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
   const utilityNodes = field.utilityNodes ?? [];
   const utilityEdges = field.utilityEdges ?? [];
   const selectedUtilityNode = utilityNodes.find((node) => node.id === selectedUtilityNodeId) ?? null;
+  const newNodeTypeOptions = useMemo(() => getUtilityNodeTypeOptions(newNodeKind), [newNodeKind]);
+  const selectedNodeTypeOptions = useMemo(
+    () => (selectedUtilityNode ? getUtilityNodeTypeOptions(selectedUtilityNode.kind) : []),
+    [selectedUtilityNode]
+  );
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -229,18 +245,56 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
     setMergeOpen(false);
   };
 
-  const handleAddUtilityNode = (kind: UtilityKind) => {
+  const handleAddUtilityNode = () => {
+    const kind = newNodeKind;
+    const nodeType = normalizeUtilityNodeType(kind, newNodeType);
     const count = utilityNodes.filter((node) => node.kind === kind).length;
+    const typeLabel = getUtilityNodeTypeLabel(nodeType);
+    const normalizedLabel = newNodeLabel.trim();
     const nextNode = {
       id: uuidv4(),
-      label: `${kind === "water" ? "水" : "電"}節點 ${count + 1}`,
+      label: normalizedLabel.length > 0 ? normalizedLabel : `${typeLabel} ${count + 1}`,
       kind,
+      nodeType,
       position: {
         x: 80 + (count % 4) * 120,
         y: 80 + Math.floor(count / 4) * 90,
       },
     };
     updateField(field.id, { utilityNodes: [...utilityNodes, nextNode] }, { occurredAt });
+    setNewNodeLabel("");
+    setAddUtilityOpen(false);
+  };
+
+  const handleNewNodeKindChange = (value: string) => {
+    const nextKind = value as UtilityKind;
+    setNewNodeKind(nextKind);
+    setNewNodeType((prev) => normalizeUtilityNodeType(nextKind, prev));
+  };
+
+  const handleUpdateSelectedUtilityNodeType = (value: string) => {
+    if (!selectedUtilityNode) return;
+    const nextType = normalizeUtilityNodeType(selectedUtilityNode.kind, value);
+    updateField(
+      field.id,
+      {
+        utilityNodes: utilityNodes.map((node) => (node.id === selectedUtilityNode.id ? { ...node, nodeType: nextType } : node)),
+      },
+      { occurredAt }
+    );
+  };
+
+  const handleUpdateSelectedUtilityNodeLabel = (rawValue: string) => {
+    if (!selectedUtilityNode) return;
+    const nextLabel = rawValue.trim();
+    if (!nextLabel || nextLabel === selectedUtilityNode.label) return;
+    updateField(
+      field.id,
+      {
+        utilityNodes: utilityNodes.map((node) => (node.id === selectedUtilityNode.id ? { ...node, label: nextLabel } : node)),
+      },
+      { occurredAt }
+    );
   };
 
   const handleConnectNodes = () => {
@@ -278,7 +332,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
 
   const handleDeleteUtilityNode = () => {
     if (!selectedUtilityNode) return;
-    const confirmed = window.confirm(`確定刪除 ${selectedUtilityNode.label}？相關連線會一起刪除。`);
+    const confirmed = window.confirm(`確定刪除 ${formatUtilityNodeDisplayLabel(selectedUtilityNode)}？相關連線會一起刪除。`);
     if (!confirmed) return;
 
     updateField(
@@ -380,12 +434,53 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
       <Button size="sm" variant="outline" onClick={onToggleUtilities}>
         {showUtilities ? "隱藏水電" : "顯示水電"}
       </Button>
-      <Button size="sm" variant="outline" onClick={() => handleAddUtilityNode("water")}>
-        新增水點
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => handleAddUtilityNode("electric")}>
-        新增電點
-      </Button>
+      <Popover open={addUtilityOpen} onOpenChange={setAddUtilityOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline">
+            新增節點
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 space-y-2" align="start">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">節點類型</p>
+            <Select value={newNodeKind} onValueChange={handleNewNodeKindChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="water">供水</SelectItem>
+                <SelectItem value="electric">供電</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">節點子類型</p>
+            <Select value={newNodeType} onValueChange={(value) => setNewNodeType(value as UtilityNodeType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {newNodeTypeOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {getUtilityNodeTypeLabel(option)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">節點名稱（可選）</p>
+            <Input
+              value={newNodeLabel}
+              onChange={(event) => setNewNodeLabel(event.target.value)}
+              placeholder="例如：北側泵站"
+            />
+          </div>
+          <Button size="sm" className="w-full" onClick={handleAddUtilityNode}>
+            建立節點
+          </Button>
+        </PopoverContent>
+      </Popover>
       <Popover open={connectOpen} onOpenChange={setConnectOpen}>
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" disabled={utilityNodes.length < 2}>
@@ -409,7 +504,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
               <SelectTrigger><SelectValue placeholder="選擇起點" /></SelectTrigger>
               <SelectContent>
                 {utilityNodes.map((node) => (
-                  <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>
+                  <SelectItem key={node.id} value={node.id}>{formatUtilityNodeDisplayLabel(node)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -420,7 +515,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
               <SelectTrigger><SelectValue placeholder="選擇終點" /></SelectTrigger>
               <SelectContent>
                 {utilityNodes.map((node) => (
-                  <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>
+                  <SelectItem key={node.id} value={node.id}>{formatUtilityNodeDisplayLabel(node)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -446,11 +541,41 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
               <SelectContent>
                 {utilityNodes.map((node) => (
                   <SelectItem key={node.id} value={node.id}>
-                    {node.label}
+                    {formatUtilityNodeDisplayLabel(node)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {selectedUtilityNode && (
+              <div className="space-y-2 rounded border p-2">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">節點子類型</p>
+                  <Select
+                    value={normalizeUtilityNodeType(selectedUtilityNode.kind, selectedUtilityNode.nodeType)}
+                    onValueChange={handleUpdateSelectedUtilityNodeType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedNodeTypeOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {getUtilityNodeTypeLabel(option)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">節點名稱</p>
+                  <Input
+                    key={`utility-node-label-${selectedUtilityNode.id}-${selectedUtilityNode.label}`}
+                    defaultValue={selectedUtilityNode.label}
+                    onBlur={(event) => handleUpdateSelectedUtilityNodeLabel(event.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <Button size="sm" variant="destructive" className="w-full" onClick={handleDeleteUtilityNode} disabled={!selectedUtilityNode}>
               刪除節點
             </Button>
@@ -567,7 +692,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
                             className="w-full justify-start"
                             onClick={() => handleToggleLinkedUtilityNode(node.id)}
                           >
-                            {linked ? "已連結" : "未連結"} · {node.label}
+                            {linked ? "已連結" : "未連結"} · {formatUtilityNodeDisplayLabel(node)}
                           </Button>
                         );
                       })}
