@@ -38,10 +38,23 @@ interface FieldToolbarProps {
   onSelectCrop: (id: string | null) => void;
   occurredAt?: string;
   showUtilities: boolean;
+  showWaterUtilities: boolean;
+  showElectricUtilities: boolean;
   onToggleUtilities: () => void;
+  onToggleUtilityKind: (kind: UtilityKind) => void;
 }
 
-export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, showUtilities, onToggleUtilities }: FieldToolbarProps) {
+export function FieldToolbar({
+  field,
+  selectedCropId,
+  onSelectCrop,
+  occurredAt,
+  showUtilities,
+  showWaterUtilities,
+  showElectricUtilities,
+  onToggleUtilities,
+  onToggleUtilityKind,
+}: FieldToolbarProps) {
   const {
     addPlantedCrop,
     updatePlantedCrop,
@@ -442,6 +455,20 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
       </Button>
       <Button size="sm" variant="outline" onClick={onToggleUtilities}>
         {showUtilities ? "隱藏水電" : "顯示水電"}
+      </Button>
+      <Button
+        size="sm"
+        variant={showWaterUtilities ? "default" : "outline"}
+        onClick={() => onToggleUtilityKind("water")}
+      >
+        水線
+      </Button>
+      <Button
+        size="sm"
+        variant={showElectricUtilities ? "default" : "outline"}
+        onClick={() => onToggleUtilityKind("electric")}
+      >
+        電線
       </Button>
       <Popover open={addUtilityOpen} onOpenChange={setAddUtilityOpen}>
         <PopoverTrigger asChild>

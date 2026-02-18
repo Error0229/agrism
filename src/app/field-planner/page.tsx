@@ -77,6 +77,8 @@ export default function FieldPlannerPage() {
   const [activeTab, setActiveTab] = useState<string>("");
   const [resizeMode, setResizeMode] = useState(false);
   const [showUtilities, setShowUtilities] = useState(true);
+  const [showWaterUtilities, setShowWaterUtilities] = useState(true);
+  const [showElectricUtilities, setShowElectricUtilities] = useState(true);
   const [timelineDate, setTimelineDate] = useState("");
   const [remoteTimelineEvents, setRemoteTimelineEvents] = useState<PlannerEvent[] | null>(null);
   const [remoteAnchors, setRemoteAnchors] = useState<string[] | null>(null);
@@ -312,7 +314,16 @@ export default function FieldPlannerPage() {
                         onSelectCrop={setSelectedCropId}
                         occurredAt={currentOccurredAt}
                         showUtilities={showUtilities}
+                        showWaterUtilities={showWaterUtilities}
+                        showElectricUtilities={showElectricUtilities}
                         onToggleUtilities={() => setShowUtilities((prev) => !prev)}
+                        onToggleUtilityKind={(kind) => {
+                          if (kind === "water") {
+                            setShowWaterUtilities((prev) => !prev);
+                            return;
+                          }
+                          setShowElectricUtilities((prev) => !prev);
+                        }}
                       />
                       <MapImportDialog field={field} occurredAt={currentOccurredAt} />
                       <Button size="sm" variant={resizeMode ? "default" : "outline"} onClick={() => setResizeMode(!resizeMode)}>
@@ -361,6 +372,8 @@ export default function FieldPlannerPage() {
                     showHarvestedCrops={showHarvestedCrops}
                     conflictedCropIds={Array.from(conflictedByField.get(field.id) ?? [])}
                     showUtilities={showUtilities}
+                    showWaterUtilities={showWaterUtilities}
+                    showElectricUtilities={showElectricUtilities}
                   />
                 </TabsContent>
               ))}

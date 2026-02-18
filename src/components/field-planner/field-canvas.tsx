@@ -11,6 +11,7 @@ import { addDays, format } from "date-fns";
 import { getCropPolygon, polygonBounds, translatePoints } from "@/lib/utils/crop-shape";
 import { getLinkedUtilitySummary, getPlantedCropDisplayLabel } from "@/lib/utils/facility-metadata";
 import { formatUtilityNodeDisplayLabel } from "@/lib/utils/utility-node";
+import { filterVisibleUtilityEdges, filterVisibleUtilityNodes } from "@/lib/utils/utility-visibility";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
@@ -40,6 +41,8 @@ interface FieldCanvasProps {
   showHarvestedCrops: boolean;
   conflictedCropIds?: string[];
   showUtilities: boolean;
+  showWaterUtilities: boolean;
+  showElectricUtilities: boolean;
 }
 
 export default function FieldCanvas({
@@ -51,6 +54,8 @@ export default function FieldCanvas({
   showHarvestedCrops,
   conflictedCropIds = [],
   showUtilities,
+  showWaterUtilities,
+  showElectricUtilities,
 }: FieldCanvasProps) {
   const { updateField, updatePlantedCrop } = useFields();
   const allCrops = useAllCrops();
@@ -435,7 +440,15 @@ export default function FieldCanvas({
   const visibleCrops = field.plantedCrops.filter((crop) => showHarvestedCrops || crop.status === "growing");
   const utilityNodes = useMemo(() => field.utilityNodes ?? [], [field.utilityNodes]);
   const utilityEdges = useMemo(() => field.utilityEdges ?? [], [field.utilityEdges]);
-  const utilityNodeById = useMemo(() => new Map(utilityNodes.map((node) => [node.id, node])), [utilityNodes]);
+  const visibleUtilityNodes = useMemo(
+    () => filterVisibleUtilityNodes(utilityNodes, { showUtilities, showWaterUtilities, showElectricUtilities }),
+    [showElectricUtilities, showUtilities, showWaterUtilities, utilityNodes]
+  );
+  const visibleUtilityEdges = useMemo(
+    () => filterVisibleUtilityEdges(utilityEdges, { showUtilities, showWaterUtilities, showElectricUtilities }),
+    [showElectricUtilities, showUtilities, showWaterUtilities, utilityEdges]
+  );
+  const utilityNodeById = useMemo(() => new Map(visibleUtilityNodes.map((node) => [node.id, node])), [visibleUtilityNodes]);
   const isResizing = !!activeHandle;
   const isCropResizing = !!cropResizeHandle;
   const isPolygonEditing = !!polygonEditCropId;
@@ -579,7 +592,7 @@ export default function FieldCanvas({
           )}
 
           {showUtilities &&
-            utilityEdges.map((edge) => {
+            visibleUtilityEdges.map((edge) => {
               const from = utilityNodeById.get(edge.fromNodeId);
               const to = utilityNodeById.get(edge.toNodeId);
               if (!from || !to) return null;
@@ -595,7 +608,7 @@ export default function FieldCanvas({
             })}
 
           {showUtilities &&
-            utilityNodes.map((node) => (
+            visibleUtilityNodes.map((node) => (
               <Group key={node.id}>
                 <Circle
                   x={node.position.x}
