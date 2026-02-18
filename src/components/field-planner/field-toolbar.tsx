@@ -13,7 +13,12 @@ import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { isInfrastructureCategory, type Field, type UtilityKind } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
-import { getFacilityTypeOptions, normalizeFacilityName, normalizeFacilityType } from "@/lib/utils/facility-metadata";
+import {
+  getFacilityTypeOptions,
+  normalizeFacilityName,
+  normalizeFacilityType,
+  normalizeLinkedUtilityNodeIds,
+} from "@/lib/utils/facility-metadata";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -142,7 +147,9 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
       selectedPlanted.id,
       {
         cropId: nextCropId,
-        ...(isInfrastructureCategory(nextCrop.category) ? {} : { facilityType: undefined, facilityName: undefined }),
+        ...(isInfrastructureCategory(nextCrop.category)
+          ? {}
+          : { facilityType: undefined, facilityName: undefined, linkedUtilityNodeIds: undefined }),
       },
       { occurredAt }
     );
@@ -315,6 +322,22 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
     const normalized = normalizeFacilityName(rawValue);
     if (normalized === selectedPlanted.facilityName) return;
     updatePlantedCrop(field.id, selectedPlanted.id, { facilityName: normalized }, { occurredAt });
+  };
+
+  const handleToggleLinkedUtilityNode = (nodeId: string) => {
+    if (!selectedPlanted || !selectedIsInfrastructure) return;
+    const current = new Set(normalizeLinkedUtilityNodeIds(selectedPlanted.linkedUtilityNodeIds) ?? []);
+    if (current.has(nodeId)) {
+      current.delete(nodeId);
+    } else {
+      current.add(nodeId);
+    }
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      { linkedUtilityNodeIds: Array.from(current.values()) },
+      { occurredAt }
+    );
   };
 
   return (
@@ -527,6 +550,29 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
                     placeholder="例如：北側蓄水池"
                     onBlur={(event) => handleUpdateFacilityName(event.target.value)}
                   />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">關聯水電節點</p>
+                  {utilityNodes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">尚未建立水電節點。</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {utilityNodes.map((node) => {
+                        const linked = (selectedPlanted.linkedUtilityNodeIds ?? []).includes(node.id);
+                        return (
+                          <Button
+                            key={node.id}
+                            size="sm"
+                            variant={linked ? "default" : "outline"}
+                            className="w-full justify-start"
+                            onClick={() => handleToggleLinkedUtilityNode(node.id)}
+                          >
+                            {linked ? "已連結" : "未連結"} · {node.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { CropCategory, type PlantedCrop } from "@/lib/types";
 import {
+  getLinkedUtilitySummary,
   getPlantedCropDisplayLabel,
-  normalizePlantedCropFacilityMetadata,
   normalizeFacilityName,
   normalizeFacilityType,
+  normalizeLinkedUtilityNodeIds,
+  normalizePlantedCropFacilityMetadata,
 } from "@/lib/utils/facility-metadata";
 
 function planted(overrides?: Partial<PlantedCrop>): PlantedCrop {
@@ -41,16 +43,31 @@ describe("facility metadata normalization", () => {
 
   it("keeps sanitized facility fields when category is unknown", () => {
     const normalized = normalizePlantedCropFacilityMetadata(
-      planted({ facilityType: "custom", facilityName: "  臨時設施  " }),
+      planted({ facilityType: "custom", facilityName: "  臨時設施  ", linkedUtilityNodeIds: ["n1", "n1", "  ", "n2"] }),
       undefined
     );
     expect(normalized.facilityType).toBe("custom");
     expect(normalized.facilityName).toBe("臨時設施");
+    expect(normalized.linkedUtilityNodeIds).toEqual(["n1", "n2"]);
   });
 
   it("removes invalid facility values", () => {
     expect(normalizeFacilityType("invalid")).toBeUndefined();
     expect(normalizeFacilityName("   ")).toBeUndefined();
+  });
+
+  it("filters linked utility ids by validity and node set", () => {
+    const valid = new Set(["n1", "n3"]);
+    expect(normalizeLinkedUtilityNodeIds(["n1", "n1", "n2", " ", "n3"], valid)).toEqual(["n1", "n3"]);
+  });
+
+  it("drops linked utility ids for non-infrastructure categories", () => {
+    const normalized = normalizePlantedCropFacilityMetadata(
+      planted({ linkedUtilityNodeIds: ["n1", "n2"] }),
+      CropCategory.葉菜類,
+      new Set(["n1", "n2"])
+    );
+    expect("linkedUtilityNodeIds" in normalized).toBe(false);
   });
 });
 
@@ -64,5 +81,10 @@ describe("facility display label", () => {
 
   it("falls back to crop name for non-infrastructure categories", () => {
     expect(getPlantedCropDisplayLabel({ facilityType: "road", facilityName: "A" }, "番茄", CropCategory.茄果類)).toBe("番茄");
+  });
+
+  it("formats linked utility summary for infrastructure regions", () => {
+    expect(getLinkedUtilitySummary({ linkedUtilityNodeIds: ["n1", "n1", "n2"] }, CropCategory.其它類)).toBe("已連結 2 節點");
+    expect(getLinkedUtilitySummary({ linkedUtilityNodeIds: ["n1"] }, CropCategory.茄果類)).toBeNull();
   });
 });
