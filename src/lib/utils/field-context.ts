@@ -1,4 +1,5 @@
 import { SunlightLevel, type Field, type FieldContext, type FieldSunHours, type UtilityEdge, type UtilityNode } from "@/lib/types";
+import { normalizeUtilityNodeType } from "@/lib/utils/utility-node";
 
 export const defaultFieldContext: FieldContext = {
   plotType: "open_field",
@@ -44,6 +45,7 @@ function normalizeUtilityNode(input: unknown): UtilityNode | null {
     id: raw.id,
     label: raw.label,
     kind: raw.kind,
+    nodeType: normalizeUtilityNodeType(raw.kind, raw.nodeType),
     position: { x, y },
   };
 }

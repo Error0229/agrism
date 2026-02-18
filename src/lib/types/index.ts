@@ -150,11 +150,13 @@ export interface FieldContext {
 }
 
 export type UtilityKind = "water" | "electric";
+export type UtilityNodeType = "pump" | "tank" | "valve" | "outlet" | "junction" | "custom";
 
 export interface UtilityNode {
   id: string;
   label: string;
   kind: UtilityKind;
+  nodeType?: UtilityNodeType;
   position: CropPoint;
 }
 

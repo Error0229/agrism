@@ -10,6 +10,7 @@ import { useFields } from "@/lib/store/fields-context";
 import { addDays, format } from "date-fns";
 import { getCropPolygon, polygonBounds, translatePoints } from "@/lib/utils/crop-shape";
 import { getLinkedUtilitySummary, getPlantedCropDisplayLabel } from "@/lib/utils/facility-metadata";
+import { formatUtilityNodeDisplayLabel } from "@/lib/utils/utility-node";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
@@ -609,7 +610,7 @@ export default function FieldCanvas({
                 <Text
                   x={node.position.x + 8}
                   y={node.position.y - 6}
-                  text={node.label}
+                  text={formatUtilityNodeDisplayLabel(node)}
                   fontSize={10}
                   fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
                 />
