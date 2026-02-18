@@ -6,6 +6,28 @@ export enum CropCategory {
   辛香料 = "辛香料",
   水果類 = "水果類",
   豆類 = "豆類",
+  花草園藝 = "花草園藝",
+  其它類 = "其它類",
+}
+
+export const rotationEligibleCategories: CropCategory[] = [
+  CropCategory.葉菜類,
+  CropCategory.瓜果類,
+  CropCategory.根莖類,
+  CropCategory.茄果類,
+  CropCategory.辛香料,
+  CropCategory.水果類,
+  CropCategory.豆類,
+];
+
+const rotationEligibleCategorySet = new Set(rotationEligibleCategories);
+
+export function isRotationEligibleCategory(category: CropCategory): boolean {
+  return rotationEligibleCategorySet.has(category);
+}
+
+export function isInfrastructureCategory(category: CropCategory): boolean {
+  return category === CropCategory.其它類;
 }
 
 export enum WaterLevel {

@@ -1,4 +1,4 @@
-import type { Crop, Field, SoilProfile } from "@/lib/types";
+import { isInfrastructureCategory, isRotationEligibleCategory, type Crop, type Field, type SoilProfile } from "@/lib/types";
 import { rotationSuggestions } from "@/lib/data/crop-companions";
 import { addDays, differenceInDays } from "date-fns";
 import { formatSunHoursLabel, isSunlightCompatible } from "@/lib/utils/field-context";
@@ -27,6 +27,7 @@ export function generatePlantingSuggestions(
       if (planted.status !== "growing") continue;
       const crop = allCrops.find((c) => c.id === planted.cropId);
       if (!crop) continue;
+      if (isInfrastructureCategory(crop.category)) continue;
 
       // Pruning suggestion
       if (crop.needsPruning && crop.pruningMonths?.includes(currentMonth)) {
@@ -87,12 +88,12 @@ export function generatePlantingSuggestions(
       f.plantedCrops
         .filter((c) => c.status === "growing")
         .map((c) => allCrops.find((cr) => cr.id === c.cropId)?.category)
-        .filter(Boolean)
+        .filter((category): category is Crop["category"] => Boolean(category))
+        .filter((category) => isRotationEligibleCategory(category))
     )
   );
 
   for (const category of plantedCategories) {
-    if (!category) continue;
     const rotation = rotationSuggestions[category];
     if (!rotation) continue;
     for (const nextCat of rotation.next) {
@@ -116,6 +117,7 @@ export function generatePlantingSuggestions(
   // 3. Seasonal suggestions
   const seasonalCrops = allCrops
     .filter((c) => c.plantingMonths.includes(currentMonth))
+    .filter((c) => !isInfrastructureCategory(c.category))
     .filter((c) => !plantedCategories.has(c.category))
     .slice(0, 2);
 
