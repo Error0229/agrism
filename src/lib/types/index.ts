@@ -160,6 +160,27 @@ export interface SoilNote {
   content: string;
 }
 
+export type SoilTexture = "sand" | "loam" | "clay" | "silty" | "mixed";
+
+export interface SoilProfile {
+  fieldId: string;
+  texture: SoilTexture;
+  ph: number | null;
+  ec: number | null;
+  organicMatterPct: number | null;
+  updatedAt: string;
+}
+
+export interface SoilAmendment {
+  id: string;
+  fieldId: string;
+  date: string;
+  amendmentType: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+}
+
 export interface WeatherLog {
   id: string;
   date: string;

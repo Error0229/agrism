@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFields } from "@/lib/store/fields-context";
+import { useFarmManagement } from "@/lib/store/farm-management-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generatePlantingSuggestions } from "@/lib/utils/planting-suggestions";
 import { Lightbulb } from "lucide-react";
@@ -11,12 +12,17 @@ import Link from "next/link";
 
 export function PlantingSuggestionsCard() {
   const { fields } = useFields();
+  const { soilProfiles } = useFarmManagement();
   const allCrops = useAllCrops();
   const currentMonth = new Date().getMonth() + 1;
+  const soilProfilesByFieldId = useMemo(
+    () => new Map(soilProfiles.map((profile) => [profile.fieldId, profile])),
+    [soilProfiles]
+  );
 
   const suggestions = useMemo(
-    () => generatePlantingSuggestions(fields, allCrops, currentMonth),
-    [fields, allCrops, currentMonth]
+    () => generatePlantingSuggestions(fields, allCrops, currentMonth, { soilProfilesByFieldId }),
+    [fields, allCrops, currentMonth, soilProfilesByFieldId]
   );
 
   if (suggestions.length === 0) return null;
@@ -27,6 +33,7 @@ export function PlantingSuggestionsCard() {
     seasonal: "bg-green-100 text-green-700",
     "harvest-soon": "bg-amber-100 text-amber-700",
     "field-context": "bg-rose-100 text-rose-700",
+    "soil-profile": "bg-cyan-100 text-cyan-700",
   };
 
   const typeLabel: Record<string, string> = {
@@ -35,6 +42,7 @@ export function PlantingSuggestionsCard() {
     seasonal: "當季推薦",
     "harvest-soon": "即將收成",
     "field-context": "田區條件",
+    "soil-profile": "土壤剖面",
   };
 
   return (
