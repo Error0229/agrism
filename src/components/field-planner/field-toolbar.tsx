@@ -10,6 +10,7 @@ import { useTasks } from "@/lib/store/tasks-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
 import { isInfrastructureCategory, type Field } from "@/lib/types";
+import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
@@ -22,7 +23,7 @@ interface FieldToolbarProps {
 }
 
 export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }: FieldToolbarProps) {
-  const { addPlantedCrop, removePlantedCrop, harvestPlantedCrop, showHarvestedCrops, setShowHarvestedCrops } = useFields();
+  const { addPlantedCrop, updatePlantedCrop, removePlantedCrop, harvestPlantedCrop, showHarvestedCrops, setShowHarvestedCrops } = useFields();
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
   const allCrops = useAllCrops();
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -78,6 +79,22 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
     harvestPlantedCrop(field.id, selectedCropId, harvestedDate, { occurredAt: occurredAt ?? harvestedDate });
   };
 
+  const handleConvertToTrapezoid = () => {
+    if (!selectedPlanted || selectedPlanted.status !== "growing") return;
+    const points = toTrapezoidPoints(selectedPlanted);
+    const bounds = polygonBounds(points);
+    updatePlantedCrop(
+      field.id,
+      selectedPlanted.id,
+      {
+        shape: { kind: "polygon", points },
+        position: { x: bounds.minX, y: bounds.minY },
+        size: { width: bounds.width, height: bounds.height },
+      },
+      { occurredAt }
+    );
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -130,6 +147,14 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
           >
             <Scissors className="size-4 mr-1" />
             標記收成
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleConvertToTrapezoid}
+            disabled={selectedPlanted?.status !== "growing"}
+          >
+            梯形/多邊形
           </Button>
           <Button size="sm" variant="destructive" onClick={handleDeleteSelected}>
             <Trash2 className="size-4 mr-1" />

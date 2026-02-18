@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Field, FieldContext, PlantedCrop } from "@/lib/types";
 import { normalizeFieldContext } from "@/lib/utils/field-context";
+import { getCropPolygon, polygonsOverlap } from "@/lib/utils/crop-shape";
 
 export type PlannerEventType =
   | "field_created"
@@ -196,13 +197,6 @@ export function bootstrapEventsFromFields(fields: Field[]): PlannerEvent[] {
   return events;
 }
 
-function rectanglesOverlap(
-  a: { x: number; y: number; width: number; height: number },
-  b: { x: number; y: number; width: number; height: number }
-) {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-}
-
 export function detectSpatialConflictsAt(events: PlannerEvent[], at: string | Date): PlannerConflict[] {
   const fields = replayPlannerEvents(events, { at, respectPlantedDate: true });
   const occurredAt = at instanceof Date ? at.toISOString() : new Date(at).toISOString();
@@ -214,12 +208,7 @@ export function detectSpatialConflictsAt(events: PlannerEvent[], at: string | Da
       for (let j = i + 1; j < activeCrops.length; j += 1) {
         const a = activeCrops[i];
         const b = activeCrops[j];
-        if (
-          rectanglesOverlap(
-            { x: a.position.x, y: a.position.y, width: a.size.width, height: a.size.height },
-            { x: b.position.x, y: b.position.y, width: b.size.width, height: b.size.height }
-          )
-        ) {
+        if (polygonsOverlap(getCropPolygon(a), getCropPolygon(b))) {
           conflicts.push({
             type: "spatial_overlap",
             fieldId: field.id,

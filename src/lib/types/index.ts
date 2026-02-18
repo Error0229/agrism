@@ -104,6 +104,18 @@ export interface CropStageProfile {
   pestRisk: "低" | "中" | "高";
 }
 
+export interface CropPoint {
+  x: number;
+  y: number;
+}
+
+export interface PolygonCropShape {
+  kind: "polygon";
+  points: CropPoint[];
+}
+
+export type PlantedCropShape = PolygonCropShape;
+
 export interface PlantedCrop {
   id: string;
   cropId: string;
@@ -113,6 +125,7 @@ export interface PlantedCrop {
   status: "growing" | "harvested" | "removed";
   position: { x: number; y: number };
   size: { width: number; height: number };
+  shape?: PlantedCropShape;
   customGrowthDays?: number;
   notes?: string;
 }

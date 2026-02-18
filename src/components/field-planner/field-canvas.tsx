@@ -4,10 +4,11 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Stage, Layer, Rect, Line, Text, Group, Circle } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
-import type { Field, PlantedCrop } from "@/lib/types";
+import type { CropPoint, Field, PlantedCrop } from "@/lib/types";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import { addDays, format } from "date-fns";
+import { getCropPolygon, polygonBounds, translatePoints } from "@/lib/utils/crop-shape";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
@@ -66,6 +67,8 @@ export default function FieldCanvas({
   const [cropDragStart, setCropDragStart] = useState<{ x: number; y: number } | null>(null);
   const [cropOriginal, setCropOriginal] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [tempCropRect, setTempCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [polygonEditCropId, setPolygonEditCropId] = useState<string | null>(null);
+  const [tempPolygonPoints, setTempPolygonPoints] = useState<CropPoint[] | null>(null);
 
   const conflictSet = useMemo(() => new Set(conflictedCropIds), [conflictedCropIds]);
 
@@ -295,6 +298,62 @@ export default function FieldCanvas({
     setTempCropRect(null);
   }, [tempCropRect, cropResizeId, field.id, updatePlantedCrop, occurredAt]);
 
+  const updatePolygonShape = useCallback(
+    (cropId: string, points: CropPoint[]) => {
+      const bounds = polygonBounds(points);
+      updatePlantedCrop(
+        field.id,
+        cropId,
+        {
+          shape: { kind: "polygon", points },
+          position: { x: bounds.minX, y: bounds.minY },
+          size: { width: bounds.width, height: bounds.height },
+        },
+        { occurredAt }
+      );
+    },
+    [field.id, occurredAt, updatePlantedCrop]
+  );
+
+  const handlePolygonDragEnd = useCallback(
+    (plantedCrop: PlantedCrop, e: KonvaEventObject<DragEvent>) => {
+      if (plantedCrop.status !== "growing") return;
+      const dx = e.target.x();
+      const dy = e.target.y();
+      const moved = translatePoints(getCropPolygon(plantedCrop), dx, dy);
+      e.target.position({ x: 0, y: 0 });
+      updatePolygonShape(plantedCrop.id, moved);
+    },
+    [updatePolygonShape]
+  );
+
+  const handlePolygonVertexMove = useCallback(
+    (plantedCrop: PlantedCrop, pointIndex: number, e: KonvaEventObject<DragEvent>) => {
+      const source = tempPolygonPoints ?? getCropPolygon(plantedCrop);
+      const next = source.map((point, index) =>
+        index === pointIndex
+          ? {
+              x: Math.max(0, Math.min(field.dimensions.width * PIXELS_PER_METER, e.target.x())),
+              y: Math.max(0, Math.min(field.dimensions.height * PIXELS_PER_METER, e.target.y())),
+            }
+          : point
+      );
+      setPolygonEditCropId(plantedCrop.id);
+      setTempPolygonPoints(next);
+    },
+    [field.dimensions.height, field.dimensions.width, tempPolygonPoints]
+  );
+
+  const handlePolygonVertexCommit = useCallback(
+    (plantedCrop: PlantedCrop) => {
+      if (polygonEditCropId !== plantedCrop.id || !tempPolygonPoints) return;
+      updatePolygonShape(plantedCrop.id, tempPolygonPoints);
+      setPolygonEditCropId(null);
+      setTempPolygonPoints(null);
+    },
+    [polygonEditCropId, tempPolygonPoints, updatePolygonShape]
+  );
+
   const handleMouseMove = useCallback(() => {
     if (activeHandle) {
       handleResizeMove();
@@ -360,8 +419,19 @@ export default function FieldCanvas({
   const visibleCrops = field.plantedCrops.filter((crop) => showHarvestedCrops || crop.status === "growing");
   const isResizing = !!activeHandle;
   const isCropResizing = !!cropResizeHandle;
+  const isPolygonEditing = !!polygonEditCropId;
 
   const getCropRect = (planted: PlantedCrop) => {
+    const points =
+      polygonEditCropId === planted.id && tempPolygonPoints
+        ? tempPolygonPoints
+        : planted.shape?.kind === "polygon"
+          ? getCropPolygon(planted)
+          : null;
+    if (points) {
+      const bounds = polygonBounds(points);
+      return { x: bounds.minX, y: bounds.minY, w: bounds.width, h: bounds.height };
+    }
     if (cropResizeId === planted.id && tempCropRect) {
       return { x: tempCropRect.x, y: tempCropRect.y, w: tempCropRect.w, h: tempCropRect.h };
     }
@@ -402,7 +472,7 @@ export default function FieldCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={!isResizing && !resizeMode && !isCropResizing}
+        draggable={!isResizing && !resizeMode && !isCropResizing && !isPolygonEditing}
         onDragEnd={(e) => {
           if (e.target === stageRef.current) {
             setPosition({ x: e.target.x(), y: e.target.y() });
@@ -494,6 +564,10 @@ export default function FieldCanvas({
             if (!cropData) return null;
             const isSelected = selectedCropId === plantedCrop.id;
             const isHovered = hoveredCropId === plantedCrop.id;
+            const polygonPoints =
+              polygonEditCropId === plantedCrop.id && tempPolygonPoints ? tempPolygonPoints : getCropPolygon(plantedCrop);
+            const isPolygon = plantedCrop.shape?.kind === "polygon" || polygonEditCropId === plantedCrop.id;
+            const flatPoints = polygonPoints.flatMap((point) => [point.x, point.y]);
             const showSpacing = isSelected || isHovered;
             const hasOverlap = checkOverlap(plantedCrop);
             const hasConflict = conflictSet.has(plantedCrop.id);
@@ -516,28 +590,50 @@ export default function FieldCanvas({
                     fill={hasOverlap ? "rgba(239,68,68,0.05)" : "rgba(59,130,246,0.05)"}
                   />
                 )}
-                <Rect
-                  x={rect.x}
-                  y={rect.y}
-                  width={rect.w}
-                  height={rect.h}
-                  fill={isHarvested ? "#9ca3af44" : `${cropData.color}40`}
-                  stroke={hasConflict ? "#dc2626" : isSelected ? "#16a34a" : isHarvested ? "#6b7280" : cropData.color}
-                  strokeWidth={hasConflict ? 2 : isSelected ? 2 : 1}
-                  dash={hasConflict ? [5, 3] : isHarvested ? [4, 4] : undefined}
-                  cornerRadius={4}
-                  draggable={plantedCrop.status === "growing" && !resizeMode && !isCropResizing}
-                  onDragEnd={(e) => handleDragEnd(plantedCrop, e)}
-                  onClick={(e) => {
-                    if (resizeMode) return;
-                    e.cancelBubble = true;
-                    onSelectCrop(plantedCrop.id);
-                  }}
-                  onMouseEnter={() => setHoveredCropId(plantedCrop.id)}
-                  onMouseLeave={() => setHoveredCropId(null)}
-                  shadowColor={isSelected ? "#16a34a" : "transparent"}
-                  shadowBlur={isSelected ? 8 : 0}
-                />
+                {isPolygon ? (
+                  <Line
+                    points={flatPoints}
+                    closed
+                    fill={isHarvested ? "#9ca3af44" : `${cropData.color}40`}
+                    stroke={hasConflict ? "#dc2626" : isSelected ? "#16a34a" : isHarvested ? "#6b7280" : cropData.color}
+                    strokeWidth={hasConflict ? 2 : isSelected ? 2 : 1}
+                    dash={hasConflict ? [5, 3] : isHarvested ? [4, 4] : undefined}
+                    draggable={plantedCrop.status === "growing" && !resizeMode && !isCropResizing && !isPolygonEditing}
+                    onDragEnd={(e) => handlePolygonDragEnd(plantedCrop, e)}
+                    onClick={(e) => {
+                      if (resizeMode) return;
+                      e.cancelBubble = true;
+                      onSelectCrop(plantedCrop.id);
+                    }}
+                    onMouseEnter={() => setHoveredCropId(plantedCrop.id)}
+                    onMouseLeave={() => setHoveredCropId(null)}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                ) : (
+                  <Rect
+                    x={rect.x}
+                    y={rect.y}
+                    width={rect.w}
+                    height={rect.h}
+                    fill={isHarvested ? "#9ca3af44" : `${cropData.color}40`}
+                    stroke={hasConflict ? "#dc2626" : isSelected ? "#16a34a" : isHarvested ? "#6b7280" : cropData.color}
+                    strokeWidth={hasConflict ? 2 : isSelected ? 2 : 1}
+                    dash={hasConflict ? [5, 3] : isHarvested ? [4, 4] : undefined}
+                    cornerRadius={4}
+                    draggable={plantedCrop.status === "growing" && !resizeMode && !isCropResizing}
+                    onDragEnd={(e) => handleDragEnd(plantedCrop, e)}
+                    onClick={(e) => {
+                      if (resizeMode) return;
+                      e.cancelBubble = true;
+                      onSelectCrop(plantedCrop.id);
+                    }}
+                    onMouseEnter={() => setHoveredCropId(plantedCrop.id)}
+                    onMouseLeave={() => setHoveredCropId(null)}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                )}
                 <Text x={rect.x + 4} y={rect.y + 4} text={cropData.emoji} fontSize={16} listening={false} />
                 <Text x={rect.x + 4} y={rect.y + 24} text={cropData.name} fontSize={10} fill="#374151" listening={false} />
                 {isHarvested && (
@@ -555,32 +651,55 @@ export default function FieldCanvas({
                 )}
 
                 {isSelected && !resizeMode && plantedCrop.status === "growing" &&
-                  getCropHandles(rect).map((ch) => {
-                    const hs = CROP_HANDLE_SIZE / scale;
-                    const isActiveCorner = cropResizeHandle === ch.id && cropResizeId === plantedCrop.id;
-                    return (
-                      <Rect
-                        key={ch.id}
-                        x={ch.x}
-                        y={ch.y}
-                        width={hs}
-                        height={hs}
-                        fill={isActiveCorner ? "#15803d" : "#22c55e"}
-                        stroke="#166534"
-                        strokeWidth={1}
-                        cornerRadius={1}
-                        onMouseDown={(e) => handleCropResizeStart(plantedCrop.id, ch.id, e)}
-                        onMouseEnter={(e) => {
-                          const container = e.target.getStage()?.container();
-                          if (container) container.style.cursor = ch.cursor;
-                        }}
-                        onMouseLeave={(e) => {
-                          const container = e.target.getStage()?.container();
-                          if (container) container.style.cursor = "default";
-                        }}
-                      />
-                    );
-                  })}
+                  (isPolygon
+                    ? polygonPoints.map((point, index) => (
+                        <Circle
+                          key={`${plantedCrop.id}-point-${index}`}
+                          x={point.x}
+                          y={point.y}
+                          radius={CROP_HANDLE_SIZE / scale}
+                          fill="#22c55e"
+                          stroke="#166534"
+                          strokeWidth={1}
+                          draggable
+                          onDragMove={(e) => handlePolygonVertexMove(plantedCrop, index, e)}
+                          onDragEnd={() => handlePolygonVertexCommit(plantedCrop)}
+                          onMouseEnter={(e) => {
+                            const container = e.target.getStage()?.container();
+                            if (container) container.style.cursor = "pointer";
+                          }}
+                          onMouseLeave={(e) => {
+                            const container = e.target.getStage()?.container();
+                            if (container) container.style.cursor = "default";
+                          }}
+                        />
+                      ))
+                    : getCropHandles(rect).map((ch) => {
+                        const hs = CROP_HANDLE_SIZE / scale;
+                        const isActiveCorner = cropResizeHandle === ch.id && cropResizeId === plantedCrop.id;
+                        return (
+                          <Rect
+                            key={ch.id}
+                            x={ch.x}
+                            y={ch.y}
+                            width={hs}
+                            height={hs}
+                            fill={isActiveCorner ? "#15803d" : "#22c55e"}
+                            stroke="#166534"
+                            strokeWidth={1}
+                            cornerRadius={1}
+                            onMouseDown={(e) => handleCropResizeStart(plantedCrop.id, ch.id, e)}
+                            onMouseEnter={(e) => {
+                              const container = e.target.getStage()?.container();
+                              if (container) container.style.cursor = ch.cursor;
+                            }}
+                            onMouseLeave={(e) => {
+                              const container = e.target.getStage()?.container();
+                              if (container) container.style.cursor = "default";
+                            }}
+                          />
+                        );
+                      }))}
               </Group>
             );
           })}

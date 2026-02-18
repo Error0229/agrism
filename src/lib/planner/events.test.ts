@@ -156,4 +156,54 @@ describe("replayPlannerEvents", () => {
       sunHours: "lt4",
     });
   });
+
+  it("detects spatial conflict when polygon shape overlaps another region", () => {
+    const events: PlannerEvent[] = [
+      {
+        id: "1",
+        type: "field_created",
+        occurredAt: "2026-02-10T00:00:00.000Z",
+        fieldId: "field-1",
+        payload: { id: "field-1", name: "A 區", dimensions: { width: 5, height: 4 } },
+      },
+      {
+        id: "2",
+        type: "crop_planted",
+        occurredAt: "2026-02-11T00:00:00.000Z",
+        fieldId: "field-1",
+        cropId: "pc-1",
+        payload: plantedCrop({
+          id: "pc-1",
+          plantedDate: "2026-02-11T00:00:00.000Z",
+          position: { x: 0, y: 0 },
+          size: { width: 60, height: 40 },
+          shape: {
+            kind: "polygon",
+            points: [
+              { x: 0, y: 0 },
+              { x: 80, y: 0 },
+              { x: 80, y: 80 },
+              { x: 0, y: 80 },
+            ],
+          },
+        }),
+      },
+      {
+        id: "3",
+        type: "crop_planted",
+        occurredAt: "2026-02-11T00:00:00.000Z",
+        fieldId: "field-1",
+        cropId: "pc-2",
+        payload: plantedCrop({
+          id: "pc-2",
+          plantedDate: "2026-02-11T00:00:00.000Z",
+          position: { x: 40, y: 20 },
+          size: { width: 40, height: 40 },
+        }),
+      },
+    ];
+
+    const conflicts = detectSpatialConflictsAt(events, "2026-02-12T00:00:00.000Z");
+    expect(conflicts.length).toBeGreaterThan(0);
+  });
 });
