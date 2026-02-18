@@ -46,7 +46,10 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   const [plannerEvents, setPlannerEvents, isLoaded] = useLocalStorage<PlannerEvent[]>("hualien-planner-events", []);
   const [showHarvestedCrops, setShowHarvestedCrops] = useLocalStorage<boolean>("hualien-show-harvested", true);
   const { customCrops } = useCustomCrops();
-  const cropCategoryById = useMemo(() => new Map(customCrops.map((crop) => [crop.id, crop.category])), [customCrops]);
+  const cropMetaById = useMemo(
+    () => new Map(customCrops.map((crop) => [crop.id, { category: crop.category, name: crop.name }])),
+    [customCrops]
+  );
 
   const normalizeFieldFacilities = useCallback(
     (field: Field): Field => {
@@ -54,11 +57,16 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
       return {
         ...field,
         plantedCrops: field.plantedCrops.map((crop) =>
-          normalizePlantedCropFacilityMetadata(crop, cropCategoryById.get(crop.cropId), validNodeIds)
+          normalizePlantedCropFacilityMetadata(
+            crop,
+            cropMetaById.get(crop.cropId)?.category,
+            validNodeIds,
+            cropMetaById.get(crop.cropId)?.name
+          )
         ),
       };
     },
-    [cropCategoryById]
+    [cropMetaById]
   );
 
   const fields = useMemo(

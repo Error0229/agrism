@@ -14,6 +14,7 @@ import { isInfrastructureCategory, type Field, type UtilityKind, type UtilityNod
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
 import {
+  deriveFacilityTypeFromCrop,
   getFacilityTypeOptions,
   normalizeFacilityName,
   normalizeFacilityType,
@@ -114,6 +115,7 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
         status: "growing",
         position: { x: 50 + column * 70, y: 50 + row * 70 },
         size: { width: crop.spacing.plant, height: crop.spacing.row },
+        facilityType: deriveFacilityTypeFromCrop(crop),
       },
       { occurredAt: plantedDate }
     );
@@ -164,7 +166,9 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, 
       {
         cropId: nextCropId,
         ...(isInfrastructureCategory(nextCrop.category)
-          ? {}
+          ? {
+              facilityType: normalizeFacilityType(selectedPlanted.facilityType) ?? deriveFacilityTypeFromCrop(nextCrop),
+            }
           : { facilityType: undefined, facilityName: undefined, linkedUtilityNodeIds: undefined }),
       },
       { occurredAt }
