@@ -49,12 +49,15 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   const cropCategoryById = useMemo(() => new Map(customCrops.map((crop) => [crop.id, crop.category])), [customCrops]);
 
   const normalizeFieldFacilities = useCallback(
-    (field: Field): Field => ({
-      ...field,
-      plantedCrops: field.plantedCrops.map((crop) =>
-        normalizePlantedCropFacilityMetadata(crop, cropCategoryById.get(crop.cropId))
-      ),
-    }),
+    (field: Field): Field => {
+      const validNodeIds = new Set((field.utilityNodes ?? []).map((node) => node.id));
+      return {
+        ...field,
+        plantedCrops: field.plantedCrops.map((crop) =>
+          normalizePlantedCropFacilityMetadata(crop, cropCategoryById.get(crop.cropId), validNodeIds)
+        ),
+      };
+    },
     [cropCategoryById]
   );
 

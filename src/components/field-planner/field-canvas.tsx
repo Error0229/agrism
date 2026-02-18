@@ -9,7 +9,7 @@ import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import { addDays, format } from "date-fns";
 import { getCropPolygon, polygonBounds, translatePoints } from "@/lib/utils/crop-shape";
-import { getPlantedCropDisplayLabel } from "@/lib/utils/facility-metadata";
+import { getLinkedUtilitySummary, getPlantedCropDisplayLabel } from "@/lib/utils/facility-metadata";
 
 const PIXELS_PER_METER = 100;
 const MIN_SIZE_METERS = 1;
@@ -634,6 +634,7 @@ export default function FieldCanvas({
             const growthDays = plantedCrop.customGrowthDays ?? cropData.growthDays;
             const expectedHarvestDate = format(addDays(new Date(plantedCrop.plantedDate), growthDays), "yyyy/MM/dd");
             const displayLabel = getPlantedCropDisplayLabel(plantedCrop, cropData.name, cropData.category);
+            const utilitySummary = getLinkedUtilitySummary(plantedCrop, cropData.category);
 
             return (
               <Group key={plantedCrop.id}>
@@ -696,6 +697,9 @@ export default function FieldCanvas({
                 <Text x={rect.x + 4} y={rect.y + 24} text={displayLabel} fontSize={10} fill="#374151" listening={false} />
                 {isHarvested && (
                   <Text x={rect.x + 4} y={rect.y + 36} text="已收成" fontSize={9} fill="#4b5563" listening={false} />
+                )}
+                {utilitySummary && (
+                  <Text x={rect.x + 4} y={rect.y + (isHarvested ? 48 : 36)} text={utilitySummary} fontSize={9} fill="#0f766e" listening={false} />
                 )}
                 {isSelected && (
                   <Text

@@ -130,6 +130,7 @@ export interface PlantedCrop {
   shape?: PlantedCropShape;
   facilityType?: FacilityType;
   facilityName?: string;
+  linkedUtilityNodeIds?: string[];
   customGrowthDays?: number;
   notes?: string;
 }
