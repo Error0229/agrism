@@ -37,6 +37,7 @@ interface FieldCanvasProps {
   occurredAt?: string;
   showHarvestedCrops: boolean;
   conflictedCropIds?: string[];
+  showUtilities: boolean;
 }
 
 export default function FieldCanvas({
@@ -47,6 +48,7 @@ export default function FieldCanvas({
   occurredAt,
   showHarvestedCrops,
   conflictedCropIds = [],
+  showUtilities,
 }: FieldCanvasProps) {
   const { updateField, updatePlantedCrop } = useFields();
   const allCrops = useAllCrops();
@@ -354,6 +356,18 @@ export default function FieldCanvas({
     [polygonEditCropId, tempPolygonPoints, updatePolygonShape]
   );
 
+  const handleUtilityNodeDragEnd = useCallback(
+    (nodeId: string, e: KonvaEventObject<DragEvent>) => {
+      const nextX = Math.max(0, Math.min(field.dimensions.width * PIXELS_PER_METER, e.target.x()));
+      const nextY = Math.max(0, Math.min(field.dimensions.height * PIXELS_PER_METER, e.target.y()));
+      const nextNodes = (field.utilityNodes ?? []).map((node) =>
+        node.id === nodeId ? { ...node, position: { x: nextX, y: nextY } } : node
+      );
+      updateField(field.id, { utilityNodes: nextNodes }, { occurredAt });
+    },
+    [field.dimensions.height, field.dimensions.width, field.id, field.utilityNodes, occurredAt, updateField]
+  );
+
   const handleMouseMove = useCallback(() => {
     if (activeHandle) {
       handleResizeMove();
@@ -417,6 +431,9 @@ export default function FieldCanvas({
   }, [canvasWidth, canvasHeight, scale]);
 
   const visibleCrops = field.plantedCrops.filter((crop) => showHarvestedCrops || crop.status === "growing");
+  const utilityNodes = useMemo(() => field.utilityNodes ?? [], [field.utilityNodes]);
+  const utilityEdges = useMemo(() => field.utilityEdges ?? [], [field.utilityEdges]);
+  const utilityNodeById = useMemo(() => new Map(utilityNodes.map((node) => [node.id, node])), [utilityNodes]);
   const isResizing = !!activeHandle;
   const isCropResizing = !!cropResizeHandle;
   const isPolygonEditing = !!polygonEditCropId;
@@ -558,6 +575,45 @@ export default function FieldCanvas({
               />
             </Group>
           )}
+
+          {showUtilities &&
+            utilityEdges.map((edge) => {
+              const from = utilityNodeById.get(edge.fromNodeId);
+              const to = utilityNodeById.get(edge.toNodeId);
+              if (!from || !to) return null;
+              return (
+                <Line
+                  key={edge.id}
+                  points={[from.position.x, from.position.y, to.position.x, to.position.y]}
+                  stroke={edge.kind === "water" ? "#0284c7" : "#f97316"}
+                  strokeWidth={3}
+                  dash={edge.kind === "water" ? [6, 4] : undefined}
+                />
+              );
+            })}
+
+          {showUtilities &&
+            utilityNodes.map((node) => (
+              <Group key={node.id}>
+                <Circle
+                  x={node.position.x}
+                  y={node.position.y}
+                  radius={7}
+                  fill={node.kind === "water" ? "#0ea5e9" : "#fb923c"}
+                  stroke="#1f2937"
+                  strokeWidth={1}
+                  draggable
+                  onDragEnd={(e) => handleUtilityNodeDragEnd(node.id, e)}
+                />
+                <Text
+                  x={node.position.x + 8}
+                  y={node.position.y - 6}
+                  text={node.label}
+                  fontSize={10}
+                  fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
+                />
+              </Group>
+            ))}
 
           {visibleCrops.map((plantedCrop) => {
             const cropData = getCropById(plantedCrop.cropId);

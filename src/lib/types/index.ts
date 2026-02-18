@@ -144,11 +144,29 @@ export interface FieldContext {
   windExposure: FieldWindExposure;
 }
 
+export type UtilityKind = "water" | "electric";
+
+export interface UtilityNode {
+  id: string;
+  label: string;
+  kind: UtilityKind;
+  position: CropPoint;
+}
+
+export interface UtilityEdge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  kind: UtilityKind;
+}
+
 export interface Field {
   id: string;
   name: string;
   dimensions: { width: number; height: number }; // 公尺
   context: FieldContext;
+  utilityNodes?: UtilityNode[];
+  utilityEdges?: UtilityEdge[];
   plantedCrops: PlantedCrop[];
 }
 

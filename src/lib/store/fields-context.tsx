@@ -78,13 +78,21 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
   const addField = useCallback(
     (name: string, width: number, height: number, options?: { occurredAt?: string; context?: Partial<FieldContext> }) => {
       const context = normalizeFieldContext(options?.context);
-      const newField: Field = { id: uuidv4(), name, dimensions: { width, height }, context, plantedCrops: [] };
+      const newField: Field = {
+        id: uuidv4(),
+        name,
+        dimensions: { width, height },
+        context,
+        utilityNodes: [],
+        utilityEdges: [],
+        plantedCrops: [],
+      };
       appendEvent(
         createPlannerEvent({
           type: "field_created",
           occurredAt: options?.occurredAt,
           fieldId: newField.id,
-          payload: { id: newField.id, name, dimensions: { width, height }, context },
+          payload: { id: newField.id, name, dimensions: { width, height }, context, utilityNodes: [], utilityEdges: [] },
         })
       );
       return newField;

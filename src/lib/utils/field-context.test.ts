@@ -19,6 +19,8 @@ describe("field context normalization", () => {
     expect(normalizeField(legacy)).toEqual({
       ...legacy,
       context: defaultFieldContext,
+      utilityNodes: [],
+      utilityEdges: [],
     });
   });
 });

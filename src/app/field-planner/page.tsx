@@ -74,6 +74,7 @@ export default function FieldPlannerPage() {
   const [selectedCropId, setSelectedCropId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("");
   const [resizeMode, setResizeMode] = useState(false);
+  const [showUtilities, setShowUtilities] = useState(true);
   const [timelineDate, setTimelineDate] = useState("");
   const [remoteTimelineEvents, setRemoteTimelineEvents] = useState<PlannerEvent[] | null>(null);
   const [remoteAnchors, setRemoteAnchors] = useState<string[] | null>(null);
@@ -306,6 +307,8 @@ export default function FieldPlannerPage() {
                         selectedCropId={selectedCropId}
                         onSelectCrop={setSelectedCropId}
                         occurredAt={currentOccurredAt}
+                        showUtilities={showUtilities}
+                        onToggleUtilities={() => setShowUtilities((prev) => !prev)}
                       />
                       <Button size="sm" variant={resizeMode ? "default" : "outline"} onClick={() => setResizeMode(!resizeMode)}>
                         {resizeMode ? (
@@ -352,6 +355,7 @@ export default function FieldPlannerPage() {
                     occurredAt={currentOccurredAt}
                     showHarvestedCrops={showHarvestedCrops}
                     conflictedCropIds={Array.from(conflictedByField.get(field.id) ?? [])}
+                    showUtilities={showUtilities}
                   />
                 </TabsContent>
               ))}
