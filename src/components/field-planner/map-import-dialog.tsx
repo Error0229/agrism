@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,7 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { useFields } from "@/lib/store/fields-context";
 import type { Field } from "@/lib/types";
-import { detectZonesFromImage, type ImageLikeData, type ZoneCandidate } from "@/lib/utils/map-zone-detection";
+import {
+  applyCropToAllZones,
+  applyFacilitySuggestionsToZones,
+  detectZonesFromImage,
+  type ImageLikeData,
+  type ZoneCandidate,
+} from "@/lib/utils/map-zone-detection";
 import { Upload } from "lucide-react";
 
 interface MapImportDialogProps {
@@ -32,6 +38,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
   const [processing, setProcessing] = useState(false);
 
   const defaultCropId = allCrops[0]?.id ?? "";
+  const [bulkCropId, setBulkCropId] = useState("");
 
   const canApply = useMemo(
     () => zones.length > 0 && zones.every((zone) => Boolean(zone.cropId)),
@@ -39,6 +46,11 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
   );
   const calibrationDistanceMeters = Number(calibrationDistance);
   const canCalibrate = calibrationPoints.length === 2 && Number.isFinite(calibrationDistanceMeters) && calibrationDistanceMeters > 0;
+
+  useEffect(() => {
+    if (!defaultCropId) return;
+    setBulkCropId((prev) => prev || defaultCropId);
+  }, [defaultCropId]);
 
   const runDetection = (nextImageData: ImageLikeData, useCalibration: boolean) => {
     const detected = detectZonesFromImage(nextImageData, field, defaultCropId, {
@@ -52,6 +64,7 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
           : undefined,
     });
     setZones(detected);
+    setBulkCropId((prev) => prev || defaultCropId);
     setStatus(detected.length > 0 ? `已偵測 ${detected.length} 個候選區域。` : "未偵測到可用分區，請換一張對比更高的圖。");
   };
 
@@ -145,6 +158,25 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
     setOpen(false);
   };
 
+  const handleBulkAssign = () => {
+    if (!bulkCropId || zones.length === 0) return;
+    setZones((prev) => applyCropToAllZones(prev, bulkCropId));
+    setStatus(`已將 ${zones.length} 個區域批次指定為同一項目。`);
+  };
+
+  const handleAutoFacilitySuggestions = () => {
+    if (zones.length === 0) return;
+    const before = zones.map((zone) => zone.cropId).join("|");
+    const next = applyFacilitySuggestionsToZones(zones, allCrops);
+    const after = next.map((zone) => zone.cropId).join("|");
+    setZones(next);
+    if (before === after) {
+      setStatus("目前顏色分區沒有可套用的設施建議。");
+      return;
+    }
+    setStatus("已依顏色套用可辨識的設施建議。");
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -215,38 +247,63 @@ export function MapImportDialog({ field, occurredAt }: MapImportDialogProps) {
           )}
 
           {zones.length > 0 && (
-            <ScrollArea className="h-60 rounded border p-2">
-              <div className="space-y-2">
-                {zones.map((zone, index) => (
-                  <div key={zone.id} className="rounded border p-2">
-                    <div className="mb-1 flex items-center gap-2 text-sm">
-                      <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: zone.color }} />
-                      <span>區域 {index + 1}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({Math.round(zone.width)}×{Math.round(zone.height)} cm)
-                      </span>
-                    </div>
-                    <Select
-                      value={zone.cropId}
-                      onValueChange={(value) =>
-                        setZones((prev) => prev.map((item) => (item.id === zone.id ? { ...item, cropId: value } : item)))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="選擇作物或設施" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allCrops.map((crop) => (
-                          <SelectItem key={crop.id} value={crop.id}>
-                            {crop.emoji} {crop.name}（{crop.category}）
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+            <div className="space-y-2">
+              <div className="rounded border p-2">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Select value={bulkCropId} onValueChange={setBulkCropId}>
+                    <SelectTrigger className="w-[260px]">
+                      <SelectValue placeholder="批次選擇作物或設施" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCrops.map((crop) => (
+                        <SelectItem key={crop.id} value={crop.id}>
+                          {crop.emoji} {crop.name}（{crop.category}）
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={handleBulkAssign} disabled={!bulkCropId}>
+                    套用到全部區域
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleAutoFacilitySuggestions}>
+                    依顏色自動標示設施
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">可先批次套用，再逐區覆寫。</p>
               </div>
-            </ScrollArea>
+              <ScrollArea className="h-60 rounded border p-2">
+                <div className="space-y-2">
+                  {zones.map((zone, index) => (
+                    <div key={zone.id} className="rounded border p-2">
+                      <div className="mb-1 flex items-center gap-2 text-sm">
+                        <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: zone.color }} />
+                        <span>區域 {index + 1}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({Math.round(zone.width)}×{Math.round(zone.height)} cm)
+                        </span>
+                      </div>
+                      <Select
+                        value={zone.cropId}
+                        onValueChange={(value) =>
+                          setZones((prev) => prev.map((item) => (item.id === zone.id ? { ...item, cropId: value } : item)))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="選擇作物或設施" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allCrops.map((crop) => (
+                            <SelectItem key={crop.id} value={crop.id}>
+                              {crop.emoji} {crop.name}（{crop.category}）
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
           )}
 
           <Button onClick={handleApply} disabled={!canApply || processing}>
