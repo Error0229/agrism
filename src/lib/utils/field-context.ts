@@ -33,6 +33,8 @@ export function normalizeField(field: LegacyField): Field {
   return {
     ...field,
     context: normalizeFieldContext(field.context),
+    utilityNodes: Array.isArray(field.utilityNodes) ? field.utilityNodes : [],
+    utilityEdges: Array.isArray(field.utilityEdges) ? field.utilityEdges : [],
   };
 }
 

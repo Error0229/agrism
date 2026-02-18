@@ -5,31 +5,47 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFields } from "@/lib/store/fields-context";
 import { useTasks } from "@/lib/store/tasks-context";
 import { useAllCrops } from "@/lib/data/crop-lookup";
 import { generateTasksForPlantedCrop } from "@/lib/utils/calendar-helpers";
-import { isInfrastructureCategory, type Field } from "@/lib/types";
+import { isInfrastructureCategory, type Field, type UtilityKind } from "@/lib/types";
 import { polygonBounds, toTrapezoidPoints } from "@/lib/utils/crop-shape";
 import { mergeCropRegions, splitCropRegion, type SplitDirection } from "@/lib/utils/region-edit";
 import { CropTimingDialog } from "./crop-timing-dialog";
 import { CropHarvestDialog } from "./crop-harvest-dialog";
 import { Plus, Trash2, Clock, Scissors, Eye, EyeOff } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 interface FieldToolbarProps {
   field: Field;
   selectedCropId: string | null;
   onSelectCrop: (id: string | null) => void;
   occurredAt?: string;
+  showUtilities: boolean;
+  onToggleUtilities: () => void;
 }
 
-export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }: FieldToolbarProps) {
-  const { addPlantedCrop, updatePlantedCrop, removePlantedCrop, harvestPlantedCrop, showHarvestedCrops, setShowHarvestedCrops } = useFields();
+export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt, showUtilities, onToggleUtilities }: FieldToolbarProps) {
+  const {
+    addPlantedCrop,
+    updatePlantedCrop,
+    updateField,
+    removePlantedCrop,
+    harvestPlantedCrop,
+    showHarvestedCrops,
+    setShowHarvestedCrops,
+  } = useFields();
   const { addTasks, removeTasksByPlantedCrop } = useTasks();
   const allCrops = useAllCrops();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [reassignOpen, setReassignOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [edgeKind, setEdgeKind] = useState<UtilityKind>("water");
+  const [fromNodeId, setFromNodeId] = useState("");
+  const [toNodeId, setToNodeId] = useState("");
   const [search, setSearch] = useState("");
   const [timingOpen, setTimingOpen] = useState(false);
   const [harvestOpen, setHarvestOpen] = useState(false);
@@ -53,6 +69,8 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
         .filter((item) => Boolean(item.meta)),
     [allCrops, field.plantedCrops, selectedCropId]
   );
+  const utilityNodes = field.utilityNodes ?? [];
+  const utilityEdges = field.utilityEdges ?? [];
 
   const handleAddCrop = (cropId: string) => {
     const crop = allCrops.find((c) => c.id === cropId);
@@ -191,6 +209,53 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
     setMergeOpen(false);
   };
 
+  const handleAddUtilityNode = (kind: UtilityKind) => {
+    const count = utilityNodes.filter((node) => node.kind === kind).length;
+    const nextNode = {
+      id: uuidv4(),
+      label: `${kind === "water" ? "水" : "電"}節點 ${count + 1}`,
+      kind,
+      position: {
+        x: 80 + (count % 4) * 120,
+        y: 80 + Math.floor(count / 4) * 90,
+      },
+    };
+    updateField(field.id, { utilityNodes: [...utilityNodes, nextNode] }, { occurredAt });
+  };
+
+  const handleConnectNodes = () => {
+    if (!fromNodeId || !toNodeId || fromNodeId === toNodeId) return;
+    const exists = utilityEdges.some(
+      (edge) =>
+        edge.kind === edgeKind &&
+        ((edge.fromNodeId === fromNodeId && edge.toNodeId === toNodeId) ||
+          (edge.fromNodeId === toNodeId && edge.toNodeId === fromNodeId))
+    );
+    if (exists) {
+      window.alert("相同類型的連線已存在。");
+      return;
+    }
+
+    updateField(
+      field.id,
+      {
+        utilityEdges: [
+          ...utilityEdges,
+          {
+            id: uuidv4(),
+            fromNodeId,
+            toNodeId,
+            kind: edgeKind,
+          },
+        ],
+      },
+      { occurredAt }
+    );
+    setConnectOpen(false);
+    setFromNodeId("");
+    setToNodeId("");
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -228,6 +293,59 @@ export function FieldToolbar({ field, selectedCropId, onSelectCrop, occurredAt }
         {showHarvestedCrops ? <EyeOff className="size-4 mr-1" /> : <Eye className="size-4 mr-1" />}
         {showHarvestedCrops ? "隱藏已收成" : "顯示已收成"}
       </Button>
+      <Button size="sm" variant="outline" onClick={onToggleUtilities}>
+        {showUtilities ? "隱藏水電" : "顯示水電"}
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => handleAddUtilityNode("water")}>
+        新增水點
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => handleAddUtilityNode("electric")}>
+        新增電點
+      </Button>
+      <Popover open={connectOpen} onOpenChange={setConnectOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline" disabled={utilityNodes.length < 2}>
+            連接節點
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 space-y-2" align="start">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">連線類型</p>
+            <Select value={edgeKind} onValueChange={(value) => setEdgeKind(value as UtilityKind)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="water">供水</SelectItem>
+                <SelectItem value="electric">供電</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">起點</p>
+            <Select value={fromNodeId} onValueChange={setFromNodeId}>
+              <SelectTrigger><SelectValue placeholder="選擇起點" /></SelectTrigger>
+              <SelectContent>
+                {utilityNodes.map((node) => (
+                  <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">終點</p>
+            <Select value={toNodeId} onValueChange={setToNodeId}>
+              <SelectTrigger><SelectValue placeholder="選擇終點" /></SelectTrigger>
+              <SelectContent>
+                {utilityNodes.map((node) => (
+                  <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button size="sm" className="w-full" onClick={handleConnectNodes} disabled={!fromNodeId || !toNodeId || fromNodeId === toNodeId}>
+            建立連線
+          </Button>
+        </PopoverContent>
+      </Popover>
 
       {selectedCropId && (
         <>

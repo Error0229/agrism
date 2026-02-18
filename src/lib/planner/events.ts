@@ -60,12 +60,16 @@ export function replayPlannerEvents(events: PlannerEvent[], options?: ReplayOpti
           name: string;
           dimensions: Field["dimensions"];
           context?: Partial<FieldContext>;
+          utilityNodes?: Field["utilityNodes"];
+          utilityEdges?: Field["utilityEdges"];
         };
         fieldsMap.set(payload.id, {
           id: payload.id,
           name: payload.name,
           dimensions: payload.dimensions,
           context: normalizeFieldContext(payload.context),
+          utilityNodes: Array.isArray(payload.utilityNodes) ? payload.utilityNodes : [],
+          utilityEdges: Array.isArray(payload.utilityEdges) ? payload.utilityEdges : [],
           plantedCrops: [],
         });
         break;
@@ -178,6 +182,8 @@ export function bootstrapEventsFromFields(fields: Field[]): PlannerEvent[] {
           name: field.name,
           dimensions: field.dimensions,
           context: normalizeFieldContext(field.context),
+          utilityNodes: field.utilityNodes ?? [],
+          utilityEdges: field.utilityEdges ?? [],
         },
       })
     );
