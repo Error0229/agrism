@@ -116,6 +116,8 @@ export interface PolygonCropShape {
 
 export type PlantedCropShape = PolygonCropShape;
 
+export type FacilityType = "water_tank" | "motor" | "road" | "tool_shed" | "house" | "custom";
+
 export interface PlantedCrop {
   id: string;
   cropId: string;
@@ -126,6 +128,8 @@ export interface PlantedCrop {
   position: { x: number; y: number };
   size: { width: number; height: number };
   shape?: PlantedCropShape;
+  facilityType?: FacilityType;
+  facilityName?: string;
   customGrowthDays?: number;
   notes?: string;
 }

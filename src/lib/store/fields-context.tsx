@@ -6,6 +6,8 @@ import type { Field, FieldContext, PlantedCrop } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 import { bootstrapEventsFromFields, createPlannerEvent, replayPlannerEvents, type PlannerEvent } from "@/lib/planner/events";
 import { normalizeField, normalizeFieldContext, type LegacyField } from "@/lib/utils/field-context";
+import { normalizePlantedCropFacilityMetadata } from "@/lib/utils/facility-metadata";
+import { useCustomCrops } from "@/lib/store/custom-crops-context";
 
 interface FieldsContextType {
   fields: Field[];
@@ -43,7 +45,23 @@ const FieldsContext = createContext<FieldsContextType | null>(null);
 export function FieldsProvider({ children }: { children: ReactNode }) {
   const [plannerEvents, setPlannerEvents, isLoaded] = useLocalStorage<PlannerEvent[]>("hualien-planner-events", []);
   const [showHarvestedCrops, setShowHarvestedCrops] = useLocalStorage<boolean>("hualien-show-harvested", true);
-  const fields = useMemo(() => replayPlannerEvents(plannerEvents).map(normalizeField), [plannerEvents]);
+  const { customCrops } = useCustomCrops();
+  const cropCategoryById = useMemo(() => new Map(customCrops.map((crop) => [crop.id, crop.category])), [customCrops]);
+
+  const normalizeFieldFacilities = useCallback(
+    (field: Field): Field => ({
+      ...field,
+      plantedCrops: field.plantedCrops.map((crop) =>
+        normalizePlantedCropFacilityMetadata(crop, cropCategoryById.get(crop.cropId))
+      ),
+    }),
+    [cropCategoryById]
+  );
+
+  const fields = useMemo(
+    () => replayPlannerEvents(plannerEvents).map(normalizeField).map(normalizeFieldFacilities),
+    [normalizeFieldFacilities, plannerEvents]
+  );
 
   const appendEvent = useCallback(
     (event: PlannerEvent) => {
@@ -194,8 +212,10 @@ export function FieldsProvider({ children }: { children: ReactNode }) {
 
   const getFieldsAt = useCallback(
     (at: string | Date, options?: { respectPlantedDate?: boolean }) =>
-      replayPlannerEvents(plannerEvents, { at, respectPlantedDate: options?.respectPlantedDate }).map(normalizeField),
-    [plannerEvents]
+      replayPlannerEvents(plannerEvents, { at, respectPlantedDate: options?.respectPlantedDate })
+        .map(normalizeField)
+        .map(normalizeFieldFacilities),
+    [normalizeFieldFacilities, plannerEvents]
   );
 
   return (
