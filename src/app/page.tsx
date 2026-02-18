@@ -12,6 +12,7 @@ import { PlantingSuggestionsCard } from "@/components/dashboard/planting-suggest
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { HarvestCountdown } from "@/components/dashboard/harvest-countdown";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { IntegrationStatus } from "@/components/dashboard/integration-status";
 import { prioritizeWeeklyTasks } from "@/lib/utils/task-prioritizer";
 import { forecastWorkload } from "@/lib/utils/workload-forecast";
 import { Sprout, Map, CalendarDays, CheckCircle2, Check } from "lucide-react";
@@ -235,6 +236,7 @@ export default function HomePage() {
 
       {/* 即時天氣 */}
       <WeatherWidget />
+      <IntegrationStatus />
     </div>
   );
 }
