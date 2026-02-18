@@ -1,4 +1,4 @@
-import type { Field } from "@/lib/types";
+import { CropCategory, type Crop, type Field } from "@/lib/types";
 
 export interface ZoneCandidate {
   id: string;
@@ -35,6 +35,8 @@ interface DetectZoneOptions {
   calibration?: ZoneCalibration;
 }
 
+type SuggestedFacilityName = "蓄水池" | "道路" | "房舍";
+
 function rgbDistance(a: [number, number, number], b: [number, number, number]) {
   const dr = a[0] - b[0];
   const dg = a[1] - b[1];
@@ -44,6 +46,27 @@ function rgbDistance(a: [number, number, number], b: [number, number, number]) {
 
 function toHex(r: number, g: number, b: number) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+function hexToRgb(color: string): [number, number, number] | null {
+  const normalized = color.trim().toLowerCase();
+  const matched = normalized.match(/^#?([0-9a-f]{6})$/);
+  if (!matched) return null;
+  const hex = matched[1];
+  const r = Number.parseInt(hex.slice(0, 2), 16);
+  const g = Number.parseInt(hex.slice(2, 4), 16);
+  const b = Number.parseInt(hex.slice(4, 6), 16);
+  return [r, g, b];
+}
+
+function hsvSaturationAndValue([r, g, b]: [number, number, number]) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  return { saturation, value: max };
 }
 
 function clampZoneToField(
@@ -202,5 +225,48 @@ export function detectZonesFromImage(
       width: clamped.width,
       height: clamped.height,
     };
+  });
+}
+
+export function inferFacilityNameFromColor(color: string): SuggestedFacilityName | null {
+  const rgb = hexToRgb(color);
+  if (!rgb) return null;
+  const [r, g, b] = rgb;
+  const { saturation, value } = hsvSaturationAndValue(rgb);
+
+  const blueDominant = b >= 100 && b - Math.max(r, g) >= 24;
+  if (blueDominant) return "蓄水池";
+
+  const grayRoad = saturation <= 0.18 && value >= 0.25 && value <= 0.78;
+  if (grayRoad) return "道路";
+
+  const houseTone = r >= 90 && r - g >= 16 && g - b >= 6 && value <= 0.74;
+  if (houseTone) return "房舍";
+
+  return null;
+}
+
+export function suggestFacilityCropIdByColor(
+  color: string,
+  crops: Pick<Crop, "id" | "name" | "category">[]
+): string | null {
+  const facilityName = inferFacilityNameFromColor(color);
+  if (!facilityName) return null;
+  const matched = crops.find((crop) => crop.category === CropCategory.其它類 && crop.name === facilityName);
+  return matched?.id ?? null;
+}
+
+export function applyCropToAllZones(zones: ZoneCandidate[], cropId: string): ZoneCandidate[] {
+  if (!cropId) return zones;
+  return zones.map((zone) => ({ ...zone, cropId }));
+}
+
+export function applyFacilitySuggestionsToZones(
+  zones: ZoneCandidate[],
+  crops: Pick<Crop, "id" | "name" | "category">[]
+): ZoneCandidate[] {
+  return zones.map((zone) => {
+    const suggestedId = suggestFacilityCropIdByColor(zone.color, crops);
+    return suggestedId ? { ...zone, cropId: suggestedId } : zone;
   });
 }

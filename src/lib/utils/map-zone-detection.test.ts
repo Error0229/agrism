@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { detectZonesFromImage } from "@/lib/utils/map-zone-detection";
+import {
+  applyCropToAllZones,
+  applyFacilitySuggestionsToZones,
+  detectZonesFromImage,
+  inferFacilityNameFromColor,
+} from "@/lib/utils/map-zone-detection";
 import { defaultFieldContext } from "@/lib/utils/field-context";
-import type { Field } from "@/lib/types";
+import { CropCategory, type Field } from "@/lib/types";
 
 function makeImageData(width: number, height: number, painter: (x: number, y: number) => [number, number, number, number]) {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -54,5 +59,41 @@ describe("detectZonesFromImage", () => {
 
     expect(rawWideZone).toBeDefined();
     expect(calibratedZone).toBeDefined();
+  });
+});
+
+describe("map zone assignment helpers", () => {
+  it("infers facility names from common colors", () => {
+    expect(inferFacilityNameFromColor("#3f77d1")).toBe("蓄水池");
+    expect(inferFacilityNameFromColor("#7a7a7a")).toBe("道路");
+    expect(inferFacilityNameFromColor("#8f5e45")).toBe("房舍");
+    expect(inferFacilityNameFromColor("#2ec95d")).toBeNull();
+  });
+
+  it("applies a selected crop to all zones", () => {
+    const zones = [
+      { id: "z1", color: "#777777", cropId: "a", x: 0, y: 0, width: 10, height: 10 },
+      { id: "z2", color: "#3366cc", cropId: "b", x: 10, y: 0, width: 10, height: 10 },
+    ];
+
+    const next = applyCropToAllZones(zones, "bulk-id");
+    expect(next.every((zone) => zone.cropId === "bulk-id")).toBe(true);
+  });
+
+  it("auto-assigns facility crops by zone color when matching crops exist", () => {
+    const zones = [
+      { id: "z1", color: "#777777", cropId: "keep-1", x: 0, y: 0, width: 10, height: 10 },
+      { id: "z2", color: "#3f77d1", cropId: "keep-2", x: 10, y: 0, width: 10, height: 10 },
+      { id: "z3", color: "#11cc66", cropId: "keep-3", x: 20, y: 0, width: 10, height: 10 },
+    ];
+    const crops = [
+      { id: "facility-road", name: "道路", category: CropCategory.其它類 },
+      { id: "facility-water", name: "蓄水池", category: CropCategory.其它類 },
+    ];
+
+    const next = applyFacilitySuggestionsToZones(zones, crops);
+    expect(next.find((zone) => zone.id === "z1")?.cropId).toBe("facility-road");
+    expect(next.find((zone) => zone.id === "z2")?.cropId).toBe("facility-water");
+    expect(next.find((zone) => zone.id === "z3")?.cropId).toBe("keep-3");
   });
 });
