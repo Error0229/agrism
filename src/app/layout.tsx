@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "@/components/providers";
 import { AppSessionProvider } from "@/components/auth/session-provider";
 import { RootShell } from "@/components/layout/root-shell";
 
@@ -27,9 +28,11 @@ export default function RootLayout({
   return (
     <html lang="zh-TW">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
-        <AppSessionProvider>
-          <RootShell>{children}</RootShell>
-        </AppSessionProvider>
+        <Providers>
+          <AppSessionProvider>
+            <RootShell>{children}</RootShell>
+          </AppSessionProvider>
+        </Providers>
       </body>
     </html>
   );
