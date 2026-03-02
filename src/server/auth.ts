@@ -2,14 +2,14 @@ import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
-import { verify } from '@node-rs/argon2'
 import { db } from '@/server/db'
 import { appUsers } from '@/server/db/schema'
 import { getDefaultFarmIdForUser } from './auth-queries'
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  // Argon2 hashes start with $argon2
+  // Argon2 hashes start with $argon2 — dynamic import to avoid Edge runtime issues
   if (hash.startsWith('$argon2')) {
+    const { verify } = await import('@node-rs/argon2')
     return verify(hash, password)
   }
   // Fall back to bcrypt for existing hashes
