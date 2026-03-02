@@ -190,6 +190,8 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      <h1 className="text-2xl font-bold">種植行事曆</h1>
+
       {/* ── Month Calendar Grid ─────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3">
