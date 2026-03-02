@@ -66,9 +66,6 @@ export default function AiAssistantPage() {
     const cropMap = new Map(
       (cropsData ?? []).map((c) => [c.id, c.name]),
     )
-    const fieldMap = new Map(
-      (fieldsData ?? []).map((f) => [f.id, f.name]),
-    )
 
     const plantedInfo = (fieldsData ?? []).flatMap((field) =>
       field.plantedCrops

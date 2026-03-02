@@ -8,7 +8,6 @@ import {
   real,
   text,
   timestamp,
-  unique,
   uuid,
 } from 'drizzle-orm/pg-core'
 

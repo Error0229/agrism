@@ -227,18 +227,20 @@ export async function exportTasksCsv(farmId: string) {
 // Import — v1 localStorage JSON migration
 // ---------------------------------------------------------------------------
 
+const anyObj = z.record(z.string(), z.unknown())
+
 const v1ImportSchema = z.object({
   version: z.number().optional(),
-  plannerEvents: z.array(z.record(z.unknown())).optional(),
-  tasks: z.array(z.record(z.unknown())).optional(),
-  customCrops: z.array(z.record(z.unknown())).optional(),
-  cropTemplates: z.array(z.record(z.unknown())).optional(),
-  harvestLogs: z.array(z.record(z.unknown())).optional(),
-  financeRecords: z.array(z.record(z.unknown())).optional(),
-  soilNotes: z.array(z.record(z.unknown())).optional(),
-  soilProfiles: z.array(z.record(z.unknown())).optional(),
-  soilAmendments: z.array(z.record(z.unknown())).optional(),
-  weatherLogs: z.array(z.record(z.unknown())).optional(),
+  plannerEvents: z.array(anyObj).optional(),
+  tasks: z.array(anyObj).optional(),
+  customCrops: z.array(anyObj).optional(),
+  cropTemplates: z.array(anyObj).optional(),
+  harvestLogs: z.array(anyObj).optional(),
+  financeRecords: z.array(anyObj).optional(),
+  soilNotes: z.array(anyObj).optional(),
+  soilProfiles: z.array(anyObj).optional(),
+  soilAmendments: z.array(anyObj).optional(),
+  weatherLogs: z.array(anyObj).optional(),
 })
 
 export async function importFarmData(

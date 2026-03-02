@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { verify } from '@node-rs/argon2'
 import { db } from '@/server/db'
 import { appUsers } from '@/server/db/schema'
+import { getDefaultFarmIdForUser } from './auth-queries'
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   // Argon2 hashes start with $argon2
@@ -13,6 +14,14 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
   }
   // Fall back to bcrypt for existing hashes
   return bcrypt.compare(password, hash)
+}
+
+function getSecret(): string {
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('NEXTAUTH_SECRET is required in production')
+  }
+  return secret ?? 'dev-only-insecure-secret-change-me'
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -51,16 +60,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user?.id) token.sub = user.id
+      // Fetch farmId on initial sign-in or when session is updated
+      if ((user?.id || trigger === 'update') && token.sub) {
+        const farmId = await getDefaultFarmIdForUser(token.sub)
+        token.farmId = farmId
+      }
       return token
     },
     session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub
       }
+      if (session.user && token.farmId) {
+        session.user.farmId = token.farmId as string
+      }
       return session
     },
   },
-  secret: process.env.NEXTAUTH_SECRET ?? 'dev-only-insecure-secret-change-me',
+  secret: getSecret(),
 })

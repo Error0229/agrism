@@ -4,7 +4,7 @@ import { and, between, eq, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/server/db'
-import { crops, fields, plantedCrops, tasks } from '@/server/db/schema'
+import { tasks } from '@/server/db/schema'
 
 // ---------------------------------------------------------------------------
 // Zod schemas
