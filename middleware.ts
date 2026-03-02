@@ -23,6 +23,5 @@ export const config = {
     '/weather/:path*',
     '/ai/:path*',
     '/settings/:path*',
-    '/api/planner/:path*',
   ],
 }
