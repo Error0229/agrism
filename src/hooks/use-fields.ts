@@ -138,15 +138,11 @@ export function useCreateFacility() {
 export function useUpdateFacility() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({
-      id,
-      fieldId,
-      data,
-    }: {
+    mutationFn: (args: {
       id: string
       fieldId: string
       data: Parameters<typeof updateFacility>[1]
-    }) => updateFacility(id, data),
+    }) => updateFacility(args.id, args.data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
@@ -156,8 +152,8 @@ export function useUpdateFacility() {
 export function useDeleteFacility() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, fieldId }: { id: string; fieldId: string }) =>
-      deleteFacility(id),
+    mutationFn: (args: { id: string; fieldId: string }) =>
+      deleteFacility(args.id),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
@@ -180,8 +176,8 @@ export function useCreateUtilityNode() {
 export function useDeleteUtilityNode() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, fieldId }: { id: string; fieldId: string }) =>
-      deleteUtilityNode(id),
+    mutationFn: (args: { id: string; fieldId: string }) =>
+      deleteUtilityNode(args.id),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
@@ -202,8 +198,8 @@ export function useCreateUtilityEdge() {
 export function useDeleteUtilityEdge() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, fieldId }: { id: string; fieldId: string }) =>
-      deleteUtilityEdge(id),
+    mutationFn: (args: { id: string; fieldId: string }) =>
+      deleteUtilityEdge(args.id),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
