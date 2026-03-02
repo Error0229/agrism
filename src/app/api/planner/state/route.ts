@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPlannerEvents } from "@/lib/server/planner-event-store";
 import { replayPlannerEvents } from "@/lib/planner/events";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth/options";
-import { ensureUserFarmMembership, getDefaultFarmIdForUser } from "@/lib/server/auth-db";
-import type { Session } from "next-auth";
+import { auth } from "@/server/auth";
+import { ensureUserFarmMembership, getDefaultFarmIdForUser } from "@/server/auth-queries";
 
 export async function GET(req: Request) {
   try {
-    const session = (await getServerSession(authOptions)) as (Session & { user: { id: string } }) | null;
+    const session = await auth();
     const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

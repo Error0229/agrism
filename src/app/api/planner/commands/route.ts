@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import type { PlannerEvent } from "@/lib/planner/events";
 import { appendPlannerEvent } from "@/lib/server/planner-event-store";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth/options";
-import { ensureUserFarmMembership, getDefaultFarmIdForUser } from "@/lib/server/auth-db";
-import type { Session } from "next-auth";
+import { auth } from "@/server/auth";
+import { ensureUserFarmMembership, getDefaultFarmIdForUser } from "@/server/auth-queries";
 
 export async function POST(req: Request) {
   try {
-    const session = (await getServerSession(authOptions)) as (Session & { user: { id: string } }) | null;
+    const session = await auth();
     const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

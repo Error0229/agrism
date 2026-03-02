@@ -1,6 +1,5 @@
 import { neon } from "@neondatabase/serverless";
 import type { PlannerEvent } from "@/lib/planner/events";
-import { ensureAuthSchema } from "@/lib/server/auth-db";
 
 function getSqlClient() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -11,8 +10,6 @@ function getSqlClient() {
 export async function ensurePlannerEventTable() {
   const sql = getSqlClient();
   if (!sql) return false;
-  await ensureAuthSchema();
-
   await sql`
     CREATE TABLE IF NOT EXISTS planner_events (
       id UUID PRIMARY KEY,

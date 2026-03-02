@@ -27,6 +27,7 @@ export const farmMembers = pgTable(
       .notNull()
       .references(() => appUsers.id),
     role: text().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
     unique('farm_members_farm_id_user_id_unique').on(table.farmId, table.userId),
