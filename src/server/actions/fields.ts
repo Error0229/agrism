@@ -100,6 +100,12 @@ const createUtilityNodeSchema = z.object({
   yM: z.number().min(0),
 })
 
+const updateUtilityNodeSchema = z.object({
+  label: z.string().min(1).optional(),
+  xM: z.number().min(0).optional(),
+  yM: z.number().min(0).optional(),
+})
+
 const createUtilityEdgeSchema = z.object({
   fromNodeId: z.string().uuid(),
   toNodeId: z.string().uuid(),
@@ -414,6 +420,21 @@ export async function createUtilityNode(
     .returning()
 
   return node
+}
+
+export async function updateUtilityNode(
+  id: string,
+  data: z.infer<typeof updateUtilityNodeSchema>,
+) {
+  const parsed = updateUtilityNodeSchema.parse(data)
+
+  const [updated] = await db
+    .update(utilityNodes)
+    .set(parsed)
+    .where(eq(utilityNodes.id, id))
+    .returning()
+
+  return updated
 }
 
 export async function deleteUtilityNode(id: string) {

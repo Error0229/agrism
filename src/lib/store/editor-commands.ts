@@ -43,6 +43,29 @@ export function createMoveCommand(params: {
   };
 }
 
+export function createResizeCommand(params: {
+  id: string;
+  oldBounds: { xM: number; yM: number; widthM: number; heightM: number };
+  newBounds: { xM: number; yM: number; widthM: number; heightM: number };
+  updateFn: (
+    id: string,
+    data: { xM: number; yM: number; widthM: number; heightM: number },
+  ) => Promise<unknown>;
+}): Command {
+  const { id, oldBounds, newBounds, updateFn } = params;
+
+  return {
+    id: nextCommandId(),
+    label: "Resize item",
+    async execute() {
+      await updateFn(id, newBounds);
+    },
+    async undo() {
+      await updateFn(id, oldBounds);
+    },
+  };
+}
+
 export function createDeleteCommand(params: {
   ids: string[];
   deleteFn: (id: string) => Promise<void>;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Redo2, Undo2 } from "lucide-react";
 
-import { useFieldById } from "@/hooks/use-fields";
+import { useFieldById, usePlantCrop } from "@/hooks/use-fields";
+import { useFarmId } from "@/hooks/use-farm-id";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,17 +15,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { EditorCanvas } from "./editor-canvas";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorStatusBar } from "./editor-status-bar";
 import { PropertyInspector } from "./property-inspector";
+import { PlantCropDialog } from "./plant-crop-dialog";
 
 interface EditorLayoutProps {
   fieldId: string;
 }
 
 export function EditorLayout({ fieldId }: EditorLayoutProps) {
+  const farmId = useFarmId();
   const { data: field, isLoading } = useFieldById(fieldId);
   const setActiveField = useFieldEditor((s) => s.setActiveField);
+  const setTool = useFieldEditor((s) => s.setTool);
   const undo = useFieldEditor((s) => s.undo);
   const redo = useFieldEditor((s) => s.redo);
   const canUndo = useFieldEditor((s) => s.canUndo);
@@ -33,9 +38,45 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const zoomIn = useFieldEditor((s) => s.zoomIn);
   const zoomOut = useFieldEditor((s) => s.zoomOut);
 
+  const plantCrop = usePlantCrop(farmId ?? "");
+
+  // Draw rect completion state
+  const [pendingRect, setPendingRect] = useState<{
+    xM: number;
+    yM: number;
+    widthM: number;
+    heightM: number;
+  } | null>(null);
+
   useEffect(() => {
     setActiveField(fieldId);
   }, [fieldId, setActiveField]);
+
+  const handleDrawRectComplete = useCallback(
+    (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
+      setPendingRect(rect);
+    },
+    [],
+  );
+
+  const handlePlantCrop = useCallback(
+    async (cropId: string) => {
+      if (!pendingRect) return;
+      await plantCrop.mutateAsync({
+        fieldId,
+        data: {
+          cropId,
+          xM: pendingRect.xM,
+          yM: pendingRect.yM,
+          widthM: pendingRect.widthM,
+          heightM: pendingRect.heightM,
+        },
+      });
+      setPendingRect(null);
+      setTool("select");
+    },
+    [pendingRect, plantCrop, fieldId, setTool],
+  );
 
   if (isLoading) {
     return (
@@ -138,11 +179,12 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         {/* Left: toolbar */}
         <EditorToolbar />
 
-        {/* Center: canvas placeholder */}
-        <div className="flex flex-1 items-center justify-center bg-muted/30">
-          <p className="text-sm text-muted-foreground">
-            畫布區域 &mdash; 將在 react-konva 整合後顯示
-          </p>
+        {/* Center: canvas */}
+        <div className="flex-1 bg-muted/30">
+          <EditorCanvas
+            field={field}
+            onDrawRectComplete={handleDrawRectComplete}
+          />
         </div>
 
         {/* Right: property inspector */}
@@ -162,6 +204,19 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         fieldWidthM={Number(field.widthM)}
         fieldHeightM={Number(field.heightM)}
       />
+
+      {/* Plant crop dialog (opens after draw_rect completion) */}
+      {farmId && (
+        <PlantCropDialog
+          farmId={farmId}
+          open={pendingRect !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingRect(null);
+          }}
+          onSelect={handlePlantCrop}
+          rectInfo={pendingRect}
+        />
+      )}
     </div>
   );
 }
