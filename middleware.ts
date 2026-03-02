@@ -9,12 +9,20 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
+    // Legacy routes (kept during migration)
     '/',
     '/calendar/:path*',
     '/crops/:path*',
     '/farm-management/:path*',
     '/field-planner/:path*',
     '/ai-assistant/:path*',
+    // New v2 routes
+    '/fields/:path*',
+    '/records/:path*',
+    '/weather/:path*',
+    '/ai/:path*',
+    '/settings/:path*',
+    // Protected API routes
     '/api/planner/:path*',
   ],
 }
