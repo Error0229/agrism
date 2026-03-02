@@ -1,3 +1,5 @@
+import { EditorLayout } from "@/components/field-editor/editor-layout";
+
 export default async function FieldDetailPage({
   params,
 }: {
@@ -6,9 +8,8 @@ export default async function FieldDetailPage({
   const { fieldId } = await params;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">田地詳情</h1>
-      <p className="mt-2 text-muted-foreground">田地 ID: {fieldId} — 即將完成</p>
+    <div className="h-[calc(100dvh-3.5rem)]">
+      <EditorLayout fieldId={fieldId} />
     </div>
   );
 }
