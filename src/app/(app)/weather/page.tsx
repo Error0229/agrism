@@ -129,6 +129,8 @@ export default function WeatherPage() {
   const [data, setData] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [logError, setLogError] = useState<string | null>(null)
+  const [logSuccess, setLogSuccess] = useState(false)
 
   // Weather log form state
   const [logDate, setLogDate] = useState(
@@ -162,6 +164,8 @@ export default function WeatherPage() {
   const handleLogSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLogSaving(true)
+    setLogError(null)
+    setLogSuccess(false)
     try {
       const { createWeatherLog } = await import(
         '@/server/actions/weather-logs'
@@ -179,8 +183,11 @@ export default function WeatherPage() {
       setLogRain('')
       setLogCondition('')
       setLogNotes('')
+      setLogSuccess(true)
+      setTimeout(() => setLogSuccess(false), 3000)
     } catch {
-      // silently fail for now — TODO: toast
+      setLogError('儲存失敗，請稍後再試')
+      setTimeout(() => setLogError(null), 5000)
     } finally {
       setLogSaving(false)
     }
@@ -448,10 +455,18 @@ export default function WeatherPage() {
                 className="min-h-[60px]"
               />
             </div>
-            <Button type="submit" disabled={logSaving}>
-              {logSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              儲存觀察紀錄
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={logSaving || !farmId}>
+                {logSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                儲存觀察紀錄
+              </Button>
+              {logSuccess && (
+                <span className="text-sm text-green-600">已儲存</span>
+              )}
+              {logError && (
+                <span className="text-sm text-destructive">{logError}</span>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

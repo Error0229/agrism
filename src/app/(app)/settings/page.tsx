@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { useFarmId } from '@/hooks/use-farm-id'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -44,13 +45,7 @@ function todayStamp() {
 
 export default function SettingsPage() {
   const { data: session } = useSession()
-  const [farmId] = useState(() => {
-    // TODO: replace with proper farm context once available
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('activeFarmId') ?? ''
-    }
-    return ''
-  })
+  const farmId = useFarmId() ?? ''
 
   const [exporting, setExporting] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
