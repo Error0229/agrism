@@ -1,242 +1,517 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useFields } from "@/lib/store/fields-context";
-import { useTasks } from "@/lib/store/tasks-context";
-import { useAllCrops } from "@/lib/data/crop-lookup";
-import { formatRelativeDate } from "@/lib/utils/date-helpers";
-import { PlantingSuggestionsCard } from "@/components/dashboard/planting-suggestions";
-import { QuickActions } from "@/components/dashboard/quick-actions";
-import { HarvestCountdown } from "@/components/dashboard/harvest-countdown";
-import { WeatherWidget } from "@/components/dashboard/weather-widget";
-import { IntegrationStatus } from "@/components/dashboard/integration-status";
-import { prioritizeWeeklyTasks } from "@/lib/utils/task-prioritizer";
-import { forecastWorkload } from "@/lib/utils/workload-forecast";
-import { Sprout, Map, CalendarDays, CheckCircle2, Check } from "lucide-react";
-import { isToday, isThisWeek, isBefore, addDays } from "date-fns";
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useFarmId } from '@/hooks/use-farm-id'
+import { useTasks, useToggleTask } from '@/hooks/use-tasks'
+import { useFields } from '@/hooks/use-fields'
+import {
+  TASK_TYPE_LABELS,
+  TASK_DIFFICULTY_LABELS,
+} from '@/lib/types/labels'
+import type { TaskType, TaskDifficulty } from '@/lib/types/enums'
+import {
+  CheckCircle2,
+  Cloud,
+  CloudRain,
+  Loader2,
+  Map,
+  CalendarDays,
+  Sprout,
+  Sun,
+  Thermometer,
+  AlertTriangle,
+  ArrowRight,
+  Clock,
+  Wind,
+} from 'lucide-react'
+import {
+  isToday,
+  isBefore,
+  startOfDay,
+  addDays,
+  differenceInDays,
+  format,
+} from 'date-fns'
+import { zhTW } from 'date-fns/locale'
 
-const difficultyLabel: Record<string, string> = {
-  low: "低",
-  medium: "中",
-  high: "高",
-};
+// ---------------------------------------------------------------------------
+// Weather types (matching /api/weather response)
+// ---------------------------------------------------------------------------
 
-export default function HomePage() {
-  const { fields, isLoaded: fieldsLoaded } = useFields();
-  const { tasks, isLoaded: tasksLoaded, completeTask } = useTasks();
-  const allCrops = useAllCrops();
+interface WeatherCurrent {
+  temperature_2m: number
+  relative_humidity_2m: number
+  precipitation: number
+  wind_speed_10m: number
+  weather_code: number
+  apparent_temperature: number
+}
 
-  if (!fieldsLoaded || !tasksLoaded) {
-    return <div className="flex items-center justify-center h-64 text-muted-foreground">載入中...</div>;
+interface WeatherAlert {
+  id: string
+  type: string
+  severity: 'info' | 'warning' | 'critical'
+  title: string
+  recommendation: string
+}
+
+interface WeatherData {
+  current: WeatherCurrent
+  alerts: WeatherAlert[]
+}
+
+function weatherCodeLabel(code: number): string {
+  if (code === 0) return '晴天'
+  if (code <= 3) return '多雲'
+  if (code <= 49) return '霧'
+  if (code <= 59) return '毛毛雨'
+  if (code <= 69) return '下雨'
+  if (code <= 79) return '下雪'
+  if (code <= 84) return '陣雨'
+  if (code <= 94) return '雷雨'
+  return '暴風雨'
+}
+
+function weatherCodeIcon(code: number) {
+  if (code === 0) return <Sun className="size-5 text-yellow-500" />
+  if (code <= 3) return <Cloud className="size-5 text-gray-400" />
+  return <CloudRain className="size-5 text-blue-400" />
+}
+
+// ---------------------------------------------------------------------------
+// Main page component
+// ---------------------------------------------------------------------------
+
+export default function DashboardPage() {
+  const farmId = useFarmId()
+  const { data: allTasks, isLoading: tasksLoading } = useTasks(farmId)
+  const { data: fieldsData, isLoading: fieldsLoading } = useFields(farmId)
+  const toggleTask = useToggleTask()
+
+  const [weather, setWeather] = useState<WeatherData | null>(null)
+  const [weatherLoading, setWeatherLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/weather')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setWeather(data))
+      .catch(() => null)
+      .finally(() => setWeatherLoading(false))
+  }, [])
+
+  // Show loading skeleton while session/data loads
+  if (!farmId) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">載入中...</span>
+      </div>
+    )
   }
 
-  const allPlantedCrops = fields.flatMap((f) => f.plantedCrops);
-  const growingCrops = allPlantedCrops.filter((c) => c.status === "growing");
+  const today = startOfDay(new Date())
+  const threeDaysLater = addDays(today, 3)
 
-  const todayTasks = tasks
-    .filter((t) => !t.completed && isToday(new Date(t.dueDate)))
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  // ---- Task grouping ----
+  const incompleteTasks = (allTasks ?? []).filter((t) => !t.completed)
 
-  const prioritizedWeeklyTasks = prioritizeWeeklyTasks(tasks, allCrops).filter((entry) => !isToday(new Date(entry.task.dueDate)));
-  const upcomingTasks = prioritizedWeeklyTasks.slice(0, 5);
-  const workloadForecast = forecastWorkload(tasks, { horizonDays: 7, dailyCapacityMinutes: 180 });
-  const topBottleneck = workloadForecast.warnings[0];
+  const overdueTasks = incompleteTasks.filter(
+    (t) => isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
+  )
+  const todayTasks = incompleteTasks.filter((t) =>
+    isToday(new Date(t.dueDate)),
+  )
+  const upcomingTasks = incompleteTasks.filter((t) => {
+    const d = new Date(t.dueDate)
+    return !isToday(d) && !isBefore(d, today) && isBefore(d, addDays(threeDaysLater, 1))
+  })
 
-  const thisWeekTasks = tasks.filter((t) => !t.completed && isThisWeek(new Date(t.dueDate)));
-  const harvestable = tasks.filter(
-    (t) => !t.completed && t.type === "收成" && isBefore(new Date(t.dueDate), addDays(new Date(), 7))
-  );
+  // ---- Growing crops ----
+  const growingEntries = (fieldsData ?? []).flatMap((field) =>
+    field.plantedCrops
+      .filter((entry) => entry.plantedCrop.status === 'growing')
+      .map((entry) => ({
+        ...entry,
+        fieldName: field.name,
+      })),
+  )
+
+  // ---- Handlers ----
+  const handleToggle = (taskId: string) => {
+    toggleTask.mutate(taskId)
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">花蓮蔬果種植指南</h1>
-        <p className="text-muted-foreground">管理您的花蓮在地蔬果種植計畫</p>
+        <p className="text-muted-foreground">
+          {format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}
+        </p>
       </div>
 
-      {/* 快速操作列 */}
-      <QuickActions />
-
-      {/* 今日任務 */}
-      {todayTasks.length > 0 && (
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader>
-            <CardTitle className="text-lg">今日任務</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* ================================================================
+          Section 1: Today's Tasks
+          ================================================================ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CheckCircle2 className="size-5 text-green-600" />
+            今日任務
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tasksLoading ? (
             <div className="space-y-3">
-              {todayTasks.map((task) => {
-                const crop = allCrops.find((c) => c.id === task.cropId);
-                return (
-                  <div key={task.id} className="flex items-center gap-3">
-                    <button
-                      onClick={() => completeTask(task.id)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded border-2 border-green-500 hover:bg-green-100 transition-colors"
-                    >
-                      {task.completed && <Check className="size-4" />}
-                    </button>
-                    <span className="text-lg">{crop?.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{task.title}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : overdueTasks.length === 0 &&
+            todayTasks.length === 0 &&
+            upcomingTasks.length === 0 ? (
+            <div className="py-6 text-center text-muted-foreground">
+              <CheckCircle2 className="mx-auto size-8 mb-2 text-green-500" />
+              <p>沒有待辦任務，今天可以休息一下！</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Overdue */}
+              {overdueTasks.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-red-600">
+                    逾期 ({overdueTasks.length})
+                  </p>
+                  <div className="space-y-2">
+                    {overdueTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        variant="overdue"
+                        onToggle={handleToggle}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                </div>
+              )}
 
-      {/* 快速統計 */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <div className="rounded-lg bg-green-100 p-2">
-              <Sprout className="size-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{growingCrops.length}</p>
-              <p className="text-xs text-muted-foreground">已種作物</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <div className="rounded-lg bg-blue-100 p-2">
-              <Map className="size-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{fields.length}</p>
-              <p className="text-xs text-muted-foreground">田地數量</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <div className="rounded-lg bg-amber-100 p-2">
-              <CalendarDays className="size-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{thisWeekTasks.length}</p>
-              <p className="text-xs text-muted-foreground">本週任務</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6">
-            <div className="rounded-lg bg-red-100 p-2">
-              <CheckCircle2 className="size-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{harvestable.length}</p>
-              <p className="text-xs text-muted-foreground">可收成作物</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              {/* Today */}
+              {todayTasks.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-green-700">
+                    今天 ({todayTasks.length})
+                  </p>
+                  <div className="space-y-2">
+                    {todayTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        variant="today"
+                        onToggle={handleToggle}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* 即將到來的任務 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">即將到來的任務</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/40 p-3 text-sm">
-              <p className="font-medium">
-                7 天工作量：{workloadForecast.totalMinutes} / {workloadForecast.capacityMinutes} 分鐘
-              </p>
-              {topBottleneck ? (
-                <p className="mt-1 text-amber-700">
-                  瓶頸預警：{topBottleneck.date} 超出 {topBottleneck.overloadMinutes} 分鐘（{topBottleneck.taskCount} 件任務）。
-                </p>
-              ) : (
-                <p className="mt-1 text-muted-foreground">目前 7 天內工作量在容量範圍內。</p>
+              {/* Upcoming 3 days */}
+              {upcomingTasks.length > 0 && (
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                    未來 3 天 ({upcomingTasks.length})
+                  </p>
+                  <div className="space-y-2">
+                    {upcomingTasks.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        variant="upcoming"
+                        onToggle={handleToggle}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-            {upcomingTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                尚無排程任務。前往<Link href="/crops" className="text-primary underline mx-1">作物資料庫</Link>種植作物以自動產生任務。
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {upcomingTasks.map(({ task, reasons }) => {
-                  const crop = allCrops.find((c) => c.id === task.cropId);
-                  return (
-                    <div key={task.id} className="space-y-1">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => completeTask(task.id)}
-                          className="flex size-5 shrink-0 items-center justify-center rounded border border-muted-foreground/30 hover:bg-green-100 transition-colors"
-                        >
-                          {task.completed && <Check className="size-3" />}
-                        </button>
-                        <span className="text-lg">{crop?.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatRelativeDate(task.dueDate)} ・ {task.effortMinutes ?? 0} 分鐘 ・ 難度{" "}
-                            {difficultyLabel[task.difficulty ?? "medium"]}
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="text-xs shrink-0">{task.type}</Badge>
-                      </div>
-                      {reasons.length > 0 && (
-                        <p className="text-xs text-muted-foreground pl-8">優先原因：{reasons.join("、")}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ================================================================
+          Section 2: Growing Crops Overview
+          ================================================================ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Sprout className="size-5 text-green-600" />
+            生長中作物
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fieldsLoading ? (
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : growingEntries.length === 0 ? (
+            <div className="py-6 text-center text-muted-foreground">
+              <Sprout className="mx-auto size-8 mb-2" />
+              <p>目前沒有生長中的作物</p>
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link href="/fields">前往田地規劃種植</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+              {growingEntries.map((entry) => {
+                const plantedDate = new Date(entry.plantedCrop.plantedDate)
+                const daysSincePlanted = differenceInDays(new Date(), plantedDate)
+                const growthDays =
+                  entry.plantedCrop.customGrowthDays ??
+                  entry.crop.growthDays ??
+                  90
+                const daysToHarvest = Math.max(0, growthDays - daysSincePlanted)
+
+                return (
+                  <div
+                    key={entry.plantedCrop.id}
+                    className="rounded-lg border p-3 space-y-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {entry.crop.emoji ?? '🌱'}
+                      </span>
+                      <span className="text-sm font-medium truncate">
+                        {entry.crop.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {entry.fieldName}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="size-3" />
+                      <span>第 {daysSincePlanted} 天</span>
+                    </div>
+                    <p className="text-xs">
+                      {daysToHarvest > 0 ? (
+                        <span className="text-amber-600">
+                          預計 {daysToHarvest} 天後收成
+                        </span>
+                      ) : (
+                        <span className="text-green-600 font-medium">
+                          可收成
+                        </span>
                       )}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ================================================================
+          Section 3: Weather Summary
+          ================================================================ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Cloud className="size-5 text-blue-500" />
+            天氣概況
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {weatherLoading ? (
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            </div>
+          ) : !weather ? (
+            <p className="text-sm text-muted-foreground py-2">
+              無法取得天氣資料
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  {weatherCodeIcon(weather.current.weather_code)}
+                  <span className="font-medium">
+                    {weatherCodeLabel(weather.current.weather_code)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Thermometer className="size-4 text-red-500" />
+                  <span className="text-lg font-bold">
+                    {weather.current.temperature_2m.toFixed(1)}°C
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    體感 {weather.current.apparent_temperature.toFixed(1)}°C
+                  </span>
+                </div>
+                <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+                  <Wind className="size-4" />
+                  <span>{weather.current.wind_speed_10m.toFixed(0)} km/h</span>
+                </div>
+              </div>
+
+              {/* Alerts */}
+              {weather.alerts.length > 0 && (
+                <div className="space-y-2">
+                  {weather.alerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className={`flex items-start gap-2 rounded-md border p-2 text-sm ${
+                        alert.severity === 'critical'
+                          ? 'border-red-300 bg-red-50 text-red-800'
+                          : alert.severity === 'warning'
+                            ? 'border-orange-300 bg-orange-50 text-orange-800'
+                            : 'border-blue-200 bg-blue-50 text-blue-800'
+                      }`}
+                    >
+                      <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-medium">{alert.title}</span>
+                        <span className="ml-1">{alert.recommendation}</span>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
 
-        {/* 田地概覽 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">田地概覽</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {fields.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground mb-3">尚未建立田地</p>
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/field-planner">建立田地</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {fields.map((field) => (
-                  <Link key={field.id} href="/field-planner" className="block">
-                    <div className="rounded-lg border p-3 hover:bg-accent transition-colors">
-                      <p className="font-medium text-sm">{field.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {field.dimensions.width} x {field.dimensions.height} 公尺 &middot;{" "}
-                        {field.plantedCrops.filter((c) => c.status === "growing").length} 種作物
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/weather">
+                  查看完整天氣
+                  <ArrowRight className="ml-1 size-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* 播種建議 + 收成倒數 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <PlantingSuggestionsCard />
-        <HarvestCountdown />
-      </div>
-
-      {/* 即時天氣 */}
-      <WeatherWidget />
-      <IntegrationStatus />
+      {/* ================================================================
+          Section 4: Quick Actions
+          ================================================================ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">快速操作</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Link href="/fields">
+                <Map className="size-5 text-blue-600" />
+                <span>田地規劃</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Link href="/crops">
+                <Sprout className="size-5 text-green-600" />
+                <span>作物資料庫</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Link href="/calendar">
+                <CalendarDays className="size-5 text-amber-600" />
+                <span>農事日曆</span>
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+              <Link href="/records/harvest">
+                <CheckCircle2 className="size-5 text-red-600" />
+                <span>收成紀錄</span>
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TaskRow sub-component
+// ---------------------------------------------------------------------------
+
+interface TaskRowProps {
+  task: {
+    id: string
+    type: string
+    title: string
+    dueDate: string
+    effortMinutes: number | null
+    difficulty: string | null
+  }
+  variant: 'overdue' | 'today' | 'upcoming'
+  onToggle: (id: string) => void
+}
+
+function TaskRow({ task, variant, onToggle }: TaskRowProps) {
+  const borderColor =
+    variant === 'overdue'
+      ? 'border-red-200 bg-red-50/50'
+      : variant === 'today'
+        ? 'border-green-200 bg-green-50/50'
+        : ''
+
+  const checkColor =
+    variant === 'overdue'
+      ? 'border-red-400 hover:bg-red-100'
+      : 'border-green-500 hover:bg-green-100'
+
+  const typeLabel =
+    TASK_TYPE_LABELS[task.type as TaskType] ?? task.type
+  const difficultyLabel = task.difficulty
+    ? TASK_DIFFICULTY_LABELS[task.difficulty as TaskDifficulty]
+    : null
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${borderColor}`}
+    >
+      <button
+        onClick={() => onToggle(task.id)}
+        className={`flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${checkColor}`}
+        aria-label="完成任務"
+      >
+        {/* empty — check mark appears on complete */}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{task.title}</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+          {variant === 'overdue' && (
+            <span className="text-red-600">
+              {format(new Date(task.dueDate), 'M/d')}
+            </span>
+          )}
+          {variant === 'upcoming' && (
+            <span>{format(new Date(task.dueDate), 'M/d EEEE', { locale: zhTW })}</span>
+          )}
+          {task.effortMinutes && (
+            <span>{task.effortMinutes} 分鐘</span>
+          )}
+          {difficultyLabel && <span>難度 {difficultyLabel}</span>}
+        </div>
+      </div>
+      <Badge variant="secondary" className="text-xs shrink-0">
+        {typeLabel}
+      </Badge>
+    </div>
+  )
 }
