@@ -2,12 +2,15 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Page Rendering", () => {
   const pages = [
+    { path: "/", heading: "花蓮蔬果種植指南" },
     { path: "/fields", heading: "田地管理" },
     { path: "/crops", heading: "作物資料庫" },
     { path: "/calendar", heading: "種植行事曆" },
     { path: "/records/harvest", heading: "收成紀錄" },
     { path: "/records/finance", heading: "財務管理" },
     { path: "/records/soil", heading: "土壤管理" },
+    { path: "/ai", heading: "AI 助手" },
+    { path: "/weather", heading: "天氣" },
     { path: "/settings", heading: "設定" },
   ];
 

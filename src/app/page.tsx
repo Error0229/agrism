@@ -112,9 +112,17 @@ export default function DashboardPage() {
   // Show loading skeleton while session/data loads
   if (!farmId) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">載入中...</span>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">花蓮蔬果種植指南</h1>
+          <p className="text-muted-foreground">
+            {format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}
+          </p>
+        </div>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">載入中...</span>
+        </div>
       </div>
     )
   }

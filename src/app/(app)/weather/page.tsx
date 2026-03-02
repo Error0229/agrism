@@ -24,6 +24,7 @@ import {
   Thermometer,
   Wind,
 } from 'lucide-react'
+import { useFarmId } from '@/hooks/use-farm-id'
 
 // ---------------------------------------------------------------------------
 // Types matching the weather API response
@@ -124,6 +125,7 @@ function alertSeverityColor(severity: string) {
 // ---------------------------------------------------------------------------
 
 export default function WeatherPage() {
+  const farmId = useFarmId()
   const [data, setData] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -164,8 +166,8 @@ export default function WeatherPage() {
       const { createWeatherLog } = await import(
         '@/server/actions/weather-logs'
       )
-      // TODO: replace hardcoded farmId once auth context is available
-      await createWeatherLog('00000000-0000-0000-0000-000000000000', {
+      if (!farmId) return
+      await createWeatherLog(farmId, {
         date: logDate,
         temperature: logTemp ? Number(logTemp) : undefined,
         rainfallMm: logRain ? Number(logRain) : undefined,

@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useFields } from '@/hooks/use-fields'
 import { useTasks } from '@/hooks/use-tasks'
 import { useCrops } from '@/hooks/use-crops'
+import { useFarmId } from '@/hooks/use-farm-id'
 import { Send } from 'lucide-react'
 import type { UIMessage } from 'ai'
 
@@ -19,9 +20,6 @@ const quickQuestions = [
   '颱風季該如何準備？',
   '花蓮適合新手種的蔬菜有哪些？',
 ]
-
-// TODO: replace with real farmId from auth context
-const TEMP_FARM_ID = '00000000-0000-0000-0000-000000000000'
 
 function MessageBubble({ message }: { message: UIMessage }) {
   const isUser = message.role === 'user'
@@ -56,11 +54,12 @@ function MessageBubble({ message }: { message: UIMessage }) {
 export default function AiAssistantPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
+  const farmId = useFarmId()
 
   // Fetch farm data for context using TanStack Query hooks
-  const { data: fieldsData } = useFields(TEMP_FARM_ID)
-  const { data: tasksData } = useTasks(TEMP_FARM_ID)
-  const { data: cropsData } = useCrops(TEMP_FARM_ID)
+  const { data: fieldsData } = useFields(farmId)
+  const { data: tasksData } = useTasks(farmId)
+  const { data: cropsData } = useCrops(farmId)
 
   const context = useMemo(() => {
     const cropMap = new Map(
