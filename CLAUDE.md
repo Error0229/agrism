@@ -11,8 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bun run dev` — start dev server (Turbopack)
 - `bun run build` — production build
 - `bun run lint` — ESLint
-
-No test framework is configured.
+- `bun run test:e2e` — Playwright E2E tests (uses port 3099 locally)
 
 ## Architecture
 
@@ -22,47 +21,57 @@ No test framework is configured.
 
 ### Routing (`src/app/`)
 
-| Route              | Purpose                                     |
-| ------------------ | ------------------------------------------- |
-| `/`                | Dashboard (stats, today's tasks)            |
-| `/calendar`        | Planting calendar with task timeline        |
-| `/crops`           | Crop database browser                       |
-| `/crops/[cropId]`  | Individual crop detail (dynamic route)      |
-| `/field-planner`   | Interactive Konva canvas for field layout   |
-| `/farm-management` | Harvest logs, finances, soil notes, weather |
-| `/ai-assistant`    | AI chat interface                           |
+Authenticated routes use the `(app)` route group with middleware redirect to `/auth/login`.
 
-**API routes** (`src/app/api/`): `chat/` (streaming AI via OpenRouter GPT-4o), `crop-info/` (AI crop info generation), `weather/` (weather data).
+| Route               | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `/`                 | Dashboard (stats, today's tasks, weather) |
+| `/calendar`         | Planting calendar with task management    |
+| `/crops`            | Crop database browser                     |
+| `/crops/[cropId]`   | Individual crop detail (dynamic route)    |
+| `/fields`           | Field list with create dialog             |
+| `/fields/[fieldId]` | Interactive canvas field editor           |
+| `/records/harvest`  | Harvest log management                    |
+| `/records/finance`  | Financial records (income/expense)        |
+| `/records/soil`     | Soil profiles, amendments, notes          |
+| `/weather`          | Weather data and manual observation log   |
+| `/ai`               | AI chat interface                         |
+| `/settings`         | Account info, data export/import          |
 
-### State Management
-
-React Context + localStorage persistence via a custom `useLocalStorage` hook (`src/hooks/`). No external state library.
-
-Provider tree in `src/lib/store/app-provider.tsx`:
-
-- `CustomCropsProvider` — user-defined crop varieties
-- `FieldsProvider` — fields, planted crops, positions
-- `TasksProvider` — planting tasks with recurring schedule support
-- `FarmManagementProvider` — harvest logs, finance records, soil notes, weather logs
-
-Each provider exposes a custom hook (e.g. `useFields`, `useTasks`).
+**API routes** (`src/app/api/`): `chat/` (streaming AI via OpenRouter), `weather/` (Hualien weather data).
 
 ### Data Layer
 
-- **No database** — all data is persisted in browser localStorage as JSON
-- **Static crop data**: 15 predefined Hualien-region crops in `src/lib/data/crops-database.ts`
-- **Companion planting data**: `src/lib/data/crop-companions.ts`
-- **Crop lookup utilities**: `src/lib/data/crop-lookup.ts`
+- **Database**: Neon PostgreSQL via Drizzle ORM (`src/server/db/`)
+- **Auth**: Auth.js v5 (next-auth) with credentials provider, JWT strategy
+- **Server Actions**: `src/server/actions/` — all data mutations use `'use server'` actions with Zod validation
+
+Schema tables (`src/server/db/schema/`):
+- **auth**: `appUsers`, `farms`, `farmMembers`
+- **crops**: `crops`, `cropTemplates`, `cropTemplateItems`
+- **fields**: `fields`, `fieldContexts`, `plantedCrops`, `cropPlacements`, `facilities`, `utilityNodes`, `utilityEdges`
+- **tasks**: `tasks`
+- **records**: `harvestLogs`, `financeRecords`, `soilProfiles`, `soilAmendments`, `soilNotes`, `weatherLogs`
+
+### State Management
+
+- **Server state**: TanStack Query v5 hooks in `src/hooks/` for all data fetching/mutations
+- **UI state**: Zustand store (`src/lib/store/field-editor-store.ts`) for the field editor (active tool, zoom, pan, grid, selection, undo/redo)
+- **Auth context**: `useFarmId()` hook extracts farmId from the NextAuth session JWT
+
+Key hooks: `useFarmId`, `useFields`, `useCrops`, `useTasks`, `useHarvestLogs`, `useFinanceRecords`, `useSoilProfile`, `useWeatherLogs`
 
 ### Types
 
-All core types and enums are in `src/lib/types/index.ts`: `Crop`, `CustomCrop`, `PlantedCrop`, `Field`, `Task`, `HarvestLog`, `FinanceRecord`, `SoilNote`, `WeatherLog`, and enums like `CropCategory`, `TaskType`, `WaterLevel`, `SunlightLevel`.
+- `src/lib/types/domain.ts` — core domain types (Crop, Field, Task, etc.)
+- `src/lib/types/enums.ts` — all enums (CropCategory, TaskType, PlotType, etc.)
+- `src/lib/types/labels.ts` — zh-TW label mappings for enums
 
 ### UI & Styling
 
 - **Tailwind CSS v4** (uses `@import "tailwindcss"` syntax, oklch color variables)
 - **shadcn/ui** (New York style) — components in `src/components/ui/`
-- **Canvas**: react-konva for the field planner visualization
+- **Canvas**: react-konva for the field editor visualization
 - **Forms**: react-hook-form + zod validation
 - **Charts**: recharts
 - **Icons**: lucide-react
@@ -74,5 +83,13 @@ Uses `@openrouter/ai-sdk-provider` with the Vercel AI SDK. System prompt in `src
 ### Key Patterns
 
 - Pages are server components by default; interactive components use `"use client"` directive
-- Utility helpers in `src/lib/utils/` handle task generation (`calendar-helpers.ts`), date formatting (`date-helpers.ts`), pest control (`pest-helpers.ts`), and planting suggestions (`planting-suggestions.ts`)
+- Field editor uses command pattern for undo/redo (`src/lib/store/editor-commands.ts`)
 - `cn()` utility (`src/lib/utils.ts`) combines clsx + tailwind-merge for conditional class names
+- Middleware (`middleware.ts`) redirects unauthenticated users to `/auth/login`
+
+### Environment Variables
+
+Required:
+- `DATABASE_URL` — Neon PostgreSQL connection string
+- `NEXTAUTH_SECRET` — Auth.js secret (falls back to dev secret locally)
+- `OPENROUTER_API_KEY` — OpenRouter API key for AI features
