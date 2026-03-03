@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 import { EditorCanvas } from "./editor-canvas";
@@ -52,6 +53,7 @@ interface EditorLayoutProps {
 
 export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const farmId = useFarmId();
+  const isMobile = useIsMobile();
   const { data: field, isLoading } = useFieldById(fieldId);
   const setActiveField = useFieldEditor((s) => s.setActiveField);
   const setTool = useFieldEditor((s) => s.setTool);
@@ -492,6 +494,45 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (createdPlantedCropId) {
         setPendingRegionId(createdPlantedCropId);
         setPendingRectInfo(rect);
+      }
+      setTool("select");
+    },
+    [createRegionMut, removePlantedCrop, restorePlantedCrop, fieldId, setTool, executeCommand],
+  );
+
+  const handleDrawPolygonComplete = useCallback(
+    async (data: { xM: number; yM: number; widthM: number; heightM: number; shapePoints: { x: number; y: number }[] }) => {
+      const polyData = { ...data };
+      let createdPlantedCropId: string | null = null;
+
+      const cmd = createPlantCropCommand({
+        async plantFn() {
+          const result = await createRegionMut.mutateAsync({
+            fieldId,
+            data: {
+              xM: polyData.xM,
+              yM: polyData.yM,
+              widthM: polyData.widthM,
+              heightM: polyData.heightM,
+              shapePoints: polyData.shapePoints,
+            },
+          });
+          createdPlantedCropId = result.plantedCrop.id;
+          return { plantedCropId: result.plantedCrop.id };
+        },
+        async removeFn(plantedCropId) {
+          await removePlantedCrop.mutateAsync(plantedCropId);
+        },
+        async restoreFn(plantedCropId) {
+          await restorePlantedCrop.mutateAsync(plantedCropId);
+        },
+      });
+
+      await executeCommand(cmd);
+
+      if (createdPlantedCropId) {
+        setPendingRegionId(createdPlantedCropId);
+        setPendingRectInfo({ xM: data.xM, yM: data.yM, widthM: data.widthM, heightM: data.heightM });
       }
       setTool("select");
     },
@@ -988,6 +1029,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
+            onDrawPolygonComplete={handleDrawPolygonComplete}
             onPlaceUtilityNode={handlePlaceUtilityNode}
             onConnectUtilityNodes={handleConnectUtilityNodes}
             onQuickAdd={handleQuickAdd}
@@ -1006,7 +1048,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         </div>
 
         {/* Right: property inspector (desktop only) */}
-        <div className="hidden md:block">
+        {!isMobile && (
           <PropertyInspector
             field={field}
             fieldName={field.name}
@@ -1025,10 +1067,11 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             memo={field.memo}
             onMemoChange={handleMemoChange}
           />
-        </div>
+        )}
 
-        {/* Mobile inspector (bottom sheet) */}
-        <div className="md:hidden">
+        {/* Mobile inspector (bottom sheet — must be conditionally rendered, not CSS-hidden,
+             because Sheet portals render at document body level and ignore parent display:none) */}
+        {isMobile && (
           <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open) toggleInspector(); }}>
             <SheetContent side="bottom" className="max-h-[60vh] overflow-y-auto" showCloseButton={false}>
               <SheetTitle className="sr-only">屬性面板</SheetTitle>
@@ -1052,7 +1095,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               />
             </SheetContent>
           </Sheet>
-        </div>
+        )}
       </div>
 
       {/* Bottom: mobile toolbar (horizontal) */}

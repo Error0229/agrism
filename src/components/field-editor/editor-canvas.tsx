@@ -52,6 +52,7 @@ interface CanvasItem {
   plantedDate?: string;
   harvestedDate?: string | null;
   facilityType?: string;
+  shapePoints?: { x: number; y: number }[] | null;
 }
 
 // Resize handle directions
@@ -195,13 +196,20 @@ interface EditorCanvasProps {
     widthM: number;
     heightM: number;
   }) => void;
+  onDrawPolygonComplete?: (data: {
+    xM: number;
+    yM: number;
+    widthM: number;
+    heightM: number;
+    shapePoints: { x: number; y: number }[];
+  }) => void;
   onPlaceUtilityNode?: (pos: { xM: number; yM: number }) => void;
   onConnectUtilityNodes?: (fromNodeId: string, toNodeId: string) => void;
   onQuickAdd?: (pos: { xM: number; yM: number }) => void;
   onContextAction?: (action: string, itemId: string) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -373,6 +381,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
         plantedCropId: row.plantedCrop.id,
         plantedDate: row.plantedCrop.plantedDate,
         harvestedDate: row.plantedCrop.harvestedDate,
+        shapePoints: placement.shapePoints as { x: number; y: number }[] | null,
       });
     }
 
@@ -476,11 +485,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
     );
   }, [gridVisible, fieldWidthM, fieldHeightM, gridSpacing]);
 
-  // Snap helper (works in meters)
+  // Snap helper (works in meters) — uses -Infinity as min so items can be
+  // placed outside the field boundary (negative coordinates are valid).
   const snapM = useCallback(
     (m: number): number => {
       if (!snapEnabled) return m;
-      return snapToGrid(m, gridSpacing, 0);
+      return snapToGrid(m, gridSpacing, -Infinity);
     },
     [snapEnabled, gridSpacing],
   );
@@ -493,6 +503,45 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
 
   // Selected set
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  // Pre-compute non-selected items for snap guide computation (avoids filtering on every drag frame)
+  const snapOtherItems = useMemo(
+    () => canvasItems.filter((ci) => !selectedSet.has(ci.id)),
+    [canvasItems, selectedSet],
+  );
+
+  // Stable drag-move handler for snap guides (avoids creating closures per-item per-render)
+  const handleItemDragMove = useCallback(
+    (e: KonvaEventObject<DragEvent>) => {
+      if (!snapEnabled) return;
+      const node = e.target;
+      // Find which item is being dragged — we use the Group's position
+      const parentGroup = node.getParent();
+      const groupNode = parentGroup && parentGroup.nodeType === "Group" ? parentGroup : node;
+      const newXM = groupNode.x() / PIXELS_PER_METER;
+      const newYM = groupNode.y() / PIXELS_PER_METER;
+      // We need the item's dimensions. Read them from the dataset or compute from the node.
+      // Since Konva Groups don't have width/height, we store a reference via a closure-free approach.
+      // For now, use the store to find the item.
+      const state = useFieldEditor.getState();
+      const draggedIds = state.selectedIds;
+      if (draggedIds.length === 0) return;
+      // Use the first selected item's dimensions as approximation for snap
+      const draggedId = draggedIds[0];
+      const item = itemById.get(draggedId);
+      if (!item) return;
+      const result = computeSnapGuides(
+        { xM: newXM, yM: newYM, widthM: item.widthM, heightM: item.heightM },
+        snapOtherItems,
+        fieldWidthM,
+        fieldHeightM,
+      );
+      setActiveGuides(result.guides);
+      if (result.snappedXM !== null) groupNode.x(result.snappedXM * PIXELS_PER_METER);
+      if (result.snappedYM !== null) groupNode.y(result.snappedYM * PIXELS_PER_METER);
+    },
+    [snapEnabled, snapOtherItems, fieldWidthM, fieldHeightM, itemById],
+  );
 
   // --- Helper: get pointer position in meters ---
   const getPointerMeters = useCallback((): {
@@ -606,7 +655,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
           const dyPx = (snapped.yM - firstPt.yM) * PIXELS_PER_METER * zoom;
           const distPx = Math.sqrt(dxPx * dxPx + dyPx * dyPx);
           if (distPx < 15) {
-            // Close polygon: compute bounding box
+            // Close polygon: compute bounding box and store actual vertices
             const xs = polygonPoints.map((p) => p.xM);
             const ys = polygonPoints.map((p) => p.yM);
             const minX = Math.min(...xs);
@@ -616,7 +665,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
             const w = maxX - minX;
             const h = maxY - minY;
             if (w >= MIN_SIZE_M && h >= MIN_SIZE_M) {
-              onDrawRectComplete?.({ xM: minX, yM: minY, widthM: w, heightM: h });
+              const shapePoints = polygonPoints.map((p) => ({ x: p.xM, y: p.yM }));
+              onDrawPolygonComplete?.({
+                xM: minX,
+                yM: minY,
+                widthM: w,
+                heightM: h,
+                shapePoints,
+              });
             }
             setPolygonPoints([]);
             setPolygonCursorPos(null);
@@ -639,7 +695,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
         return;
       }
     },
-    [activeTool, getPointerMeters, snapM, polygonPoints, zoom, onDrawRectComplete],
+    [activeTool, getPointerMeters, snapM, polygonPoints, zoom, onDrawRectComplete, onDrawPolygonComplete],
   );
 
   const handleStageMouseMove = useCallback(
@@ -1079,41 +1135,78 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
       )
     : 0;
 
+  // Stable Stage event handlers (avoid creating closures on every render)
+  const handleStageDblClick = useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      if (activeTool === "select" && e.target === e.target.getStage()) {
+        const pos = getPointerMeters();
+        if (pos && onQuickAdd) {
+          onQuickAdd({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
+        }
+      }
+    },
+    [activeTool, getPointerMeters, snapM, onQuickAdd],
+  );
+
+  const handleStageMouseLeave = useCallback(
+    () => setCursorPosition(null),
+    [setCursorPosition],
+  );
+
+  const handleStageMouseUpCombined = useCallback(
+    (e: KonvaEventObject<MouseEvent>) => {
+      handleStageMouseUp();
+      if (resizeState) {
+        handleResizeEnd();
+      }
+      if (activeTool !== "measure" && measureState) {
+        setMeasureState(null);
+      }
+      if (activeTool === "draw_rect" || activeTool === "measure") {
+        e.cancelBubble = true;
+      }
+    },
+    [handleStageMouseUp, resizeState, handleResizeEnd, activeTool, measureState],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const stage = stageRef.current;
+      if (!stage) return;
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+      const transform = stage.getAbsoluteTransform().copy().invert();
+      const realPos = transform.point(pos);
+      const xM = realPos.x / PIXELS_PER_METER;
+      const yM = realPos.y / PIXELS_PER_METER;
+
+      const hitItem = canvasItems.find(
+        (item) =>
+          xM >= item.xM &&
+          xM <= item.xM + item.widthM &&
+          yM >= item.yM &&
+          yM <= item.yM + item.heightM,
+      );
+      if (hitItem) {
+        setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          itemId: hitItem.id,
+          itemKind: hitItem.kind,
+        });
+      } else {
+        setContextMenu(null);
+      }
+    },
+    [canvasItems],
+  );
+
   return (
     <div
       ref={containerRef}
       className={cn("size-full overflow-hidden", cursorClass, timelineMode && "opacity-75 saturate-[0.7]")}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        // Check if the right-click is on a canvas item using Konva's hit detection
-        const stage = stageRef.current;
-        if (!stage) return;
-        const pos = stage.getPointerPosition();
-        if (!pos) return;
-        const transform = stage.getAbsoluteTransform().copy().invert();
-        const realPos = transform.point(pos);
-        const xM = realPos.x / PIXELS_PER_METER;
-        const yM = realPos.y / PIXELS_PER_METER;
-
-        // Find which item was hit
-        const hitItem = canvasItems.find(
-          (item) =>
-            xM >= item.xM &&
-            xM <= item.xM + item.widthM &&
-            yM >= item.yM &&
-            yM <= item.yM + item.heightM,
-        );
-        if (hitItem) {
-          setContextMenu({
-            x: e.clientX,
-            y: e.clientY,
-            itemId: hitItem.id,
-            itemKind: hitItem.kind,
-          });
-        } else {
-          setContextMenu(null);
-        }
-      }}
+      onContextMenu={handleContextMenu}
     >
       <Stage
         ref={stageRef}
@@ -1127,31 +1220,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
         onDragEnd={handleStageDragEnd}
         onWheel={handleWheel}
         onClick={handleStageClick}
-        onDblClick={(e) => {
-          if (activeTool === "select" && e.target === e.target.getStage()) {
-            const pos = getPointerMeters();
-            if (pos && onQuickAdd) {
-              onQuickAdd({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
-            }
-          }
-        }}
+        onDblClick={handleStageDblClick}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
-        onMouseLeave={() => setCursorPosition(null)}
-        onMouseUp={(e) => {
-          handleStageMouseUp();
-          if (resizeState) {
-            handleResizeEnd();
-          }
-          // Clear measure on next click
-          if (activeTool !== "measure" && measureState) {
-            setMeasureState(null);
-          }
-          // Prevent stage drag interference
-          if (activeTool === "draw_rect" || activeTool === "measure") {
-            e.cancelBubble = true;
-          }
-        }}
+        onMouseLeave={handleStageMouseLeave}
+        onMouseUp={handleStageMouseUpCombined}
       >
         <Layer>
           {/* Field background */}
@@ -1348,54 +1421,73 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
               item.status !== "harvested" &&
               item.status !== "removed";
 
+            // Check if this item has polygon shape points
+            const hasPolygonShape = item.shapePoints && item.shapePoints.length >= 3;
+
             return (
-              <Group key={item.id}>
-                <Rect
-                  x={xPx}
-                  y={yPx}
-                  width={wPx}
-                  height={hPx}
-                  fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
-                  stroke={
-                    isSelected
-                      ? "#16a34a"
-                      : isHovered
-                        ? "#3b82f6"
-                        : isHarvested
-                          ? "#6b7280"
-                          : item.color
-                  }
-                  strokeWidth={isSelected ? 2 : 1}
-                  dash={isHarvested ? [4, 4] : undefined}
-                  cornerRadius={4}
-                  draggable={isDraggable}
-                  onDragStart={handleItemDragStart}
-                  onDragMove={snapEnabled ? (e) => {
-                    const newXM = e.target.x() / PIXELS_PER_METER;
-                    const newYM = e.target.y() / PIXELS_PER_METER;
-                    const others = canvasItems.filter(ci => !selectedSet.has(ci.id));
-                    const result = computeSnapGuides(
-                      { xM: newXM, yM: newYM, widthM: item.widthM, heightM: item.heightM },
-                      others,
-                      fieldWidthM,
-                      fieldHeightM,
-                    );
-                    setActiveGuides(result.guides);
-                    if (result.snappedXM !== null) e.target.x(result.snappedXM * PIXELS_PER_METER);
-                    if (result.snappedYM !== null) e.target.y(result.snappedYM * PIXELS_PER_METER);
-                  } : undefined}
-                  onDragEnd={(e) => handleItemDragEnd(item.id, e)}
-                  onClick={(e) => handleItemClick(item.id, e)}
-                  onMouseEnter={() => setHoveredItemId(item.id)}
-                  onMouseLeave={() => setHoveredItemId(null)}
-                  shadowColor={isSelected ? "#16a34a" : "transparent"}
-                  shadowBlur={isSelected ? 8 : 0}
-                />
+              <Group
+                key={item.id}
+                x={xPx}
+                y={yPx}
+                draggable={isDraggable}
+                onDragStart={handleItemDragStart}
+                onDragMove={snapEnabled ? handleItemDragMove : undefined}
+                onDragEnd={(e) => handleItemDragEnd(item.id, e)}
+                onClick={(e) => handleItemClick(item.id, e)}
+                onMouseEnter={() => setHoveredItemId(item.id)}
+                onMouseLeave={() => setHoveredItemId(null)}
+              >
+                {/* Shape: polygon or rectangle */}
+                {hasPolygonShape ? (
+                  <Line
+                    points={item.shapePoints!.flatMap(p => [
+                      (p.x - item.xM) * PIXELS_PER_METER,
+                      (p.y - item.yM) * PIXELS_PER_METER,
+                    ])}
+                    closed
+                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
+                    stroke={
+                      isSelected
+                        ? "#16a34a"
+                        : isHovered
+                          ? "#3b82f6"
+                          : isHarvested
+                            ? "#6b7280"
+                            : item.color
+                    }
+                    strokeWidth={isSelected ? 2 : 1}
+                    dash={isHarvested ? [4, 4] : undefined}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                ) : (
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={wPx}
+                    height={hPx}
+                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
+                    stroke={
+                      isSelected
+                        ? "#16a34a"
+                        : isHovered
+                          ? "#3b82f6"
+                          : isHarvested
+                            ? "#6b7280"
+                            : item.color
+                    }
+                    strokeWidth={isSelected ? 2 : 1}
+                    dash={isHarvested ? [4, 4] : undefined}
+                    cornerRadius={4}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                )}
 
                 {/* Emoji */}
                 <Text
-                  x={xPx + 4}
-                  y={yPx + 4}
+                  x={4}
+                  y={4}
                   text={item.emoji}
                   fontSize={16}
                   listening={false}
@@ -1403,8 +1495,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
 
                 {/* Label */}
                 <Text
-                  x={xPx + 4}
-                  y={yPx + 24}
+                  x={4}
+                  y={24}
                   text={item.label}
                   fontSize={10}
                   fill="#374151"
@@ -1414,8 +1506,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                 {/* Status for harvested */}
                 {isHarvested && (
                   <Text
-                    x={xPx + 4}
-                    y={yPx + 36}
+                    x={4}
+                    y={36}
                     text="\u5df2\u6536\u6210"
                     fontSize={9}
                     fill="#4b5563"
@@ -1426,8 +1518,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                 {/* Dimensions on select */}
                 {isSelected && (
                   <Text
-                    x={xPx}
-                    y={yPx + hPx + 4}
+                    x={0}
+                    y={hPx + 4}
                     text={`${item.widthM.toFixed(1)} \u00d7 ${item.heightM.toFixed(1)} m`}
                     fontSize={9}
                     fill="#16a34a"
@@ -1439,8 +1531,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                 {isSelected && isDraggable && (
                   <ResizeHandles
                     itemId={item.id}
-                    xPx={xPx}
-                    yPx={yPx}
+                    xPx={0}
+                    yPx={0}
                     wPx={wPx}
                     hPx={hPx}
                     scale={zoom}
