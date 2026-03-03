@@ -4,6 +4,7 @@ import { db } from '@/server/db'
 import { crops, cropTemplates, cropTemplateItems } from '@/server/db/schema'
 import { eq, desc, and, inArray } from 'drizzle-orm'
 import { z } from 'zod'
+import { seedDefaultCrops } from '@/server/db/seed/crops'
 
 // --- Crops ---
 
@@ -57,11 +58,23 @@ const createCustomCropSchema = z.object({
 const updateCustomCropSchema = createCustomCropSchema.partial()
 
 export async function getCrops(farmId: string) {
-  return db
+  const rows = await db
     .select()
     .from(crops)
     .where(eq(crops.farmId, farmId))
     .orderBy(crops.name)
+
+  // Auto-seed default crops for existing farms that don't have them
+  if (!rows.some((r) => r.isDefault)) {
+    await seedDefaultCrops(farmId)
+    return db
+      .select()
+      .from(crops)
+      .where(eq(crops.farmId, farmId))
+      .orderBy(crops.name)
+  }
+
+  return rows
 }
 
 export async function getCropById(id: string) {

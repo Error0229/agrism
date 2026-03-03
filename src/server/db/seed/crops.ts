@@ -12,8 +12,19 @@
 
 import type { InferInsertModel } from 'drizzle-orm'
 import { crops } from '@/server/db/schema'
+import { db } from '@/server/db'
 
 type CropInsert = Omit<InferInsertModel<typeof crops>, 'id' | 'farmId' | 'createdAt' | 'updatedAt'>
+
+/**
+ * Seed the 15 default Hualien crops for a given farm.
+ * Safe to call multiple times — duplicates may be inserted if called
+ * concurrently, but that's acceptable for default crops.
+ */
+export async function seedDefaultCrops(farmId: string) {
+  const rows = defaultCrops.map((crop) => ({ ...crop, farmId }))
+  await db.insert(crops).values(rows)
+}
 
 const categoryMap = {
   根莖類: 'root_vegetables',

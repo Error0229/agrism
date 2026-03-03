@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { hash } from '@node-rs/argon2'
 import { db } from '@/server/db'
 import { appUsers, farms, farmMembers } from '@/server/db/schema'
+import { seedDefaultCrops } from '@/server/db/seed/crops'
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -51,6 +52,9 @@ export async function POST(req: Request) {
     await db
       .insert(farmMembers)
       .values({ farmId: farm.id, userId: user.id, role: 'owner' })
+
+    // Seed the 15 predefined Hualien crops for the new farm
+    await seedDefaultCrops(farm.id)
 
     return NextResponse.json({
       ok: true,
