@@ -1,42 +1,67 @@
 "use client";
 
+import { useMemo } from "react";
 import {
+  Calendar,
   Grid3X3,
   Magnet,
+  MapPin,
+  Move,
   PanelRightClose,
   PanelRightOpen,
+  Sprout,
+  Trash2,
+  Wrench,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  CROP_CATEGORY_LABELS,
+  PLANTED_CROP_STATUS_LABELS,
+  FACILITY_TYPE_LABELS,
+} from "@/lib/types/labels";
+import type { CropCategory, PlantedCropStatus, FacilityType } from "@/lib/types/enums";
+
+// Field data type derived from getFieldById()
+type FieldData = NonNullable<
+  Awaited<ReturnType<typeof import("@/server/actions/fields").getFieldById>>
+>;
 
 interface PropertyInspectorProps {
+  field?: FieldData | null;
   fieldName?: string;
   fieldWidthM?: number;
   fieldHeightM?: number;
   growingCount?: number;
   harvestedCount?: number;
   facilityCount?: number;
+  onDeleteSelected?: () => void;
 }
 
 export function PropertyInspector({
+  field,
   fieldName,
   fieldWidthM,
   fieldHeightM,
   growingCount = 0,
   harvestedCount = 0,
   facilityCount = 0,
+  onDeleteSelected,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
   const selectedIds = useFieldEditor((s) => s.selectedIds);
+  const clearSelection = useFieldEditor((s) => s.clearSelection);
   const gridVisible = useFieldEditor((s) => s.gridVisible);
   const toggleGrid = useFieldEditor((s) => s.toggleGrid);
   const snapEnabled = useFieldEditor((s) => s.snapEnabled);
@@ -44,10 +69,40 @@ export function PropertyInspector({
   const gridSpacing = useFieldEditor((s) => s.gridSpacing);
   const setGridSpacing = useFieldEditor((s) => s.setGridSpacing);
 
+  // Resolve a single selected item into crop or facility data
+  const selectedItem = useMemo(() => {
+    if (selectedIds.length !== 1 || !field) return null;
+    const id = selectedIds[0];
+
+    // Check placements (crops)
+    const placement = field.placements.find((p) => p.id === id);
+    if (placement) {
+      const pcRow = field.plantedCrops.find(
+        (row) => row.plantedCrop.id === placement.plantedCropId,
+      );
+      if (pcRow) {
+        return {
+          kind: "crop" as const,
+          placement,
+          plantedCrop: pcRow.plantedCrop,
+          crop: pcRow.crop,
+        };
+      }
+    }
+
+    // Check facilities
+    const facility = field.facilities.find((f) => f.id === id);
+    if (facility) {
+      return { kind: "facility" as const, facility };
+    }
+
+    return null;
+  }, [selectedIds, field]);
+
   return (
     <div
       className={cn(
-        "flex flex-col border-l bg-background transition-[width] duration-200",
+        "flex shrink-0 flex-col overflow-hidden border-l bg-background transition-[width] duration-200",
         inspectorOpen ? "w-[280px]" : "w-10",
       )}
     >
@@ -95,12 +150,37 @@ export function PropertyInspector({
               />
             )}
 
-            {selectedIds.length === 1 && (
-              <SingleSelectionSection selectedId={selectedIds[0]} />
+            {selectedIds.length === 1 && selectedItem?.kind === "crop" && (
+              <CropSelectionSection
+                item={selectedItem}
+                onDelete={onDeleteSelected}
+                onDeselect={clearSelection}
+              />
+            )}
+
+            {selectedIds.length === 1 && selectedItem?.kind === "facility" && (
+              <FacilitySelectionSection
+                item={selectedItem}
+                onDelete={onDeleteSelected}
+                onDeselect={clearSelection}
+              />
+            )}
+
+            {selectedIds.length === 1 && !selectedItem && (
+              <div className="space-y-2">
+                <SectionHeading>選取項目</SectionHeading>
+                <p className="text-xs text-muted-foreground">
+                  找不到項目資料
+                </p>
+              </div>
             )}
 
             {selectedIds.length > 1 && (
-              <MultiSelectionSection count={selectedIds.length} />
+              <MultiSelectionSection
+                count={selectedIds.length}
+                onDelete={onDeleteSelected}
+                onDeselect={clearSelection}
+              />
             )}
           </div>
         </ScrollArea>
@@ -116,6 +196,15 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
       {children}
     </h3>
+  );
+}
+
+function PropRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-2 text-xs">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="text-right font-medium">{value}</span>
+    </div>
   );
 }
 
@@ -210,33 +299,293 @@ function FieldInfoSection({
   );
 }
 
-function SingleSelectionSection({ selectedId }: { selectedId: string }) {
+// --- Crop selection ---
+
+function CropSelectionSection({
+  item,
+  onDelete,
+  onDeselect,
+}: {
+  item: {
+    placement: FieldData["placements"][number];
+    plantedCrop: FieldData["plantedCrops"][number]["plantedCrop"];
+    crop: FieldData["plantedCrops"][number]["crop"];
+  };
+  onDelete?: () => void;
+  onDeselect: () => void;
+}) {
+  const { placement, plantedCrop, crop } = item;
+
+  const statusLabel =
+    PLANTED_CROP_STATUS_LABELS[plantedCrop.status as PlantedCropStatus] ??
+    plantedCrop.status;
+
+  const categoryLabel = crop
+    ? (CROP_CATEGORY_LABELS[crop.category as CropCategory] ?? crop.category)
+    : null;
+
+  const growthDays = plantedCrop.customGrowthDays ?? crop?.growthDays;
+
+  const area = (Number(placement.widthM) * Number(placement.heightM)).toFixed(
+    1,
+  );
+
   return (
-    <div className="space-y-2">
-      <SectionHeading>選取項目</SectionHeading>
-      <p className="text-xs text-muted-foreground">
-        ID: {selectedId.slice(0, 8)}...
-      </p>
-      <p className="text-xs text-muted-foreground">
-        屬性面板將在畫布整合後顯示完整內容。
-      </p>
-    </div>
+    <>
+      {/* Header */}
+      <div className="space-y-2">
+        <SectionHeading>{crop ? "作物屬性" : "區域屬性"}</SectionHeading>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{crop?.emoji ?? ""}</span>
+          <div>
+            <p className="text-sm font-medium">{crop?.name ?? "未指定作物"}</p>
+            {categoryLabel && (
+              <p className="text-[10px] text-muted-foreground">{categoryLabel}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Status */}
+      <div className="space-y-1.5">
+        <SectionHeading>狀態</SectionHeading>
+        <div className="flex items-center gap-1.5 text-xs">
+          <Sprout className="size-3 text-muted-foreground" />
+          <span
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-medium",
+              plantedCrop.status === "growing" &&
+                "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+              plantedCrop.status === "harvested" &&
+                "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+              plantedCrop.status === "removed" &&
+                "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+            )}
+          >
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Geometry */}
+      <div className="space-y-1.5">
+        <SectionHeading>位置與尺寸</SectionHeading>
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="size-3" />
+            <span>位置</span>
+          </div>
+          <PropRow
+            label="X"
+            value={`${Number(placement.xM).toFixed(1)} m`}
+          />
+          <PropRow
+            label="Y"
+            value={`${Number(placement.yM).toFixed(1)} m`}
+          />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Move className="size-3" />
+            <span>尺寸</span>
+          </div>
+          <PropRow
+            label="寬"
+            value={`${Number(placement.widthM).toFixed(1)} m`}
+          />
+          <PropRow
+            label="高"
+            value={`${Number(placement.heightM).toFixed(1)} m`}
+          />
+          <PropRow label="面積" value={<>{area} m&sup2;</>} />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Dates */}
+      <div className="space-y-1.5">
+        <SectionHeading>種植資訊</SectionHeading>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="size-3" />
+          <span>日期</span>
+        </div>
+        {plantedCrop.plantedDate && (
+          <PropRow label="種植日" value={plantedCrop.plantedDate} />
+        )}
+        {plantedCrop.harvestedDate && (
+          <PropRow label="收成日" value={plantedCrop.harvestedDate} />
+        )}
+        {growthDays != null && (
+          <PropRow label="生長天數" value={`${growthDays} 天`} />
+        )}
+        {plantedCrop.notes && (
+          <div className="mt-1.5">
+            <p className="text-[10px] text-muted-foreground">備註</p>
+            <p className="text-xs">{plantedCrop.notes}</p>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={onDeselect}
+        >
+          取消選取
+        </Button>
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs"
+            onClick={onDelete}
+          >
+            <Trash2 className="mr-1 size-3" />
+            刪除
+          </Button>
+        )}
+      </div>
+    </>
   );
 }
 
-function MultiSelectionSection({ count }: { count: number }) {
+// --- Facility selection ---
+
+function FacilitySelectionSection({
+  item,
+  onDelete,
+  onDeselect,
+}: {
+  item: { facility: FieldData["facilities"][number] };
+  onDelete?: () => void;
+  onDeselect: () => void;
+}) {
+  const { facility } = item;
+
+  const typeLabel =
+    FACILITY_TYPE_LABELS[facility.facilityType as FacilityType] ??
+    facility.facilityType;
+
+  const area = (Number(facility.widthM) * Number(facility.heightM)).toFixed(1);
+
   return (
-    <div className="space-y-2">
-      <SectionHeading>多重選取</SectionHeading>
-      <p className="text-xs text-muted-foreground">
-        已選取 {count} 個項目
-      </p>
-      <p className="text-xs text-muted-foreground">
-        批量操作將在畫布整合後啟用。
-      </p>
-    </div>
+    <>
+      {/* Header */}
+      <div className="space-y-2">
+        <SectionHeading>設施屬性</SectionHeading>
+        <div className="flex items-center gap-2">
+          <Wrench className="size-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">{facility.name}</p>
+            <p className="text-[10px] text-muted-foreground">{typeLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Geometry */}
+      <div className="space-y-1.5">
+        <SectionHeading>位置與尺寸</SectionHeading>
+        <PropRow label="X" value={`${Number(facility.xM).toFixed(1)} m`} />
+        <PropRow label="Y" value={`${Number(facility.yM).toFixed(1)} m`} />
+        <PropRow
+          label="寬"
+          value={`${Number(facility.widthM).toFixed(1)} m`}
+        />
+        <PropRow
+          label="高"
+          value={`${Number(facility.heightM).toFixed(1)} m`}
+        />
+        <PropRow label="面積" value={<>{area} m&sup2;</>} />
+      </div>
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={onDeselect}
+        >
+          取消選取
+        </Button>
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs"
+            onClick={onDelete}
+          >
+            <Trash2 className="mr-1 size-3" />
+            刪除
+          </Button>
+        )}
+      </div>
+    </>
   );
 }
+
+// --- Multi selection ---
+
+function MultiSelectionSection({
+  count,
+  onDelete,
+  onDeselect,
+}: {
+  count: number;
+  onDelete?: () => void;
+  onDeselect: () => void;
+}) {
+  return (
+    <>
+      <div className="space-y-2">
+        <SectionHeading>多重選取</SectionHeading>
+        <p className="text-sm font-medium">
+          已選取 {count} 個項目
+        </p>
+      </div>
+
+      <Separator />
+
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={onDeselect}
+        >
+          取消選取
+        </Button>
+        {onDelete && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs"
+            onClick={onDelete}
+          >
+            <Trash2 className="mr-1 size-3" />
+            刪除全部
+          </Button>
+        )}
+      </div>
+    </>
+  );
+}
+
+// --- Shared sub-components ---
 
 function ToggleRow({
   icon,

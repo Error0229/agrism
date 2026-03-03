@@ -4,9 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Redo2, Undo2 } from "lucide-react";
 
-import { useFieldById, usePlantCrop } from "@/hooks/use-fields";
+import {
+  useFieldById,
+  useCreateRegion,
+  useAssignCropToRegion,
+  useRemovePlantedCrop,
+  useRestorePlantedCrop,
+  useDeleteFacility,
+  useCreateFacility,
+} from "@/hooks/use-fields";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
+import {
+  createDeleteCommand,
+  createPlantCropCommand,
+} from "@/lib/store/editor-commands";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -20,6 +32,7 @@ import { EditorToolbar } from "./editor-toolbar";
 import { EditorStatusBar } from "./editor-status-bar";
 import { PropertyInspector } from "./property-inspector";
 import { PlantCropDialog } from "./plant-crop-dialog";
+import { useEditorShortcuts } from "./use-editor-shortcuts";
 
 interface EditorLayoutProps {
   fieldId: string;
@@ -37,11 +50,20 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const zoom = useFieldEditor((s) => s.zoom);
   const zoomIn = useFieldEditor((s) => s.zoomIn);
   const zoomOut = useFieldEditor((s) => s.zoomOut);
+  const selectedIds = useFieldEditor((s) => s.selectedIds);
+  const executeCommand = useFieldEditor((s) => s.executeCommand);
 
-  const plantCrop = usePlantCrop(farmId ?? "");
+  const createRegionMut = useCreateRegion(farmId ?? "");
+  const assignCropToRegion = useAssignCropToRegion();
+  const removePlantedCrop = useRemovePlantedCrop();
+  const restorePlantedCrop = useRestorePlantedCrop();
+  const deleteFacility = useDeleteFacility();
+  const createFacility = useCreateFacility();
 
-  // Draw rect completion state
-  const [pendingRect, setPendingRect] = useState<{
+  // Draw rect completion state — stores the newly created region's planted crop ID
+  // so the user can optionally assign a crop to it
+  const [pendingRegionId, setPendingRegionId] = useState<string | null>(null);
+  const [pendingRectInfo, setPendingRectInfo] = useState<{
     xM: number;
     yM: number;
     widthM: number;
@@ -52,30 +74,119 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     setActiveField(fieldId);
   }, [fieldId, setActiveField]);
 
-  const handleDrawRectComplete = useCallback(
-    (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
-      setPendingRect(rect);
-    },
-    [],
-  );
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.length === 0 || !field) return;
 
-  const handlePlantCrop = useCallback(
-    async (cropId: string) => {
-      if (!pendingRect) return;
-      await plantCrop.mutateAsync({
-        fieldId,
-        data: {
-          cropId,
-          xM: pendingRect.xM,
-          yM: pendingRect.yM,
-          widthM: pendingRect.widthM,
-          heightM: pendingRect.heightM,
+    // Snapshot facility data before deletion so undo can re-create them
+    const facilitySnapshots = new Map<string, {
+      facilityType: string;
+      name: string;
+      xM: number;
+      yM: number;
+      widthM: number;
+      heightM: number;
+    }>();
+    // Map placement IDs to their plantedCropIds for crops
+    const placementToPlantedCropId = new Map<string, string>();
+
+    for (const id of selectedIds) {
+      const placement = field.placements.find((p) => p.id === id);
+      if (placement) {
+        placementToPlantedCropId.set(id, placement.plantedCropId);
+        continue;
+      }
+      const facility = field.facilities.find((f) => f.id === id);
+      if (facility) {
+        facilitySnapshots.set(id, {
+          facilityType: facility.facilityType,
+          name: facility.name,
+          xM: Number(facility.xM),
+          yM: Number(facility.yM),
+          widthM: Number(facility.widthM),
+          heightM: Number(facility.heightM),
+        });
+      }
+    }
+
+    const cmd = createDeleteCommand({
+      ids: [...selectedIds],
+      async deleteFn(id) {
+        const plantedCropId = placementToPlantedCropId.get(id);
+        if (plantedCropId) {
+          await removePlantedCrop.mutateAsync(plantedCropId);
+          return;
+        }
+        if (facilitySnapshots.has(id)) {
+          await deleteFacility.mutateAsync({ id, fieldId: field.id });
+        }
+      },
+      async restoreFn(id) {
+        const plantedCropId = placementToPlantedCropId.get(id);
+        if (plantedCropId) {
+          await restorePlantedCrop.mutateAsync(plantedCropId);
+          return;
+        }
+        const snapshot = facilitySnapshots.get(id);
+        if (snapshot) {
+          await createFacility.mutateAsync({
+            fieldId: field.id,
+            data: snapshot as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+          });
+        }
+      },
+    });
+    void executeCommand(cmd);
+  }, [selectedIds, field, removePlantedCrop, restorePlantedCrop, deleteFacility, createFacility, executeCommand]);
+
+  useEditorShortcuts({ onDeleteSelected: handleDeleteSelected });
+
+  const handleDrawRectComplete = useCallback(
+    async (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
+      const rectData = { ...rect };
+      let createdPlantedCropId: string | null = null;
+
+      const cmd = createPlantCropCommand({
+        async plantFn() {
+          const result = await createRegionMut.mutateAsync({
+            fieldId,
+            data: {
+              xM: rectData.xM,
+              yM: rectData.yM,
+              widthM: rectData.widthM,
+              heightM: rectData.heightM,
+            },
+          });
+          createdPlantedCropId = result.plantedCrop.id;
+          return { plantedCropId: result.plantedCrop.id };
+        },
+        async removeFn(plantedCropId) {
+          await removePlantedCrop.mutateAsync(plantedCropId);
+        },
+        async restoreFn(plantedCropId) {
+          await restorePlantedCrop.mutateAsync(plantedCropId);
         },
       });
-      setPendingRect(null);
+
+      await executeCommand(cmd);
+
+      // Show optional crop assignment dialog
+      if (createdPlantedCropId) {
+        setPendingRegionId(createdPlantedCropId);
+        setPendingRectInfo(rect);
+      }
       setTool("select");
     },
-    [pendingRect, plantCrop, fieldId, setTool],
+    [createRegionMut, removePlantedCrop, restorePlantedCrop, fieldId, setTool, executeCommand],
+  );
+
+  const handleAssignCrop = useCallback(
+    async (cropId: string) => {
+      if (!pendingRegionId) return;
+      await assignCropToRegion.mutateAsync({ plantedCropId: pendingRegionId, cropId });
+      setPendingRegionId(null);
+      setPendingRectInfo(null);
+    },
+    [pendingRegionId, assignCropToRegion],
   );
 
   if (isLoading) {
@@ -180,7 +291,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         <EditorToolbar />
 
         {/* Center: canvas */}
-        <div className="flex-1 bg-muted/30">
+        <div className="min-w-0 flex-1 overflow-hidden bg-muted/30">
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
@@ -189,12 +300,14 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
         {/* Right: property inspector */}
         <PropertyInspector
+          field={field}
           fieldName={field.name}
           fieldWidthM={Number(field.widthM)}
           fieldHeightM={Number(field.heightM)}
           growingCount={growingCount}
           harvestedCount={harvestedCount}
           facilityCount={facilityCount}
+          onDeleteSelected={handleDeleteSelected}
         />
       </div>
 
@@ -205,16 +318,20 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         fieldHeightM={Number(field.heightM)}
       />
 
-      {/* Plant crop dialog (opens after draw_rect completion) */}
+      {/* Crop assignment dialog (opens after draw_rect creates a region) */}
       {farmId && (
         <PlantCropDialog
           farmId={farmId}
-          open={pendingRect !== null}
+          open={pendingRegionId !== null}
           onOpenChange={(open) => {
-            if (!open) setPendingRect(null);
+            if (!open) {
+              // User dismissed without selecting — region stays unassigned
+              setPendingRegionId(null);
+              setPendingRectInfo(null);
+            }
           }}
-          onSelect={handlePlantCrop}
-          rectInfo={pendingRect}
+          onSelect={handleAssignCrop}
+          rectInfo={pendingRectInfo}
         />
       )}
     </div>

@@ -3,11 +3,19 @@
 import { useEffect, useCallback } from 'react'
 import { useFieldEditor } from '@/lib/store/field-editor-store'
 
+// Pixels per meter for pan calculations — matches PIXELS_PER_METER in editor-canvas
+const PAN_PX_PER_METER = 50
+
+interface EditorShortcutOptions {
+  onDeleteSelected?: () => void
+}
+
 /**
  * Registers global keyboard shortcuts for the field editor canvas.
  * Should be called once in the editor layout component.
  */
-export function useEditorShortcuts() {
+export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
+  const { onDeleteSelected } = options
   const {
     setTool,
     setTemporaryTool,
@@ -83,11 +91,13 @@ export function useEditorShortcuts() {
           clearSelection()
           break
 
-        // Delete/Backspace: handled by canvas component (needs delete command context)
-        // We only clear selection here; actual deletion is up to the consumer.
+        // Delete/Backspace: delete selected items
         case 'Delete':
         case 'Backspace':
-          // Intentionally left for the canvas to handle via selectedIds
+          if (onDeleteSelected) {
+            e.preventDefault()
+            onDeleteSelected()
+          }
           break
 
         // Zoom
@@ -104,28 +114,28 @@ export function useEditorShortcuts() {
           toggleInspector()
           break
 
-        // Arrow keys: nudge pan (or selected items)
+        // Arrow keys: nudge pan (gridSpacing is in meters, convert to pixels)
         case 'ArrowUp': {
           e.preventDefault()
-          const step = e.shiftKey ? 10 * gridSpacing : gridSpacing
+          const step = (e.shiftKey ? 10 * gridSpacing : gridSpacing) * PAN_PX_PER_METER
           setPan(pan.x, pan.y + step)
           break
         }
         case 'ArrowDown': {
           e.preventDefault()
-          const step = e.shiftKey ? 10 * gridSpacing : gridSpacing
+          const step = (e.shiftKey ? 10 * gridSpacing : gridSpacing) * PAN_PX_PER_METER
           setPan(pan.x, pan.y - step)
           break
         }
         case 'ArrowLeft': {
           e.preventDefault()
-          const step = e.shiftKey ? 10 * gridSpacing : gridSpacing
+          const step = (e.shiftKey ? 10 * gridSpacing : gridSpacing) * PAN_PX_PER_METER
           setPan(pan.x + step, pan.y)
           break
         }
         case 'ArrowRight': {
           e.preventDefault()
-          const step = e.shiftKey ? 10 * gridSpacing : gridSpacing
+          const step = (e.shiftKey ? 10 * gridSpacing : gridSpacing) * PAN_PX_PER_METER
           setPan(pan.x - step, pan.y)
           break
         }
@@ -143,6 +153,7 @@ export function useEditorShortcuts() {
       gridSpacing,
       pan,
       setPan,
+      onDeleteSelected,
     ],
   )
 

@@ -9,7 +9,9 @@ import { useFieldEditor } from "@/lib/store/field-editor-store";
 import {
   useUpdateCropPlacement,
   useRemovePlantedCrop,
+  useRestorePlantedCrop,
   useDeleteFacility,
+  useCreateFacility,
   useUpdateFacility,
   useUpdateUtilityNode,
 } from "@/hooks/use-fields";
@@ -124,7 +126,9 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
   const removePlantedCrop = useRemovePlantedCrop();
+  const restorePlantedCrop = useRestorePlantedCrop();
   const deleteFacility = useDeleteFacility();
+  const createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
 
@@ -178,6 +182,9 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
     for (const row of field.plantedCrops) {
       const placement = placementByPlantedCropId.get(row.plantedCrop.id);
       if (!placement) continue;
+
+      // Handle unassigned regions (crop is null from leftJoin)
+      const crop = row.crop;
       items.push({
         id: placement.id,
         kind: "crop",
@@ -185,11 +192,11 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         yM: Number(placement.yM),
         widthM: Number(placement.widthM),
         heightM: Number(placement.heightM),
-        label: `${row.crop.emoji} ${row.crop.name}`,
-        emoji: row.crop.emoji ?? "",
-        color: row.crop.color ?? "#86efac",
+        label: crop ? `${crop.emoji} ${crop.name}` : "未指定作物",
+        emoji: crop?.emoji ?? "",
+        color: crop?.color ?? "#d1d5db",
         status: row.plantedCrop.status,
-        cropId: row.crop.id,
+        cropId: crop?.id,
         plantedCropId: row.plantedCrop.id,
         plantedDate: row.plantedCrop.plantedDate,
       });
@@ -413,6 +420,16 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         if (!item) return;
         e.cancelBubble = true;
 
+        // Snapshot facility data for undo re-creation
+        const facilitySnapshot = item.kind === "facility" ? {
+          facilityType: item.facilityType ?? "custom",
+          name: item.label,
+          xM: item.xM,
+          yM: item.yM,
+          widthM: item.widthM,
+          heightM: item.heightM,
+        } : null;
+
         const cmd = createDeleteCommand({
           ids: [itemId],
           async deleteFn(id) {
@@ -427,8 +444,16 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
               });
             }
           },
-          async restoreFn() {
-            // No-op — items can be re-created manually
+          async restoreFn(id) {
+            const target = itemById.get(id);
+            if (target?.kind === "crop" && target.plantedCropId) {
+              await restorePlantedCrop.mutateAsync(target.plantedCropId);
+            } else if (facilitySnapshot) {
+              await createFacility.mutateAsync({
+                fieldId: field.id,
+                data: facilitySnapshot as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+              });
+            }
           },
         });
         executeCommand(cmd);
@@ -450,7 +475,9 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
       executeCommand,
       itemById,
       removePlantedCrop,
+      restorePlantedCrop,
       deleteFacility,
+      createFacility,
       field.id,
     ],
   );
@@ -729,6 +756,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
             fill="#f0fdf4"
             stroke="#86efac"
             strokeWidth={2}
+            listening={false}
           />
 
           {/* Grid lines */}
