@@ -44,7 +44,6 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
     toggleInspector,
     toggleGrid,
     toggleSnap,
-    toggleLayerVisibility,
     undo,
     redo,
     gridSpacing,
@@ -221,8 +220,11 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           setTemporaryTool('hand')
           break
 
-        // Escape: deselect all
+        // Escape: cancel polygon drawing or deselect all
         case 'Escape':
+          if (useFieldEditor.getState().activeTool === 'draw_polygon') {
+            setTool('select')
+          }
           clearSelection()
           break
 
@@ -274,18 +276,30 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           toggleGrid()
           break
 
-        // Layer visibility toggles (1-4 without modifiers)
+        // Number keys: switch tools (1–8)
         case '1':
-          toggleLayerVisibility('crops')
+          setTool('select')
           break
         case '2':
-          toggleLayerVisibility('facilities')
+          setTool('draw_rect')
           break
         case '3':
-          toggleLayerVisibility('waterUtilities')
+          setTool('draw_polygon')
           break
         case '4':
-          toggleLayerVisibility('electricUtilities')
+          setTool('hand')
+          break
+        case '5':
+          setTool('eraser')
+          break
+        case '6':
+          setTool('measure')
+          break
+        case '7':
+          setTool('utility_node')
+          break
+        case '8':
+          setTool('utility_edge')
           break
 
         // Arrow keys: nudge pan (gridSpacing is in meters, convert to pixels)
@@ -326,7 +340,6 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       toggleInspector,
       toggleGrid,
       toggleSnap,
-      toggleLayerVisibility,
       undo,
       redo,
       gridSpacing,

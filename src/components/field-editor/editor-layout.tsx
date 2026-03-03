@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, ImagePlus, Loader2, Redo2, Undo2 } from "lucide-react";
+import { ArrowLeft, Clock, ImagePlus, Loader2, PanelBottomOpen, Redo2, Undo2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -38,7 +38,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
 import { EditorCanvas } from "./editor-canvas";
 import { EditorMinimap } from "./editor-minimap";
@@ -1108,6 +1108,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             harvestedCount={harvestedCount}
             facilityCount={facilityCount}
             onDeleteSelected={handleDeleteSelected}
+            onDeleteArea={handleDeleteArea}
+            onRemovePlant={handleRemovePlant}
             onChangeCrop={handleChangeCrop}
             onMarkHarvested={handleMarkHarvested}
             onSplitHorizontal={handleSplitHorizontal}
@@ -1122,31 +1124,46 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         {/* Mobile inspector (bottom sheet — must be conditionally rendered, not CSS-hidden,
              because Sheet portals render at document body level and ignore parent display:none) */}
         {isMobile && (
-          <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open) toggleInspector(); }}>
-            <SheetContent side="bottom" className="max-h-[60vh] overflow-y-auto" showCloseButton={false}>
-              <SheetTitle className="sr-only">屬性面板</SheetTitle>
-              <PropertyInspector
-                field={field}
-                fieldName={field.name}
-                fieldWidthM={Number(field.widthM)}
-                fieldHeightM={Number(field.heightM)}
-                growingCount={growingCount}
-                harvestedCount={harvestedCount}
-                facilityCount={facilityCount}
-                onDeleteSelected={handleDeleteSelected}
-                onDeleteArea={handleDeleteArea}
-                onRemovePlant={handleRemovePlant}
-                onChangeCrop={handleChangeCrop}
-                onMarkHarvested={handleMarkHarvested}
-                onSplitHorizontal={handleSplitHorizontal}
-                onSplitVertical={handleSplitVertical}
-                onMergeZones={handleMergeZones}
-                onAlign={handleAlign}
-                memo={field.memo}
-                onMemoChange={handleMemoChange}
-              />
-            </SheetContent>
-          </Sheet>
+          <>
+            <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open && inspectorOpen) toggleInspector(); }}>
+              <SheetContent side="bottom" className="max-h-[60vh] overflow-y-auto" showCloseButton={false}>
+                <SheetTitle className="sr-only">屬性面板</SheetTitle>
+                <SheetDescription className="sr-only">查看與編輯選取項目的屬性</SheetDescription>
+                <PropertyInspector
+                  field={field}
+                  fieldName={field.name}
+                  fieldWidthM={Number(field.widthM)}
+                  fieldHeightM={Number(field.heightM)}
+                  growingCount={growingCount}
+                  harvestedCount={harvestedCount}
+                  facilityCount={facilityCount}
+                  onDeleteSelected={handleDeleteSelected}
+                  onDeleteArea={handleDeleteArea}
+                  onRemovePlant={handleRemovePlant}
+                  onChangeCrop={handleChangeCrop}
+                  onMarkHarvested={handleMarkHarvested}
+                  onSplitHorizontal={handleSplitHorizontal}
+                  onSplitVertical={handleSplitVertical}
+                  onMergeZones={handleMergeZones}
+                  onAlign={handleAlign}
+                  memo={field.memo}
+                  onMemoChange={handleMemoChange}
+                />
+              </SheetContent>
+            </Sheet>
+            {/* Floating button to reopen inspector on mobile when it's collapsed */}
+            {!inspectorOpen && (
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute bottom-14 right-2 z-10 size-9 rounded-full shadow-md"
+                onClick={toggleInspector}
+                aria-label="開啟屬性面板"
+              >
+                <PanelBottomOpen className="size-4" />
+              </Button>
+            )}
+          </>
         )}
       </div>
 
