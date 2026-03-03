@@ -87,6 +87,8 @@ interface PropertyInspectorProps {
   onAlign?: (type: AlignType) => void;
   memo?: string | null;
   onMemoChange?: (memo: string) => void;
+  /** When true, skip collapse header and always show content (for use inside Sheet) */
+  embedded?: boolean;
 }
 
 export function PropertyInspector({
@@ -108,6 +110,7 @@ export function PropertyInspector({
   onAlign,
   memo,
   onMemoChange,
+  embedded = false,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
@@ -195,38 +198,44 @@ export function PropertyInspector({
     return null;
   }, [selectedIds, field]);
 
+  const showContent = embedded || inspectorOpen;
+
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-col overflow-hidden border-l bg-background transition-[width] duration-200",
-        inspectorOpen ? "w-[280px]" : "w-10",
+        "flex shrink-0 flex-col overflow-hidden",
+        embedded
+          ? ""
+          : cn("border-l bg-background transition-[width] duration-200", inspectorOpen ? "w-[280px]" : "w-10"),
       )}
     >
-      {/* Collapse / expand button */}
-      <div className="flex h-10 items-center justify-center border-b">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={toggleInspector}
-                className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
-              >
-                {inspectorOpen ? (
-                  <PanelRightClose className="size-4" />
-                ) : (
-                  <PanelRightOpen className="size-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left" sideOffset={4}>
-              {inspectorOpen ? "收起面板" : "展開面板"} (])
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      {/* Collapse / expand button — desktop only, hidden in embedded (mobile sheet) mode */}
+      {!embedded && (
+        <div className="flex h-10 items-center justify-center border-b">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleInspector}
+                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground"
+                >
+                  {inspectorOpen ? (
+                    <PanelRightClose className="size-4" />
+                  ) : (
+                    <PanelRightOpen className="size-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={4}>
+                {inspectorOpen ? "收起面板" : "展開面板"} (])
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
 
-      {inspectorOpen && (
+      {showContent && (
         <ScrollArea className="flex-1">
           <div className="space-y-4 p-3">
             {selectedIds.length === 0 && (

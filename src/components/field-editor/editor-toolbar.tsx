@@ -69,7 +69,7 @@ export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) 
         className={cn(
           "flex items-center gap-1 bg-background",
           isHorizontal
-            ? "h-12 w-full flex-row justify-center border-t px-2 overflow-x-auto"
+            ? "h-14 w-full flex-row justify-center border-t px-2 overflow-x-auto"
             : "h-full w-12 flex-col border-r py-2",
         )}
       >
@@ -102,13 +102,14 @@ export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) 
                     type="button"
                     onClick={() => setTool(tool.id)}
                     className={cn(
-                      "flex size-9 items-center justify-center rounded-md transition-colors",
+                      "flex items-center justify-center rounded-md transition-colors",
+                      isHorizontal ? "size-11" : "size-9",
                       isActive
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground",
                     )}
                   >
-                    <Icon className="size-4" />
+                    <Icon className={cn(isHorizontal ? "size-5" : "size-4")} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent

@@ -1095,6 +1095,18 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             viewportHeight={canvasContainerSize.height}
             onNavigate={handleMinimapNavigate}
           />
+          {/* Floating button to reopen inspector on mobile when it's collapsed */}
+          {isMobile && !inspectorOpen && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute bottom-3 right-3 z-10 size-11 rounded-full shadow-md"
+              onClick={toggleInspector}
+              aria-label="開啟屬性面板"
+            >
+              <PanelBottomOpen className="size-5" />
+            </Button>
+          )}
         </div>
 
         {/* Right: property inspector (desktop only) */}
@@ -1148,21 +1160,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                   onAlign={handleAlign}
                   memo={field.memo}
                   onMemoChange={handleMemoChange}
+                  embedded
                 />
               </SheetContent>
             </Sheet>
-            {/* Floating button to reopen inspector on mobile when it's collapsed */}
-            {!inspectorOpen && (
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute bottom-14 right-2 z-10 size-9 rounded-full shadow-md"
-                onClick={toggleInspector}
-                aria-label="開啟屬性面板"
-              >
-                <PanelBottomOpen className="size-4" />
-              </Button>
-            )}
           </>
         )}
       </div>
