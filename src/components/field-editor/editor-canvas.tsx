@@ -85,6 +85,83 @@ interface DrawRectState {
 const PIXELS_PER_METER = 100;
 const HANDLE_SIZE = 8;
 const MIN_SIZE_M = 0.2; // minimum 20cm resize
+const SNAP_THRESHOLD_M = 0.15; // snap within 15cm
+
+// ---------------------------------------------------------------------------
+// Snap-to-object alignment guides
+// ---------------------------------------------------------------------------
+
+interface SnapGuide {
+  orientation: "horizontal" | "vertical";
+  positionM: number; // position in meters
+}
+
+interface SnapResult {
+  guides: SnapGuide[];
+  snappedXM: number | null;
+  snappedYM: number | null;
+}
+
+function computeSnapGuides(
+  movingBounds: { xM: number; yM: number; widthM: number; heightM: number },
+  otherItems: Array<{ xM: number; yM: number; widthM: number; heightM: number }>,
+  fieldWidthM: number,
+  fieldHeightM: number,
+): SnapResult {
+  const guides: SnapGuide[] = [];
+  let snappedXM: number | null = null;
+  let snappedYM: number | null = null;
+
+  const movingLeft = movingBounds.xM;
+  const movingRight = movingBounds.xM + movingBounds.widthM;
+  const movingCenterX = movingBounds.xM + movingBounds.widthM / 2;
+  const movingTop = movingBounds.yM;
+  const movingBottom = movingBounds.yM + movingBounds.heightM;
+  const movingCenterY = movingBounds.yM + movingBounds.heightM / 2;
+
+  // Collect all reference edges and centers from other items + field boundaries
+  const verticalRefs: number[] = [0, fieldWidthM];
+  const horizontalRefs: number[] = [0, fieldHeightM];
+
+  for (const item of otherItems) {
+    verticalRefs.push(item.xM, item.xM + item.widthM, item.xM + item.widthM / 2);
+    horizontalRefs.push(item.yM, item.yM + item.heightM, item.yM + item.heightM / 2);
+  }
+
+  // Check vertical alignment (X axis)
+  for (const ref of verticalRefs) {
+    if (Math.abs(movingLeft - ref) < SNAP_THRESHOLD_M && snappedXM === null) {
+      snappedXM = ref;
+      guides.push({ orientation: "vertical", positionM: ref });
+    }
+    if (Math.abs(movingRight - ref) < SNAP_THRESHOLD_M && snappedXM === null) {
+      snappedXM = ref - movingBounds.widthM;
+      guides.push({ orientation: "vertical", positionM: ref });
+    }
+    if (Math.abs(movingCenterX - ref) < SNAP_THRESHOLD_M && snappedXM === null) {
+      snappedXM = ref - movingBounds.widthM / 2;
+      guides.push({ orientation: "vertical", positionM: ref });
+    }
+  }
+
+  // Check horizontal alignment (Y axis)
+  for (const ref of horizontalRefs) {
+    if (Math.abs(movingTop - ref) < SNAP_THRESHOLD_M && snappedYM === null) {
+      snappedYM = ref;
+      guides.push({ orientation: "horizontal", positionM: ref });
+    }
+    if (Math.abs(movingBottom - ref) < SNAP_THRESHOLD_M && snappedYM === null) {
+      snappedYM = ref - movingBounds.heightM;
+      guides.push({ orientation: "horizontal", positionM: ref });
+    }
+    if (Math.abs(movingCenterY - ref) < SNAP_THRESHOLD_M && snappedYM === null) {
+      snappedYM = ref - movingBounds.heightM / 2;
+      guides.push({ orientation: "horizontal", positionM: ref });
+    }
+  }
+
+  return { guides, snappedXM, snappedYM };
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -127,6 +204,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const selectMultiple = useFieldEditor((s) => s.selectMultiple);
   const executeCommand = useFieldEditor((s) => s.executeCommand);
   const layerVisibility = useFieldEditor((s) => s.layerVisibility);
+  const showHarvested = useFieldEditor((s) => s.showHarvested);
   const setCursorPosition = useFieldEditor((s) => s.setCursorPosition);
 
   // Mutations
@@ -139,6 +217,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const updateUtilityNode = useUpdateUtilityNode();
 
   // Local interaction state
+  const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [dragStartPositions, setDragStartPositions] = useState<Map<
     string,
@@ -276,14 +355,15 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
     [utilityNodes],
   );
 
-  // Filter canvas items by layer visibility
+  // Filter canvas items by layer visibility and harvested toggle
   const visibleCanvasItems = useMemo(() => {
     return canvasItems.filter((item) => {
       if (item.kind === "crop" && !layerVisibility.crops) return false;
       if (item.kind === "facility" && !layerVisibility.facilities) return false;
+      if (item.status === "harvested" && !showHarvested) return false;
       return true;
     });
-  }, [canvasItems, layerVisibility.crops, layerVisibility.facilities]);
+  }, [canvasItems, layerVisibility.crops, layerVisibility.facilities, showHarvested]);
 
   // Filter utility nodes/edges by layer visibility
   const visibleUtilityNodes = useMemo(() => {
@@ -301,6 +381,37 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
       return true;
     });
   }, [utilityEdges, layerVisibility.waterUtilities, layerVisibility.electricUtilities]);
+
+  // Compute overlap conflict warnings between visible crop items
+  const overlaps = useMemo(() => {
+    const cropItems = visibleCanvasItems.filter((item) => item.kind === "crop");
+    const result: { xPx: number; yPx: number }[] = [];
+    for (let i = 0; i < cropItems.length; i++) {
+      for (let j = i + 1; j < cropItems.length; j++) {
+        const a = cropItems[i];
+        const b = cropItems[j];
+        // Check rectangle intersection
+        const intersects = !(
+          a.xM + a.widthM <= b.xM ||
+          b.xM + b.widthM <= a.xM ||
+          a.yM + a.heightM <= b.yM ||
+          b.yM + b.heightM <= a.yM
+        );
+        if (intersects) {
+          // Midpoint between the two items' centers
+          const aCx = a.xM + a.widthM / 2;
+          const aCy = a.yM + a.heightM / 2;
+          const bCx = b.xM + b.widthM / 2;
+          const bCy = b.yM + b.heightM / 2;
+          result.push({
+            xPx: ((aCx + bCx) / 2) * PIXELS_PER_METER,
+            yPx: ((aCy + bCy) / 2) * PIXELS_PER_METER,
+          });
+        }
+      }
+    }
+    return result;
+  }, [visibleCanvasItems]);
 
   // Grid lines
   const gridLines = useMemo(() => {
@@ -682,6 +793,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
 
   const handleItemDragEnd = useCallback(
     (itemId: string, e: KonvaEventObject<DragEvent>) => {
+      setActiveGuides([]);
       if (activeTool !== "select" || !dragStartPositions) return;
 
       const item = itemById.get(itemId);
@@ -1137,6 +1249,20 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                   cornerRadius={4}
                   draggable={isDraggable}
                   onDragStart={handleItemDragStart}
+                  onDragMove={snapEnabled ? (e) => {
+                    const newXM = e.target.x() / PIXELS_PER_METER;
+                    const newYM = e.target.y() / PIXELS_PER_METER;
+                    const others = canvasItems.filter(ci => !selectedSet.has(ci.id));
+                    const result = computeSnapGuides(
+                      { xM: newXM, yM: newYM, widthM: item.widthM, heightM: item.heightM },
+                      others,
+                      fieldWidthM,
+                      fieldHeightM,
+                    );
+                    setActiveGuides(result.guides);
+                    if (result.snappedXM !== null) e.target.x(result.snappedXM * PIXELS_PER_METER);
+                    if (result.snappedYM !== null) e.target.y(result.snappedYM * PIXELS_PER_METER);
+                  } : undefined}
                   onDragEnd={(e) => handleItemDragEnd(item.id, e)}
                   onClick={(e) => handleItemClick(item.id, e)}
                   onMouseEnter={() => setHoveredItemId(item.id)}
@@ -1203,6 +1329,30 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
               </Group>
             );
           })}
+
+          {/* Smart alignment guides */}
+          {activeGuides.map((guide, i) => (
+            <Line
+              key={`guide-${i}`}
+              points={
+                guide.orientation === "vertical"
+                  ? [guide.positionM * PIXELS_PER_METER, 0, guide.positionM * PIXELS_PER_METER, canvasHeight]
+                  : [0, guide.positionM * PIXELS_PER_METER, canvasWidth, guide.positionM * PIXELS_PER_METER]
+              }
+              stroke="#f97316"
+              strokeWidth={1}
+              dash={[4, 4]}
+              listening={false}
+            />
+          ))}
+
+          {/* Overlap conflict warnings */}
+          {overlaps.map((overlap, i) => (
+            <Group key={`overlap-${i}`} x={overlap.xPx} y={overlap.yPx} listening={false}>
+              <Circle radius={10} fill="#fbbf24" stroke="#d97706" strokeWidth={1} />
+              <Text x={-4} y={-6} text={"\u26a0"} fontSize={11} fill="#92400e" />
+            </Group>
+          ))}
 
           {/* Draw rect preview */}
           {drawRectState && (

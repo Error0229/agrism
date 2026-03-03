@@ -540,6 +540,51 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleSplitHorizontal = useCallback(() => handleSplit("horizontal"), [handleSplit]);
   const handleSplitVertical = useCallback(() => handleSplit("vertical"), [handleSplit]);
 
+  // --- Zone merge ---
+  const handleMergeZones = useCallback(async () => {
+    if (selectedIds.length !== 2 || !field || !farmId) return;
+
+    // Find both selected items from placements
+    const items: { xM: number; yM: number; widthM: number; heightM: number; plantedCropId: string }[] = [];
+    for (const id of selectedIds) {
+      const placement = field.placements.find((p) => p.id === id);
+      if (placement) {
+        items.push({
+          xM: Number(placement.xM),
+          yM: Number(placement.yM),
+          widthM: Number(placement.widthM),
+          heightM: Number(placement.heightM),
+          plantedCropId: placement.plantedCropId,
+        });
+      }
+    }
+    if (items.length !== 2) return;
+
+    // Compute bounding box
+    const minX = Math.min(items[0].xM, items[1].xM);
+    const minY = Math.min(items[0].yM, items[1].yM);
+    const maxX = Math.max(items[0].xM + items[0].widthM, items[1].xM + items[1].widthM);
+    const maxY = Math.max(items[0].yM + items[0].heightM, items[1].yM + items[1].heightM);
+
+    // Delete both original regions
+    await removePlantedCrop.mutateAsync(items[0].plantedCropId);
+    await removePlantedCrop.mutateAsync(items[1].plantedCropId);
+
+    // Create one new merged region (unassigned)
+    await createRegionMut.mutateAsync({
+      fieldId,
+      data: {
+        xM: minX,
+        yM: minY,
+        widthM: maxX - minX,
+        heightM: maxY - minY,
+      },
+    });
+
+    // Clear selection
+    useFieldEditor.getState().clearSelection();
+  }, [selectedIds, field, farmId, fieldId, removePlantedCrop, createRegionMut]);
+
   // --- Utility node placement ---
   const handlePlaceUtilityNode = useCallback(
     async (pos: { xM: number; yM: number }) => {
@@ -806,6 +851,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           onMarkHarvested={handleMarkHarvested}
           onSplitHorizontal={handleSplitHorizontal}
           onSplitVertical={handleSplitVertical}
+          onMergeZones={handleMergeZones}
           onAlign={handleAlign}
           memo={field.memo}
           onMemoChange={handleMemoChange}

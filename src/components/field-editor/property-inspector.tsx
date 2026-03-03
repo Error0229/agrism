@@ -16,6 +16,7 @@ import {
   Grid3X3,
   Magnet,
   MapPin,
+  Merge,
   Move,
   NotebookPen,
   PanelRightClose,
@@ -74,6 +75,7 @@ interface PropertyInspectorProps {
   onMarkHarvested?: (plantedCropId: string) => void;
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
+  onMergeZones?: () => void;
   onAlign?: (type: AlignType) => void;
   memo?: string | null;
   onMemoChange?: (memo: string) => void;
@@ -92,6 +94,7 @@ export function PropertyInspector({
   onMarkHarvested,
   onSplitHorizontal,
   onSplitVertical,
+  onMergeZones,
   onAlign,
   memo,
   onMemoChange,
@@ -108,6 +111,8 @@ export function PropertyInspector({
   const setGridSpacing = useFieldEditor((s) => s.setGridSpacing);
   const layerVisibility = useFieldEditor((s) => s.layerVisibility);
   const toggleLayerVisibility = useFieldEditor((s) => s.toggleLayerVisibility);
+  const showHarvested = useFieldEditor((s) => s.showHarvested);
+  const toggleShowHarvested = useFieldEditor((s) => s.toggleShowHarvested);
 
   // Resolve a single selected item into crop, facility, or utility node data
   const selectedItem = useMemo(() => {
@@ -195,6 +200,8 @@ export function PropertyInspector({
                 setGridSpacing={setGridSpacing}
                 layerVisibility={layerVisibility}
                 toggleLayerVisibility={toggleLayerVisibility}
+                showHarvested={showHarvested}
+                toggleShowHarvested={toggleShowHarvested}
               />
             )}
 
@@ -243,6 +250,7 @@ export function PropertyInspector({
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
                 onAlign={onAlign}
+                onMergeZones={selectedIds.length === 2 ? onMergeZones : undefined}
               />
             )}
 
@@ -294,6 +302,8 @@ function FieldInfoSection({
   setGridSpacing,
   layerVisibility,
   toggleLayerVisibility,
+  showHarvested,
+  toggleShowHarvested,
 }: {
   fieldName?: string;
   fieldWidthM?: number;
@@ -314,6 +324,8 @@ function FieldInfoSection({
     electricUtilities: boolean;
   };
   toggleLayerVisibility: (layer: "crops" | "facilities" | "waterUtilities" | "electricUtilities") => void;
+  showHarvested: boolean;
+  toggleShowHarvested: () => void;
 }) {
   const area =
     fieldWidthM != null && fieldHeightM != null
@@ -392,6 +404,12 @@ function FieldInfoSection({
           label="電力設施"
           enabled={layerVisibility.electricUtilities}
           onToggle={() => toggleLayerVisibility("electricUtilities")}
+        />
+        <ToggleRow
+          icon={showHarvested ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          label="已收成區域"
+          enabled={showHarvested}
+          onToggle={toggleShowHarvested}
         />
       </div>
 
@@ -924,11 +942,13 @@ function MultiSelectionSection({
   onDelete,
   onDeselect,
   onAlign,
+  onMergeZones,
 }: {
   count: number;
   onDelete?: () => void;
   onDeselect: () => void;
   onAlign?: (type: AlignType) => void;
+  onMergeZones?: () => void;
 }) {
   return (
     <>
@@ -996,6 +1016,23 @@ function MultiSelectionSection({
                 </Tooltip>
               </TooltipProvider>
             </div>
+          </div>
+        </>
+      )}
+
+      {onMergeZones && (
+        <>
+          <Separator />
+          <div className="space-y-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full text-xs"
+              onClick={onMergeZones}
+            >
+              <Merge className="mr-1 size-3" />
+              合併區域
+            </Button>
           </div>
         </>
       )}

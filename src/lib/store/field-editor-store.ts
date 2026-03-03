@@ -51,6 +51,9 @@ interface FieldEditorState {
     electricUtilities: boolean;
   };
 
+  // Harvested zone visibility
+  showHarvested: boolean;
+
   // Cursor position (meters)
   cursorPosition: { xM: number; yM: number } | null;
 
@@ -86,6 +89,7 @@ interface FieldEditorState {
   toggleInspector(): void;
 
   toggleLayerVisibility(layer: keyof FieldEditorState['layerVisibility']): void;
+  toggleShowHarvested(): void;
   zoomToSelection(itemBounds: { xM: number; yM: number; widthM: number; heightM: number }[], viewportWidth: number, viewportHeight: number): void;
   setCursorPosition(pos: { xM: number; yM: number } | null): void;
   setClipboard(items: ClipboardItem[]): void;
@@ -114,6 +118,7 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   snapEnabled: true,
   inspectorOpen: true,
   layerVisibility: { crops: true, facilities: true, waterUtilities: true, electricUtilities: true },
+  showHarvested: true,
   cursorPosition: null,
   clipboard: [],
   undoStack: [],
@@ -238,6 +243,11 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
         [layer]: !state.layerVisibility[layer],
       },
     }));
+  },
+
+  // --- Harvested visibility ---
+  toggleShowHarvested() {
+    set((state) => ({ showHarvested: !state.showHarvested }));
   },
 
   // --- Zoom to selection ---
