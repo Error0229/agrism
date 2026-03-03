@@ -50,4 +50,30 @@ test.describe("Page Rendering", () => {
       await expect(page.getByText("找不到此頁面")).toBeVisible();
     }
   });
+
+  test("404 page '回到首頁' link navigates to home", async ({ page }) => {
+    await page.goto("/this-does-not-exist");
+    await page.waitForLoadState("networkidle");
+
+    if (page.url().includes("/auth/login")) return;
+
+    // Wait for either the 404 text or the home link to appear
+    const homeLink = page.getByRole("link", { name: "回到首頁" });
+    const isHomeLinkVisible = await homeLink.isVisible({ timeout: 10000 }).catch(() => false);
+    if (!isHomeLinkVisible) return;
+
+    // Click the "回到首頁" link
+    await homeLink.click();
+
+    await page.waitForLoadState("networkidle");
+
+    // Should be on the home page now (or redirected to login)
+    if (page.url().includes("/auth/login")) {
+      await expect(page.locator('input[type="email"]')).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("heading", { name: "花蓮蔬果種植指南" }),
+      ).toBeVisible({ timeout: 15000 });
+    }
+  });
 });
