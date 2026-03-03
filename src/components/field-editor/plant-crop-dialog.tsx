@@ -7,6 +7,7 @@ import { useCrops } from "@/hooks/use-crops";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -54,11 +55,11 @@ export function PlantCropDialog({
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-md">
         <DialogHeader>
           <DialogTitle>選擇作物</DialogTitle>
-          {rectInfo && (
-            <p className="text-sm text-muted-foreground">
-              區域: {rectInfo.widthM.toFixed(1)} × {rectInfo.heightM.toFixed(1)} m
-            </p>
-          )}
+          <DialogDescription>
+            {rectInfo
+              ? `為區域 (${rectInfo.widthM.toFixed(1)} × ${rectInfo.heightM.toFixed(1)} m) 指定作物`
+              : "選擇要指定的作物品種"}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="relative">

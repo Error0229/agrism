@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -142,6 +143,7 @@ export function CreateFieldDialog({
       <DialogContent className="max-h-[90vh] max-w-lg">
         <DialogHeader>
           <DialogTitle>新增田地</DialogTitle>
+          <DialogDescription>輸入田地名稱、尺寸及環境條件以建立新田地。</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] pr-4">
           <div className="space-y-4">

@@ -843,7 +843,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           </Link>
         </Button>
 
-        <span className="text-sm font-medium">{field.name}</span>
+        <span className="truncate text-sm font-medium">{field.name}</span>
 
         {/* Utility node type selector (when utility_node tool is active) */}
         {activeTool === "utility_node" && (
@@ -880,6 +880,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                 size="icon"
                 className={cn("size-8", timelineMode && "text-amber-700 dark:text-amber-300")}
                 onClick={() => enterTimeline()}
+                aria-label="時間軸"
               >
                 <Clock className="size-4" />
               </Button>
@@ -904,6 +905,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                 size="icon"
                 className="size-8"
                 onClick={handleImportMap}
+                aria-label="匯入地圖"
               >
                 <ImagePlus className="size-4" />
               </Button>
@@ -922,6 +924,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                 className="size-8"
                 disabled={!canUndo()}
                 onClick={() => undo()}
+                aria-label="復原"
               >
                 <Undo2 className="size-4" />
               </Button>
@@ -937,6 +940,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                 className="size-8"
                 disabled={!canRedo()}
                 onClick={() => redo()}
+                aria-label="重做"
               >
                 <Redo2 className="size-4" />
               </Button>
@@ -952,6 +956,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             size="icon"
             className="size-6 text-xs"
             onClick={zoomOut}
+            aria-label="縮小"
           >
             &minus;
           </Button>
@@ -961,6 +966,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             size="icon"
             className="size-6 text-xs"
             onClick={zoomIn}
+            aria-label="放大"
           >
             +
           </Button>

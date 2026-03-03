@@ -54,7 +54,12 @@ const createRegionSchema = z.object({
   yM: z.number().min(0),
   widthM: z.number().positive(),
   heightM: z.number().positive(),
-  cropId: z.string().uuid().optional(),
+  cropId: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (v === '' || v == null ? undefined : v))
+    .pipe(z.string().uuid().optional()),
   shapePoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
 })
 
@@ -148,7 +153,7 @@ export async function getFields(farmId: string) {
               crop: crops,
             })
             .from(plantedCrops)
-            .innerJoin(crops, eq(plantedCrops.cropId, crops.id))
+            .leftJoin(crops, eq(plantedCrops.cropId, crops.id))
             .where(eq(plantedCrops.fieldId, field.id)),
           db
             .select()
@@ -340,11 +345,12 @@ export async function createRegion(
   data: z.infer<typeof createRegionSchema>,
 ) {
   const parsed = createRegionSchema.parse(data)
+  const resolvedCropId = parsed.cropId && parsed.cropId.length > 0 ? parsed.cropId : undefined
 
   const [planted] = await db
     .insert(plantedCrops)
     .values({
-      cropId: parsed.cropId ?? null,
+      ...(resolvedCropId ? { cropId: resolvedCropId } : {}),
       fieldId,
       plantedDate: new Date().toISOString().split('T')[0],
       status: 'growing',

@@ -173,9 +173,10 @@ export default function DashboardPage() {
   // ---- Growing crops ----
   const growingEntries = (fieldsData ?? []).flatMap((field) =>
     field.plantedCrops
-      .filter((entry) => entry.plantedCrop.status === 'growing')
+      .filter((entry) => entry.plantedCrop.status === 'growing' && entry.crop != null)
       .map((entry) => ({
         ...entry,
+        crop: entry.crop!,
         fieldName: field.name,
       })),
   )

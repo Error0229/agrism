@@ -8,9 +8,12 @@ import { useFieldEditor } from "@/lib/store/field-editor-store";
 const TOOL_LABELS: Record<string, string> = {
   select: "選取",
   draw_rect: "繪製區域",
+  draw_polygon: "多邊形區域",
   hand: "平移",
   eraser: "橡皮擦",
   measure: "測量",
+  utility_node: "設施節點",
+  utility_edge: "連接設施",
 };
 
 interface EditorStatusBarProps {
