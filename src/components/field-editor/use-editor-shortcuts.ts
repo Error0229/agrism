@@ -50,6 +50,13 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
     gridSpacing,
     pan,
     setPan,
+    timelineMode,
+    enterTimeline,
+    exitTimeline,
+    timelinePrevDay,
+    timelineNextDay,
+    timelinePrevMonth,
+    timelineNextMonth,
   } = useFieldEditor()
 
   const handleKeyDown = useCallback(
@@ -198,6 +205,16 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           setTool('utility_edge')
           break
 
+        // Timeline toggle
+        case 't':
+        case 'T':
+          if (timelineMode) {
+            exitTimeline()
+          } else {
+            enterTimeline()
+          }
+          break
+
         // Space: temporary hand tool
         case ' ':
           e.preventDefault()
@@ -227,9 +244,28 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           zoomOut()
           break
 
-        // Toggle inspector
+        // Timeline day/month navigation or toggle inspector
+        case '[':
+          if (timelineMode) {
+            timelinePrevDay()
+          }
+          break
         case ']':
-          toggleInspector()
+          if (timelineMode) {
+            timelineNextDay()
+          } else {
+            toggleInspector()
+          }
+          break
+        case '{':
+          if (timelineMode) {
+            timelinePrevMonth()
+          }
+          break
+        case '}':
+          if (timelineMode) {
+            timelineNextMonth()
+          }
           break
 
         // Toggle grid
@@ -304,6 +340,13 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       onZoomToSelection,
       fieldDimensions,
       viewportSize,
+      timelineMode,
+      enterTimeline,
+      exitTimeline,
+      timelinePrevDay,
+      timelineNextDay,
+      timelinePrevMonth,
+      timelineNextMonth,
     ],
   )
 

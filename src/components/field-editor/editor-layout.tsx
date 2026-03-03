@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Redo2, Undo2 } from "lucide-react";
+import { ArrowLeft, Clock, ImagePlus, Loader2, Redo2, Undo2 } from "lucide-react";
 
 import {
   useFieldById,
@@ -33,10 +33,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { cn } from "@/lib/utils";
+
 import { EditorCanvas } from "./editor-canvas";
 import { EditorMinimap } from "./editor-minimap";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorStatusBar } from "./editor-status-bar";
+import { EditorTimelineBar } from "./editor-timeline-bar";
 import { PropertyInspector, type AlignType } from "./property-inspector";
 import { PlantCropDialog } from "./plant-crop-dialog";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
@@ -67,6 +70,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const pan = useFieldEditor((s) => s.pan);
   const setPan = useFieldEditor((s) => s.setPan);
   const zoomToSelection = useFieldEditor((s) => s.zoomToSelection);
+  const setBackgroundImage = useFieldEditor((s) => s.setBackgroundImage);
+  const timelineMode = useFieldEditor((s) => s.timelineMode);
+  const enterTimeline = useFieldEditor((s) => s.enterTimeline);
 
   const createRegionMut = useCreateRegion(farmId ?? "");
   const assignCropToRegion = useAssignCropToRegion();
@@ -80,6 +86,24 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const updateFieldMemo = useUpdateFieldMemo();
   const updatePlacement = useUpdateCropPlacement();
   const updateFacilityMut = useUpdateFacility();
+
+  // Map import file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportMap = () => fileInputRef.current?.click();
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setBackgroundImage(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // reset for re-upload
+  };
 
   // Canvas container ref + size for minimap viewport calculation
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -745,7 +769,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Top bar */}
-      <div className="flex h-10 items-center gap-2 border-b bg-background px-2">
+      <div className={cn("flex h-10 items-center gap-2 border-b bg-background px-2", timelineMode && "bg-amber-50/50 dark:bg-amber-950/10")}>
         <Button asChild variant="ghost" size="icon" className="size-8">
           <Link href="/fields">
             <ArrowLeft className="size-4" />
@@ -755,6 +779,47 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         <span className="text-sm font-medium">{field.name}</span>
 
         <div className="flex-1" />
+
+        {/* Timeline toggle */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={timelineMode ? "secondary" : "ghost"}
+                size="icon"
+                className={cn("size-8", timelineMode && "text-amber-700 dark:text-amber-300")}
+                onClick={() => enterTimeline()}
+              >
+                <Clock className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>時間軸 (T)</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Map import */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileSelected}
+        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={handleImportMap}
+              >
+                <ImagePlus className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>匯入地圖</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Undo/Redo */}
         <TooltipProvider>
@@ -810,6 +875,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           </Button>
         </div>
       </div>
+
+      {/* Timeline bar (when active) */}
+      {timelineMode && <EditorTimelineBar />}
 
       {/* Main area: toolbar + canvas + inspector */}
       <div className="flex flex-1 overflow-hidden">

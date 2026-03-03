@@ -54,11 +54,19 @@ interface FieldEditorState {
   // Harvested zone visibility
   showHarvested: boolean;
 
+  // Timeline mode
+  timelineMode: boolean;
+  timelineDate: string | null; // "2026-03-03"
+
   // Cursor position (meters)
   cursorPosition: { xM: number; yM: number } | null;
 
   // Clipboard
   clipboard: ClipboardItem[];
+
+  // Background image (map import)
+  backgroundImage: string | null;
+  backgroundOpacity: number;
 
   // Undo/Redo
   undoStack: Command[];
@@ -94,6 +102,18 @@ interface FieldEditorState {
   setCursorPosition(pos: { xM: number; yM: number } | null): void;
   setClipboard(items: ClipboardItem[]): void;
 
+  setBackgroundImage(dataUrl: string | null): void;
+  setBackgroundOpacity(opacity: number): void;
+
+  enterTimeline(date?: string): void;
+  exitTimeline(): void;
+  setTimelineDate(date: string): void;
+  timelinePrevDay(): void;
+  timelineNextDay(): void;
+  timelinePrevMonth(): void;
+  timelineNextMonth(): void;
+  timelineToday(): void;
+
   executeCommand(command: Command): Promise<void>;
   undo(): Promise<void>;
   redo(): Promise<void>;
@@ -119,8 +139,12 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   inspectorOpen: true,
   layerVisibility: { crops: true, facilities: true, waterUtilities: true, electricUtilities: true },
   showHarvested: true,
+  timelineMode: false,
+  timelineDate: null,
   cursorPosition: null,
   clipboard: [],
+  backgroundImage: null,
+  backgroundOpacity: 0.5,
   undoStack: [],
   redoStack: [],
 
@@ -279,6 +303,57 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   // --- Clipboard ---
   setClipboard(items) {
     set({ clipboard: items });
+  },
+
+  // --- Background image ---
+  setBackgroundImage(dataUrl) {
+    set({ backgroundImage: dataUrl });
+  },
+
+  setBackgroundOpacity(opacity) {
+    set({ backgroundOpacity: Math.max(0, Math.min(1, opacity)) });
+  },
+
+  // --- Timeline mode ---
+  enterTimeline(date) {
+    set({ timelineMode: true, timelineDate: date ?? new Date().toISOString().split('T')[0] });
+  },
+  exitTimeline() {
+    set({ timelineMode: false, timelineDate: null });
+  },
+  setTimelineDate(date) {
+    set({ timelineDate: date });
+  },
+  timelinePrevDay() {
+    const { timelineDate } = get();
+    if (!timelineDate) return;
+    const d = new Date(timelineDate);
+    d.setDate(d.getDate() - 1);
+    set({ timelineDate: d.toISOString().split('T')[0] });
+  },
+  timelineNextDay() {
+    const { timelineDate } = get();
+    if (!timelineDate) return;
+    const d = new Date(timelineDate);
+    d.setDate(d.getDate() + 1);
+    set({ timelineDate: d.toISOString().split('T')[0] });
+  },
+  timelinePrevMonth() {
+    const { timelineDate } = get();
+    if (!timelineDate) return;
+    const d = new Date(timelineDate);
+    d.setMonth(d.getMonth() - 1);
+    set({ timelineDate: d.toISOString().split('T')[0] });
+  },
+  timelineNextMonth() {
+    const { timelineDate } = get();
+    if (!timelineDate) return;
+    const d = new Date(timelineDate);
+    d.setMonth(d.getMonth() + 1);
+    set({ timelineDate: d.toISOString().split('T')[0] });
+  },
+  timelineToday() {
+    set({ timelineDate: new Date().toISOString().split('T')[0] });
   },
 
   // --- Undo / Redo ---

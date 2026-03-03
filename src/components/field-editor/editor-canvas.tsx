@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { Stage, Layer, Rect, Line, Text, Group, Circle } from "react-konva";
+import { Stage, Layer, Rect, Line, Text, Group, Circle, Image as KonvaImage } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
 
+import { cn } from "@/lib/utils";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import {
   useUpdateCropPlacement,
@@ -48,6 +49,7 @@ interface CanvasItem {
   cropId?: string;
   plantedCropId?: string;
   plantedDate?: string;
+  harvestedDate?: string | null;
   facilityType?: string;
 }
 
@@ -164,6 +166,23 @@ function computeSnapGuides(
 }
 
 // ---------------------------------------------------------------------------
+// Hook — load an image for Konva rendering
+// ---------------------------------------------------------------------------
+
+function useKonvaImage(src: string | null): HTMLImageElement | null {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!src) return;
+    let cancelled = false;
+    const img = new window.Image();
+    img.onload = () => { if (!cancelled) setImage(img); };
+    img.src = src;
+    return () => { cancelled = true; img.onload = null; setImage(null); };
+  }, [src]);
+  return image;
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -206,6 +225,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const layerVisibility = useFieldEditor((s) => s.layerVisibility);
   const showHarvested = useFieldEditor((s) => s.showHarvested);
   const setCursorPosition = useFieldEditor((s) => s.setCursorPosition);
+  const backgroundImage = useFieldEditor((s) => s.backgroundImage);
+  const backgroundOpacity = useFieldEditor((s) => s.backgroundOpacity);
+  const timelineMode = useFieldEditor((s) => s.timelineMode);
+  const timelineDate = useFieldEditor((s) => s.timelineDate);
 
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
@@ -215,6 +238,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
+
+  // Background image for map import
+  const bgImage = useKonvaImage(backgroundImage);
 
   // Local interaction state
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
@@ -325,6 +351,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
         cropId: crop?.id,
         plantedCropId: row.plantedCrop.id,
         plantedDate: row.plantedCrop.plantedDate,
+        harvestedDate: row.plantedCrop.harvestedDate,
       });
     }
 
@@ -355,15 +382,19 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
     [utilityNodes],
   );
 
-  // Filter canvas items by layer visibility and harvested toggle
+  // Filter canvas items by layer visibility, harvested toggle, and timeline
   const visibleCanvasItems = useMemo(() => {
     return canvasItems.filter((item) => {
       if (item.kind === "crop" && !layerVisibility.crops) return false;
       if (item.kind === "facility" && !layerVisibility.facilities) return false;
       if (item.status === "harvested" && !showHarvested) return false;
+      // Timeline date filtering: hide crops not yet planted
+      if (timelineMode && timelineDate && item.kind === "crop") {
+        if (item.plantedDate && item.plantedDate > timelineDate) return false;
+      }
       return true;
     });
-  }, [canvasItems, layerVisibility.crops, layerVisibility.facilities, showHarvested]);
+  }, [canvasItems, layerVisibility.crops, layerVisibility.facilities, showHarvested, timelineMode, timelineDate]);
 
   // Filter utility nodes/edges by layer visibility
   const visibleUtilityNodes = useMemo(() => {
@@ -1017,7 +1048,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
     : 0;
 
   return (
-    <div ref={containerRef} className={`size-full overflow-hidden ${cursorClass}`}>
+    <div ref={containerRef} className={cn("size-full overflow-hidden", cursorClass, timelineMode && "opacity-75 saturate-[0.7]")}>
       <Stage
         ref={stageRef}
         width={containerSize.width}
@@ -1068,6 +1099,19 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
             strokeWidth={2}
             listening={false}
           />
+
+          {/* Background map image */}
+          {bgImage && (
+            <KonvaImage
+              image={bgImage}
+              x={0}
+              y={0}
+              width={canvasWidth}
+              height={canvasHeight}
+              opacity={backgroundOpacity}
+              listening={false}
+            />
+          )}
 
           {/* Grid lines */}
           {gridLines.map((line) => {

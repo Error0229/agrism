@@ -31,9 +31,21 @@ export function EditorStatusBar({
   const zoom = useFieldEditor((s) => s.zoom);
   const selectedIds = useFieldEditor((s) => s.selectedIds);
   const cursorPosition = useFieldEditor((s) => s.cursorPosition);
+  const timelineMode = useFieldEditor((s) => s.timelineMode);
+  const timelineDate = useFieldEditor((s) => s.timelineDate);
 
   return (
     <div className="flex h-7 items-center gap-4 border-t bg-background px-3 text-xs text-muted-foreground">
+      {/* Timeline date (prominent) */}
+      {timelineMode && timelineDate && (
+        <>
+          <span className="font-medium text-amber-700 dark:text-amber-300">
+            時間軸: {timelineDate}
+          </span>
+          <Separator />
+        </>
+      )}
+
       {/* Active tool */}
       <span className="font-medium text-foreground">
         {TOOL_LABELS[activeTool] ?? activeTool}

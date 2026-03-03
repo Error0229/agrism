@@ -113,6 +113,32 @@ export function PropertyInspector({
   const toggleLayerVisibility = useFieldEditor((s) => s.toggleLayerVisibility);
   const showHarvested = useFieldEditor((s) => s.showHarvested);
   const toggleShowHarvested = useFieldEditor((s) => s.toggleShowHarvested);
+  const backgroundImage = useFieldEditor((s) => s.backgroundImage);
+  const backgroundOpacity = useFieldEditor((s) => s.backgroundOpacity);
+  const setBackgroundOpacity = useFieldEditor((s) => s.setBackgroundOpacity);
+  const setBackgroundImage = useFieldEditor((s) => s.setBackgroundImage);
+  const timelineMode = useFieldEditor((s) => s.timelineMode);
+  const timelineDate = useFieldEditor((s) => s.timelineDate);
+
+  // Timeline stats
+  const timelineStats = useMemo(() => {
+    if (!timelineMode || !timelineDate || !field) return null;
+    let growingAtDate = 0;
+    let harvestedAtDate = 0;
+    for (const row of field.plantedCrops) {
+      const pc = row.plantedCrop;
+      // Skip crops not yet planted at timeline date
+      if (pc.plantedDate && pc.plantedDate > timelineDate) continue;
+      // Count harvested
+      if (pc.harvestedDate && pc.harvestedDate <= timelineDate) {
+        harvestedAtDate++;
+      } else {
+        // Planted on or before date and not yet harvested
+        growingAtDate++;
+      }
+    }
+    return { growingAtDate, harvestedAtDate };
+  }, [timelineMode, timelineDate, field]);
 
   // Resolve a single selected item into crop, facility, or utility node data
   const selectedItem = useMemo(() => {
@@ -185,24 +211,41 @@ export function PropertyInspector({
         <ScrollArea className="flex-1">
           <div className="space-y-4 p-3">
             {selectedIds.length === 0 && (
-              <FieldInfoSection
-                fieldName={fieldName}
-                fieldWidthM={fieldWidthM}
-                fieldHeightM={fieldHeightM}
-                growingCount={growingCount}
-                harvestedCount={harvestedCount}
-                facilityCount={facilityCount}
-                gridVisible={gridVisible}
-                toggleGrid={toggleGrid}
-                snapEnabled={snapEnabled}
-                toggleSnap={toggleSnap}
-                gridSpacing={gridSpacing}
-                setGridSpacing={setGridSpacing}
-                layerVisibility={layerVisibility}
-                toggleLayerVisibility={toggleLayerVisibility}
-                showHarvested={showHarvested}
-                toggleShowHarvested={toggleShowHarvested}
-              />
+              <>
+                {timelineMode && timelineDate && timelineStats && (
+                  <>
+                    <div className="space-y-2">
+                      <SectionHeading>時間軸</SectionHeading>
+                      <p className="text-lg font-semibold text-amber-700 dark:text-amber-300">
+                        {timelineDate}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <StatCard label="種植中" value={timelineStats.growingAtDate} />
+                        <StatCard label="已收成" value={timelineStats.harvestedAtDate} />
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+                <FieldInfoSection
+                  fieldName={fieldName}
+                  fieldWidthM={fieldWidthM}
+                  fieldHeightM={fieldHeightM}
+                  growingCount={growingCount}
+                  harvestedCount={harvestedCount}
+                  facilityCount={facilityCount}
+                  gridVisible={gridVisible}
+                  toggleGrid={toggleGrid}
+                  snapEnabled={snapEnabled}
+                  toggleSnap={toggleSnap}
+                  gridSpacing={gridSpacing}
+                  setGridSpacing={setGridSpacing}
+                  layerVisibility={layerVisibility}
+                  toggleLayerVisibility={toggleLayerVisibility}
+                  showHarvested={showHarvested}
+                  toggleShowHarvested={toggleShowHarvested}
+                />
+              </>
             )}
 
             {selectedIds.length === 1 && selectedItem?.kind === "crop" && (
@@ -252,6 +295,31 @@ export function PropertyInspector({
                 onAlign={onAlign}
                 onMergeZones={selectedIds.length === 2 ? onMergeZones : undefined}
               />
+            )}
+
+            {/* Background image section */}
+            {backgroundImage && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <SectionHeading>背景圖片</SectionHeading>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">透明度</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(backgroundOpacity * 100)}
+                      onChange={(e) => setBackgroundOpacity(Number(e.target.value) / 100)}
+                      className="flex-1"
+                    />
+                    <span className="w-8 text-right text-xs">{Math.round(backgroundOpacity * 100)}%</span>
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => setBackgroundImage(null)}>
+                    移除圖片
+                  </Button>
+                </div>
+              </>
             )}
 
             {/* Memo section — always visible at bottom */}
