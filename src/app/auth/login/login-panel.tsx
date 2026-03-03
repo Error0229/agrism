@@ -91,6 +91,7 @@ export function LoginPanel({
             placeholder="名稱"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            required
             className="h-11 border-[#466352]/25 bg-white"
           />
         )}
@@ -110,6 +111,7 @@ export function LoginPanel({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          minLength={8}
           className="h-11 border-[#466352]/25 bg-white"
         />
 

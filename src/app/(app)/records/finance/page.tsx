@@ -264,7 +264,7 @@ export default function FinanceRecordsPage() {
               <Label>金額</Label>
               <Input
                 type="number"
-                min="0"
+                min="0.01"
                 step="1"
                 value={form.amount}
                 onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}

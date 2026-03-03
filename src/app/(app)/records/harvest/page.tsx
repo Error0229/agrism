@@ -231,7 +231,7 @@ export default function HarvestRecordsPage() {
                 <Label>數量</Label>
                 <Input
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.1"
                   value={form.quantity}
                   onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}

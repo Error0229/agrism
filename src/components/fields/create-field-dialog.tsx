@@ -80,7 +80,14 @@ export function CreateFieldDialog({
   function handleSubmit() {
     const w = parseFloat(widthM)
     const h = parseFloat(heightM)
-    if (!name || isNaN(w) || w < 0.1 || isNaN(h) || h < 0.1) return
+    if (!name.trim()) {
+      toast.error('請輸入田地名稱')
+      return
+    }
+    if (isNaN(w) || w < 0.1 || isNaN(h) || h < 0.1) {
+      toast.error('寬度與長度需至少 0.1 公尺')
+      return
+    }
 
     const hasContext = plotType || sunHours || drainage || slope || windExposure
     createField.mutate(
