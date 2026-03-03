@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Cable,
+  CircleDot,
   Eraser,
   Hand,
   MousePointer,
@@ -34,16 +36,20 @@ const TOOLS: ToolDef[] = [
   { id: "hand", label: "平移", shortcut: "H", icon: Hand },
   { id: "eraser", label: "橡皮擦", shortcut: "E", icon: Eraser },
   { id: "measure", label: "測量", shortcut: "M", icon: Ruler },
+  { id: "utility_node", label: "設施節點", shortcut: "U", icon: CircleDot },
+  { id: "utility_edge", label: "連接設施", shortcut: "C", icon: Cable },
 ];
 
 const SELECTION_TOOLS: EditorTool[] = ["select", "draw_rect", "draw_polygon"];
 const NAVIGATION_TOOLS: EditorTool[] = ["hand"];
 const ACTION_TOOLS: EditorTool[] = ["eraser", "measure"];
+const UTILITY_TOOLS: EditorTool[] = ["utility_node", "utility_edge"];
 
 function getGroup(tool: EditorTool): number {
   if (SELECTION_TOOLS.includes(tool)) return 0;
   if (NAVIGATION_TOOLS.includes(tool)) return 1;
   if (ACTION_TOOLS.includes(tool)) return 2;
+  if (UTILITY_TOOLS.includes(tool)) return 3;
   return 0;
 }
 

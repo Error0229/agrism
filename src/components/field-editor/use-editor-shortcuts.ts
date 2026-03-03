@@ -170,6 +170,14 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
         case 'P':
           setTool('draw_polygon')
           break
+        case 'u':
+        case 'U':
+          setTool('utility_node')
+          break
+        case 'c':
+        case 'C':
+          setTool('utility_edge')
+          break
 
         // Space: temporary hand tool
         case ' ':

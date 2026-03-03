@@ -6,6 +6,7 @@ import {
   getFieldById,
   createField,
   updateField,
+  updateFieldMemo,
   deleteField,
   plantCrop,
   createRegion,
@@ -251,6 +252,19 @@ export function useDeleteUtilityEdge() {
   return useMutation({
     mutationFn: (args: { id: string; fieldId: string }) =>
       deleteUtilityEdge(args.id),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
+    },
+  })
+}
+
+// --- Field Memo ---
+
+export function useUpdateFieldMemo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fieldId, memo }: { fieldId: string; memo: string }) =>
+      updateFieldMemo(fieldId, memo),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },

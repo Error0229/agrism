@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import type { Command } from "./editor-commands";
 
-export type EditorTool = "select" | "draw_rect" | "draw_polygon" | "hand" | "eraser" | "measure";
+export type EditorTool = "select" | "draw_rect" | "draw_polygon" | "hand" | "eraser" | "measure" | "utility_node" | "utility_edge";
 
 export interface ClipboardItem {
   kind: "crop" | "facility";

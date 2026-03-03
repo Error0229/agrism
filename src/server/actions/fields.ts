@@ -111,6 +111,8 @@ const createUtilityNodeSchema = z.object({
 
 const updateUtilityNodeSchema = z.object({
   label: z.string().min(1).optional(),
+  kind: z.enum(['water', 'electric']).optional(),
+  nodeType: z.string().nullable().optional(),
   xM: z.number().min(0).optional(),
   yM: z.number().min(0).optional(),
 })
@@ -263,6 +265,16 @@ export async function updateField(
   const [updated] = await db
     .update(fields)
     .set(parsed)
+    .where(eq(fields.id, id))
+    .returning()
+
+  return updated
+}
+
+export async function updateFieldMemo(id: string, memo: string) {
+  const [updated] = await db
+    .update(fields)
+    .set({ memo })
     .where(eq(fields.id, id))
     .returning()
 

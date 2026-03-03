@@ -1,17 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
+  CircleDot,
   Eye,
   EyeOff,
   Grid3X3,
   Magnet,
   MapPin,
   Move,
+  NotebookPen,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
+  SplitSquareHorizontal,
+  SplitSquareVertical,
   Sprout,
   Trash2,
   Wrench,
@@ -22,6 +26,7 @@ import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -29,11 +34,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  useUpdateUtilityNode,
+  useDeleteUtilityNode,
+  useUpdateFacility,
+} from "@/hooks/use-fields";
+import {
   CROP_CATEGORY_LABELS,
   PLANTED_CROP_STATUS_LABELS,
   FACILITY_TYPE_LABELS,
+  UTILITY_KIND_LABELS,
 } from "@/lib/types/labels";
-import type { CropCategory, PlantedCropStatus, FacilityType } from "@/lib/types/enums";
+import type { CropCategory, PlantedCropStatus, FacilityType, UtilityKind } from "@/lib/types/enums";
+import { Input } from "@/components/ui/input";
 
 // Field data type derived from getFieldById()
 type FieldData = NonNullable<
@@ -50,6 +62,10 @@ interface PropertyInspectorProps {
   facilityCount?: number;
   onDeleteSelected?: () => void;
   onChangeCrop?: (plantedCropId: string) => void;
+  onSplitHorizontal?: () => void;
+  onSplitVertical?: () => void;
+  memo?: string | null;
+  onMemoChange?: (memo: string) => void;
 }
 
 export function PropertyInspector({
@@ -62,6 +78,10 @@ export function PropertyInspector({
   facilityCount = 0,
   onDeleteSelected,
   onChangeCrop,
+  onSplitHorizontal,
+  onSplitVertical,
+  memo,
+  onMemoChange,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
@@ -76,7 +96,7 @@ export function PropertyInspector({
   const layerVisibility = useFieldEditor((s) => s.layerVisibility);
   const toggleLayerVisibility = useFieldEditor((s) => s.toggleLayerVisibility);
 
-  // Resolve a single selected item into crop or facility data
+  // Resolve a single selected item into crop, facility, or utility node data
   const selectedItem = useMemo(() => {
     if (selectedIds.length !== 1 || !field) return null;
     const id = selectedIds[0];
@@ -101,6 +121,12 @@ export function PropertyInspector({
     const facility = field.facilities.find((f) => f.id === id);
     if (facility) {
       return { kind: "facility" as const, facility };
+    }
+
+    // Check utility nodes
+    const utilityNode = field.utilityNodes.find((n) => n.id === id);
+    if (utilityNode) {
+      return { kind: "utility_node" as const, utilityNode };
     }
 
     return null;
@@ -165,12 +191,24 @@ export function PropertyInspector({
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
                 onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop.id) : undefined}
+                onSplitHorizontal={onSplitHorizontal}
+                onSplitVertical={onSplitVertical}
               />
             )}
 
-            {selectedIds.length === 1 && selectedItem?.kind === "facility" && (
+            {selectedIds.length === 1 && selectedItem?.kind === "facility" && field && (
               <FacilitySelectionSection
                 item={selectedItem}
+                field={field}
+                onDelete={onDeleteSelected}
+                onDeselect={clearSelection}
+              />
+            )}
+
+            {selectedIds.length === 1 && selectedItem?.kind === "utility_node" && field && (
+              <UtilityNodeSelectionSection
+                item={selectedItem}
+                field={field}
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
               />
@@ -191,6 +229,14 @@ export function PropertyInspector({
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
               />
+            )}
+
+            {/* Memo section — always visible at bottom */}
+            {onMemoChange && (
+              <>
+                <Separator />
+                <MemoSection memo={memo ?? ""} onMemoChange={onMemoChange} />
+              </>
             )}
           </div>
         </ScrollArea>
@@ -354,6 +400,8 @@ function CropSelectionSection({
   onDelete,
   onDeselect,
   onChangeCrop,
+  onSplitHorizontal,
+  onSplitVertical,
 }: {
   item: {
     placement: FieldData["placements"][number];
@@ -363,6 +411,8 @@ function CropSelectionSection({
   onDelete?: () => void;
   onDeselect: () => void;
   onChangeCrop?: () => void;
+  onSplitHorizontal?: () => void;
+  onSplitVertical?: () => void;
 }) {
   const { placement, plantedCrop, crop } = item;
 
@@ -496,6 +546,38 @@ function CropSelectionSection({
             變更作物
           </Button>
         )}
+
+        {/* Split operations */}
+        {(onSplitHorizontal || onSplitVertical) && (
+          <>
+            <SectionHeading>動作</SectionHeading>
+            <div className="flex gap-2">
+              {onSplitHorizontal && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={onSplitHorizontal}
+                >
+                  <SplitSquareHorizontal className="mr-1 size-3" />
+                  水平分割
+                </Button>
+              )}
+              {onSplitVertical && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={onSplitVertical}
+                >
+                  <SplitSquareVertical className="mr-1 size-3" />
+                  垂直分割
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -526,14 +608,17 @@ function CropSelectionSection({
 
 function FacilitySelectionSection({
   item,
+  field,
   onDelete,
   onDeselect,
 }: {
   item: { facility: FieldData["facilities"][number] };
+  field: FieldData;
   onDelete?: () => void;
   onDeselect: () => void;
 }) {
   const { facility } = item;
+  const updateFacility = useUpdateFacility();
 
   const typeLabel =
     FACILITY_TYPE_LABELS[facility.facilityType as FacilityType] ??
@@ -552,6 +637,48 @@ function FacilitySelectionSection({
             <p className="text-sm font-medium">{facility.name}</p>
             <p className="text-[10px] text-muted-foreground">{typeLabel}</p>
           </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Editable fields */}
+      <div className="space-y-2">
+        <SectionHeading>設定</SectionHeading>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">設施類型</label>
+          <select
+            value={facility.facilityType}
+            onChange={(e) => {
+              updateFacility.mutate({
+                id: facility.id,
+                fieldId: field.id,
+                data: { facilityType: e.target.value as FacilityType },
+              });
+            }}
+            className="h-7 w-full rounded border bg-background px-2 text-xs"
+          >
+            {Object.entries(FACILITY_TYPE_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">顯示名稱</label>
+          <Input
+            defaultValue={facility.name}
+            className="h-7 text-xs"
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val && val !== facility.name) {
+                updateFacility.mutate({
+                  id: facility.id,
+                  fieldId: field.id,
+                  data: { name: val },
+                });
+              }
+            }}
+          />
         </div>
       </div>
 
@@ -596,6 +723,166 @@ function FacilitySelectionSection({
             刪除
           </Button>
         )}
+      </div>
+    </>
+  );
+}
+
+// --- Utility node selection ---
+
+function UtilityNodeSelectionSection({
+  item,
+  field,
+  onDelete,
+  onDeselect,
+}: {
+  item: { utilityNode: FieldData["utilityNodes"][number] };
+  field: FieldData;
+  onDelete?: () => void;
+  onDeselect: () => void;
+}) {
+  const { utilityNode } = item;
+  const updateNode = useUpdateUtilityNode();
+  const deleteNode = useDeleteUtilityNode();
+
+  const kindLabel =
+    UTILITY_KIND_LABELS[utilityNode.kind as UtilityKind] ?? utilityNode.kind;
+
+  // Find connected nodes via edges
+  const connectedNodes = useMemo(() => {
+    const connected: { id: string; label: string }[] = [];
+    for (const edge of field.utilityEdges) {
+      if (edge.fromNodeId === utilityNode.id) {
+        const toNode = field.utilityNodes.find((n) => n.id === edge.toNodeId);
+        if (toNode) connected.push({ id: toNode.id, label: toNode.label });
+      } else if (edge.toNodeId === utilityNode.id) {
+        const fromNode = field.utilityNodes.find((n) => n.id === edge.fromNodeId);
+        if (fromNode) connected.push({ id: fromNode.id, label: fromNode.label });
+      }
+    }
+    return connected;
+  }, [field.utilityEdges, field.utilityNodes, utilityNode.id]);
+
+  return (
+    <>
+      {/* Header */}
+      <div className="space-y-2">
+        <SectionHeading>設施節點</SectionHeading>
+        <div className="flex items-center gap-2">
+          <CircleDot
+            className="size-5"
+            style={{ color: utilityNode.kind === "water" ? "#0ea5e9" : "#fb923c" }}
+          />
+          <div>
+            <p className="text-sm font-medium">{utilityNode.label}</p>
+            <p className="text-[10px] text-muted-foreground">{kindLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Editable fields */}
+      <div className="space-y-2">
+        <SectionHeading>設定</SectionHeading>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">類型</label>
+          <select
+            value={utilityNode.kind}
+            onChange={(e) => {
+              updateNode.mutate({
+                id: utilityNode.id,
+                fieldId: field.id,
+                data: { kind: e.target.value as UtilityKind },
+              });
+            }}
+            className="h-7 w-full rounded border bg-background px-2 text-xs"
+          >
+            {Object.entries(UTILITY_KIND_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">子類型</label>
+          <Input
+            defaultValue={utilityNode.nodeType ?? ""}
+            placeholder="general"
+            className="h-7 text-xs"
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              updateNode.mutate({
+                id: utilityNode.id,
+                fieldId: field.id,
+                data: { nodeType: val || null },
+              });
+            }}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">標籤</label>
+          <Input
+            defaultValue={utilityNode.label}
+            className="h-7 text-xs"
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val && val !== utilityNode.label) {
+                updateNode.mutate({
+                  id: utilityNode.id,
+                  fieldId: field.id,
+                  data: { label: val },
+                });
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Connected nodes */}
+      <div className="space-y-1.5">
+        <SectionHeading>連接</SectionHeading>
+        {connectedNodes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">無連接</p>
+        ) : (
+          <div className="space-y-1">
+            {connectedNodes.map((cn) => (
+              <div key={cn.id} className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">&rarr;</span>
+                <span>{cn.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-xs"
+            onClick={onDeselect}
+          >
+            取消選取
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="text-xs"
+            onClick={() => {
+              deleteNode.mutate({ id: utilityNode.id, fieldId: field.id });
+              onDelete?.();
+            }}
+          >
+            <Trash2 className="mr-1 size-3" />
+            刪除節點
+          </Button>
+        </div>
       </div>
     </>
   );
@@ -677,6 +964,57 @@ function ToggleRow({
         {enabled ? "開" : "關"}
       </span>
     </button>
+  );
+}
+
+function MemoSection({
+  memo,
+  onMemoChange,
+}: {
+  memo: string;
+  onMemoChange: (memo: string) => void;
+}) {
+  const [localMemo, setLocalMemo] = useState(memo);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync from parent when field data updates externally
+  useEffect(() => {
+    setLocalMemo(memo);
+  }, [memo]);
+
+  const handleChange = useCallback(
+    (value: string) => {
+      setLocalMemo(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onMemoChange(value);
+      }, 1000);
+    },
+    [onMemoChange],
+  );
+
+  const handleBlur = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    onMemoChange(localMemo);
+  }, [localMemo, onMemoChange]);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <NotebookPen className="size-3 text-muted-foreground" />
+        <SectionHeading>備忘錄</SectionHeading>
+      </div>
+      <Textarea
+        value={localMemo}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
+        placeholder="在此輸入備忘錄..."
+        className="min-h-[80px] resize-y text-xs"
+      />
+      <p className="text-right text-[10px] text-muted-foreground">
+        {localMemo.length} 字
+      </p>
+    </div>
   );
 }
 

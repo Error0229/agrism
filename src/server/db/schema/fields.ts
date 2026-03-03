@@ -69,6 +69,7 @@ export const fields = pgTable(
     name: text().notNull(),
     widthM: real('width_m').notNull(),
     heightM: real('height_m').notNull(),
+    memo: text(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()

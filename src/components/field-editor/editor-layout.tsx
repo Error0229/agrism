@@ -12,6 +12,9 @@ import {
   useRestorePlantedCrop,
   useDeleteFacility,
   useCreateFacility,
+  useCreateUtilityNode,
+  useCreateUtilityEdge,
+  useUpdateFieldMemo,
 } from "@/hooks/use-fields";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { useFieldEditor, type ClipboardItem } from "@/lib/store/field-editor-store";
@@ -63,6 +66,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const restorePlantedCrop = useRestorePlantedCrop();
   const deleteFacility = useDeleteFacility();
   const createFacility = useCreateFacility();
+  const createUtilityNode = useCreateUtilityNode();
+  const createUtilityEdge = useCreateUtilityEdge();
+  const updateFieldMemo = useUpdateFieldMemo();
 
   // Draw rect completion state — stores the newly created region's planted crop ID
   // so the user can optionally assign a crop to it
@@ -342,6 +348,127 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     [reassignPlantedCropId, assignCropToRegion],
   );
 
+  // --- Zone split ---
+  // NOTE: Split is not fully undo-able. The original region deletion can be undone,
+  // but the two newly created regions will persist. A full undo would require a
+  // composite command that tracks all three operations together.
+  const handleSplit = useCallback(
+    async (direction: "horizontal" | "vertical") => {
+      if (selectedIds.length !== 1 || !field || !farmId) return;
+      const id = selectedIds[0];
+      const placement = field.placements.find((p) => p.id === id);
+      if (!placement) return;
+
+      const pcRow = field.plantedCrops.find(
+        (row) => row.plantedCrop.id === placement.plantedCropId,
+      );
+      const cropId = pcRow?.plantedCrop.cropId ?? undefined;
+
+      const xM = Number(placement.xM);
+      const yM = Number(placement.yM);
+      const widthM = Number(placement.widthM);
+      const heightM = Number(placement.heightM);
+
+      // Remove the original region
+      await removePlantedCrop.mutateAsync(placement.plantedCropId);
+
+      // Create two new regions (createRegion handles cropId assignment internally)
+      if (direction === "horizontal") {
+        const halfH = heightM / 2;
+        await createRegionMut.mutateAsync({
+          fieldId,
+          data: { xM, yM, widthM, heightM: halfH, cropId },
+        });
+        await createRegionMut.mutateAsync({
+          fieldId,
+          data: { xM, yM: yM + halfH, widthM, heightM: halfH, cropId },
+        });
+      } else {
+        const halfW = widthM / 2;
+        await createRegionMut.mutateAsync({
+          fieldId,
+          data: { xM, yM, widthM: halfW, heightM, cropId },
+        });
+        await createRegionMut.mutateAsync({
+          fieldId,
+          data: { xM: xM + halfW, yM, widthM: halfW, heightM, cropId },
+        });
+      }
+
+      // Clear selection since the original item is gone
+      useFieldEditor.getState().clearSelection();
+    },
+    [selectedIds, field, farmId, fieldId, removePlantedCrop, createRegionMut],
+  );
+
+  const handleSplitHorizontal = useCallback(() => handleSplit("horizontal"), [handleSplit]);
+  const handleSplitVertical = useCallback(() => handleSplit("vertical"), [handleSplit]);
+
+  // --- Utility node placement ---
+  const handlePlaceUtilityNode = useCallback(
+    async (pos: { xM: number; yM: number }) => {
+      if (!field) return;
+      await createUtilityNode.mutateAsync({
+        fieldId: field.id,
+        data: {
+          kind: "water",
+          nodeType: null,
+          label: "新節點",
+          xM: pos.xM,
+          yM: pos.yM,
+        },
+      });
+      setTool("select");
+    },
+    [field, createUtilityNode, setTool],
+  );
+
+  // --- Utility edge connection ---
+  const handleConnectUtilityNodes = useCallback(
+    async (fromNodeId: string, toNodeId: string) => {
+      if (!field) return;
+      // Determine kind from the source node
+      const fromNode = field.utilityNodes.find((n) => n.id === fromNodeId);
+      const kind = fromNode?.kind ?? "water";
+      await createUtilityEdge.mutateAsync({
+        fieldId: field.id,
+        data: { fromNodeId, toNodeId, kind },
+      });
+      setTool("select");
+    },
+    [field, createUtilityEdge, setTool],
+  );
+
+  // --- Quick-add (double-click on empty canvas) ---
+  const handleQuickAdd = useCallback(
+    async (pos: { xM: number; yM: number }) => {
+      if (!farmId) return;
+      const DEFAULT_SIZE = 2;
+      const rect = {
+        xM: pos.xM - DEFAULT_SIZE / 2,
+        yM: pos.yM - DEFAULT_SIZE / 2,
+        widthM: DEFAULT_SIZE,
+        heightM: DEFAULT_SIZE,
+      };
+      const result = await createRegionMut.mutateAsync({
+        fieldId,
+        data: rect,
+      });
+      setPendingRegionId(result.plantedCrop.id);
+      setPendingRectInfo(rect);
+    },
+    [farmId, fieldId, createRegionMut],
+  );
+
+  // --- Memo ---
+  const handleMemoChange = useCallback(
+    (memo: string) => {
+      if (!field) return;
+      updateFieldMemo.mutate({ fieldId: field.id, memo });
+    },
+    [field, updateFieldMemo],
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -448,6 +575,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
+            onPlaceUtilityNode={handlePlaceUtilityNode}
+            onConnectUtilityNodes={handleConnectUtilityNodes}
+            onQuickAdd={handleQuickAdd}
           />
         </div>
 
@@ -462,6 +592,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           facilityCount={facilityCount}
           onDeleteSelected={handleDeleteSelected}
           onChangeCrop={handleChangeCrop}
+          onSplitHorizontal={handleSplitHorizontal}
+          onSplitVertical={handleSplitVertical}
+          memo={field.memo}
+          onMemoChange={handleMemoChange}
         />
       </div>
 

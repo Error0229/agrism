@@ -98,9 +98,12 @@ interface EditorCanvasProps {
     widthM: number;
     heightM: number;
   }) => void;
+  onPlaceUtilityNode?: (pos: { xM: number; yM: number }) => void;
+  onConnectUtilityNodes?: (fromNodeId: string, toNodeId: string) => void;
+  onQuickAdd?: (pos: { xM: number; yM: number }) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -155,6 +158,8 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
   } | null>(null);
   const [polygonPoints, setPolygonPoints] = useState<{ xM: number; yM: number }[]>([]);
   const [polygonCursorPos, setPolygonCursorPos] = useState<{ xM: number; yM: number } | null>(null);
+  const [pendingEdgeFromNodeId, setPendingEdgeFromNodeId] = useState<string | null>(null);
+  const [edgeCursorPos, setEdgeCursorPos] = useState<{ xM: number; yM: number } | null>(null);
 
   // Clear polygon state when switching away from draw_polygon.
   // The cleanup function runs when activeTool changes away from draw_polygon,
@@ -167,6 +172,24 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
       };
     }
   }, [activeTool]);
+
+  // Clear edge pending state when switching away from utility_edge
+  useEffect(() => {
+    if (activeTool === "utility_edge") {
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && pendingEdgeFromNodeId) {
+          setPendingEdgeFromNodeId(null);
+          setEdgeCursorPos(null);
+        }
+      };
+      window.addEventListener("keydown", handleEscape);
+      return () => {
+        window.removeEventListener("keydown", handleEscape);
+        setPendingEdgeFromNodeId(null);
+        setEdgeCursorPos(null);
+      };
+    }
+  }, [activeTool, pendingEdgeFromNodeId]);
 
   // Resize container on mount / window resize
   useEffect(() => {
@@ -341,11 +364,24 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
     (e: KonvaEventObject<MouseEvent>) => {
       // Don't clear selection when using polygon tool (clicks add vertices)
       if (activeTool === "draw_polygon") return;
+
+      // Utility node tool: place a node on stage click
+      if (activeTool === "utility_node" && e.target === e.target.getStage()) {
+        const pos = getPointerMeters();
+        if (pos && onPlaceUtilityNode) {
+          onPlaceUtilityNode({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
+        }
+        return;
+      }
+
+      // Utility edge tool: cancel on empty stage click (no node hit)
+      if (activeTool === "utility_edge") return;
+
       if (e.target === e.target.getStage()) {
         clearSelection();
       }
     },
-    [clearSelection, activeTool],
+    [clearSelection, activeTool, getPointerMeters, snapM, onPlaceUtilityNode],
   );
 
   const handleStageDragEnd = useCallback(
@@ -465,6 +501,11 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         return;
       }
 
+      if (activeTool === "utility_edge" && pendingEdgeFromNodeId) {
+        setEdgeCursorPos({ xM: pos.xM, yM: pos.yM });
+        return;
+      }
+
       if (activeTool === "select" && marqueeState) {
         setMarqueeState((prev) =>
           prev ? { ...prev, endXM: pos.xM, endYM: pos.yM } : null,
@@ -494,6 +535,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
       drawRectState,
       marqueeState,
       polygonPoints,
+      pendingEdgeFromNodeId,
       resizeState,
       getPointerMeters,
       snapM,
@@ -845,15 +887,14 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
   const cursorClass =
     activeTool === "hand"
       ? "cursor-grab"
-      : activeTool === "eraser"
+      : activeTool === "eraser" ||
+          activeTool === "draw_rect" ||
+          activeTool === "draw_polygon" ||
+          activeTool === "measure" ||
+          activeTool === "utility_node" ||
+          activeTool === "utility_edge"
         ? "cursor-crosshair"
-        : activeTool === "draw_rect"
-          ? "cursor-crosshair"
-          : activeTool === "draw_polygon"
-            ? "cursor-crosshair"
-            : activeTool === "measure"
-              ? "cursor-crosshair"
-              : "cursor-default";
+        : "cursor-default";
 
   // Measure distance computation
   const measureDist = measureState
@@ -877,6 +918,14 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         onDragEnd={handleStageDragEnd}
         onWheel={handleWheel}
         onClick={handleStageClick}
+        onDblClick={(e) => {
+          if (activeTool === "select" && e.target === e.target.getStage()) {
+            const pos = getPointerMeters();
+            if (pos && onQuickAdd) {
+              onQuickAdd({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
+            }
+          }
+        }}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseLeave={() => setCursorPosition(null)}
@@ -987,32 +1036,70 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
           })}
 
           {/* Utility nodes (draggable) */}
-          {visibleUtilityNodes.map((node) => (
-            <Group
-              key={node.id}
-              x={Number(node.xM) * PIXELS_PER_METER}
-              y={Number(node.yM) * PIXELS_PER_METER}
-              draggable={activeTool === "select"}
-              onDragEnd={(e) => handleUtilityNodeDragEnd(node.id, e)}
-            >
-              <Circle
-                x={0}
-                y={0}
-                radius={7}
-                fill={node.kind === "water" ? "#0ea5e9" : "#fb923c"}
-                stroke="#1f2937"
-                strokeWidth={1}
-              />
-              <Text
-                x={8}
-                y={-6}
-                text={node.label}
-                fontSize={10}
-                fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
-                listening={false}
-              />
-            </Group>
-          ))}
+          {visibleUtilityNodes.map((node) => {
+            const isEdgeSource = pendingEdgeFromNodeId === node.id;
+            const isNodeSelected = selectedSet.has(node.id);
+            return (
+              <Group
+                key={node.id}
+                x={Number(node.xM) * PIXELS_PER_METER}
+                y={Number(node.yM) * PIXELS_PER_METER}
+                draggable={activeTool === "select"}
+                onDragEnd={(e) => handleUtilityNodeDragEnd(node.id, e)}
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                  if (activeTool === "select") {
+                    if (e.evt.shiftKey) {
+                      toggleSelect(node.id);
+                    } else {
+                      select(node.id);
+                    }
+                    return;
+                  }
+                  if (activeTool === "utility_edge") {
+                    if (!pendingEdgeFromNodeId) {
+                      setPendingEdgeFromNodeId(node.id);
+                    } else if (pendingEdgeFromNodeId !== node.id) {
+                      onConnectUtilityNodes?.(pendingEdgeFromNodeId, node.id);
+                      setPendingEdgeFromNodeId(null);
+                      setEdgeCursorPos(null);
+                    }
+                    return;
+                  }
+                }}
+              >
+                {/* Highlight ring for edge source or selected node */}
+                {(isEdgeSource || isNodeSelected) && (
+                  <Circle
+                    x={0}
+                    y={0}
+                    radius={12}
+                    fill="transparent"
+                    stroke={isEdgeSource ? "#f59e0b" : "#16a34a"}
+                    strokeWidth={2}
+                    dash={isEdgeSource ? [4, 2] : undefined}
+                    listening={false}
+                  />
+                )}
+                <Circle
+                  x={0}
+                  y={0}
+                  radius={7}
+                  fill={node.kind === "water" ? "#0ea5e9" : "#fb923c"}
+                  stroke="#1f2937"
+                  strokeWidth={1}
+                />
+                <Text
+                  x={8}
+                  y={-6}
+                  text={node.label}
+                  fontSize={10}
+                  fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
+                  listening={false}
+                />
+              </Group>
+            );
+          })}
 
           {/* Canvas items (crops + facilities) */}
           {visibleCanvasItems.map((item) => {
@@ -1211,6 +1298,26 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
               ))}
             </Group>
           )}
+
+          {/* Utility edge preview line */}
+          {pendingEdgeFromNodeId && edgeCursorPos && activeTool === "utility_edge" && (() => {
+            const fromNode = utilityNodeById.get(pendingEdgeFromNodeId);
+            if (!fromNode) return null;
+            return (
+              <Line
+                points={[
+                  Number(fromNode.xM) * PIXELS_PER_METER,
+                  Number(fromNode.yM) * PIXELS_PER_METER,
+                  edgeCursorPos.xM * PIXELS_PER_METER,
+                  edgeCursorPos.yM * PIXELS_PER_METER,
+                ]}
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dash={[6, 4]}
+                listening={false}
+              />
+            );
+          })()}
 
           {/* Measure tool overlay */}
           {measureState && (
