@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { CropCategory, WaterLevel, SunlightLevel } from '@/lib/types/enums'
 import {
   CROP_CATEGORY_LABELS,
@@ -32,13 +33,13 @@ import type {
 } from '@/lib/types/enums'
 
 interface AddCropDialogProps {
-  farmId: string
+  farmId: string | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps) {
-  const createCrop = useCreateCrop(farmId)
+  const createCrop = useCreateCrop(farmId ?? '')
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🌱')
@@ -73,6 +74,10 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
   }
 
   function handleSubmit() {
+    if (!farmId) {
+      toast.error('無法取得農場資訊，請重新登入')
+      return
+    }
     if (!name || !category) return
     createCrop.mutate(
       {
@@ -87,8 +92,12 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
       },
       {
         onSuccess: () => {
+          toast.success('自訂作物已建立')
           resetForm()
           onOpenChange(false)
+        },
+        onError: () => {
+          toast.error('建立作物失敗')
         },
       }
     )

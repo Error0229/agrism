@@ -45,7 +45,7 @@ export default function CropsPage() {
             瀏覽花蓮地區適合種植的作物資訊
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => setDialogOpen(true)} disabled={!farmId}>
           <Plus className="mr-1 size-4" />
           新增自訂作物
         </Button>
@@ -108,13 +108,11 @@ export default function CropsPage() {
       )}
 
       {/* Add crop dialog */}
-      {farmId && (
-        <AddCropDialog
-          farmId={farmId}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-        />
-      )}
+      <AddCropDialog
+        farmId={farmId}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   )
 }
