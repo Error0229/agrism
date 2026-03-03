@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Redo2, Undo2 } from "lucide-react";
 
@@ -8,6 +8,7 @@ import {
   useFieldById,
   useCreateRegion,
   useAssignCropToRegion,
+  useHarvestCrop,
   useRemovePlantedCrop,
   useRestorePlantedCrop,
   useDeleteFacility,
@@ -15,6 +16,8 @@ import {
   useCreateUtilityNode,
   useCreateUtilityEdge,
   useUpdateFieldMemo,
+  useUpdateCropPlacement,
+  useUpdateFacility,
 } from "@/hooks/use-fields";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { useFieldEditor, type ClipboardItem } from "@/lib/store/field-editor-store";
@@ -31,9 +34,10 @@ import {
 } from "@/components/ui/tooltip";
 
 import { EditorCanvas } from "./editor-canvas";
+import { EditorMinimap } from "./editor-minimap";
 import { EditorToolbar } from "./editor-toolbar";
 import { EditorStatusBar } from "./editor-status-bar";
-import { PropertyInspector } from "./property-inspector";
+import { PropertyInspector, type AlignType } from "./property-inspector";
 import { PlantCropDialog } from "./plant-crop-dialog";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 
@@ -60,8 +64,13 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const clipboard = useFieldEditor((s) => s.clipboard);
   const setClipboard = useFieldEditor((s) => s.setClipboard);
 
+  const pan = useFieldEditor((s) => s.pan);
+  const setPan = useFieldEditor((s) => s.setPan);
+  const zoomToSelection = useFieldEditor((s) => s.zoomToSelection);
+
   const createRegionMut = useCreateRegion(farmId ?? "");
   const assignCropToRegion = useAssignCropToRegion();
+  const harvestCropMut = useHarvestCrop();
   const removePlantedCrop = useRemovePlantedCrop();
   const restorePlantedCrop = useRestorePlantedCrop();
   const deleteFacility = useDeleteFacility();
@@ -69,6 +78,12 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const createUtilityNode = useCreateUtilityNode();
   const createUtilityEdge = useCreateUtilityEdge();
   const updateFieldMemo = useUpdateFieldMemo();
+  const updatePlacement = useUpdateCropPlacement();
+  const updateFacilityMut = useUpdateFacility();
+
+  // Canvas container ref + size for minimap viewport calculation
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [canvasContainerSize, setCanvasContainerSize] = useState({ width: 800, height: 600 });
 
   // Draw rect completion state — stores the newly created region's planted crop ID
   // so the user can optionally assign a crop to it
@@ -272,15 +287,136 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     }
   }, [handleCopy, farmId, fieldId, createRegionMut, assignCropToRegion, createFacility]);
 
+  // --- Zoom to selection (Ctrl+2) ---
+  const handleZoomToSelection = useCallback(() => {
+    if (selectedIds.length === 0 || !field) return;
+    const bounds: { xM: number; yM: number; widthM: number; heightM: number }[] = [];
+    for (const id of selectedIds) {
+      const placement = field.placements.find((p) => p.id === id);
+      if (placement) {
+        bounds.push({
+          xM: Number(placement.xM),
+          yM: Number(placement.yM),
+          widthM: Number(placement.widthM),
+          heightM: Number(placement.heightM),
+        });
+        continue;
+      }
+      const facility = field.facilities.find((f) => f.id === id);
+      if (facility) {
+        bounds.push({
+          xM: Number(facility.xM),
+          yM: Number(facility.yM),
+          widthM: Number(facility.widthM),
+          heightM: Number(facility.heightM),
+        });
+      }
+    }
+    if (bounds.length > 0) {
+      zoomToSelection(bounds, canvasContainerSize.width, canvasContainerSize.height);
+    }
+  }, [selectedIds, field, zoomToSelection, canvasContainerSize]);
+
+  // --- Multi-select alignment ---
+  // TODO: wrap alignment mutations in an undo command for future undo support
+  const handleAlign = useCallback(
+    (type: AlignType) => {
+      if (selectedIds.length < 2 || !field) return;
+
+      // Gather bounds for all selected items
+      const items: { id: string; kind: 'crop' | 'facility'; xM: number; yM: number; widthM: number; heightM: number; plantedCropId?: string }[] = [];
+      for (const id of selectedIds) {
+        const placement = field.placements.find((p) => p.id === id);
+        if (placement) {
+          items.push({
+            id,
+            kind: 'crop',
+            xM: Number(placement.xM),
+            yM: Number(placement.yM),
+            widthM: Number(placement.widthM),
+            heightM: Number(placement.heightM),
+            plantedCropId: placement.plantedCropId,
+          });
+          continue;
+        }
+        const facility = field.facilities.find((f) => f.id === id);
+        if (facility) {
+          items.push({
+            id,
+            kind: 'facility',
+            xM: Number(facility.xM),
+            yM: Number(facility.yM),
+            widthM: Number(facility.widthM),
+            heightM: Number(facility.heightM),
+          });
+        }
+      }
+      if (items.length < 2) return;
+
+      // Compute bounding box
+      const minX = Math.min(...items.map((i) => i.xM));
+      const minY = Math.min(...items.map((i) => i.yM));
+      const maxX = Math.max(...items.map((i) => i.xM + i.widthM));
+      const maxY = Math.max(...items.map((i) => i.yM + i.heightM));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      for (const item of items) {
+        let newX = item.xM;
+        let newY = item.yM;
+
+        switch (type) {
+          case 'left':
+            newX = minX;
+            break;
+          case 'centerH':
+            newX = centerX - item.widthM / 2;
+            break;
+          case 'right':
+            newX = maxX - item.widthM;
+            break;
+          case 'top':
+            newY = minY;
+            break;
+          case 'centerV':
+            newY = centerY - item.heightM / 2;
+            break;
+          case 'bottom':
+            newY = maxY - item.heightM;
+            break;
+        }
+
+        if (newX === item.xM && newY === item.yM) continue;
+
+        if (item.kind === 'crop') {
+          updatePlacement.mutate({
+            placementId: item.id,
+            fieldId: field.id,
+            data: { xM: newX, yM: newY },
+          });
+        } else {
+          updateFacilityMut.mutate({
+            id: item.id,
+            fieldId: field.id,
+            data: { xM: newX, yM: newY },
+          });
+        }
+      }
+    },
+    [selectedIds, field, updatePlacement, updateFacilityMut],
+  );
+
   useEditorShortcuts({
     onDeleteSelected: handleDeleteSelected,
     onSelectAll: handleSelectAll,
     onCopy: handleCopy,
     onPaste: handlePaste,
     onDuplicate: handleDuplicate,
+    onZoomToSelection: handleZoomToSelection,
     fieldDimensions: field
       ? { widthM: Number(field.widthM), heightM: Number(field.heightM) }
       : undefined,
+    viewportSize: canvasContainerSize,
   });
 
   const handleDrawRectComplete = useCallback(
@@ -469,6 +605,71 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     [field, updateFieldMemo],
   );
 
+  // --- Mark as harvested ---
+  const handleMarkHarvested = useCallback(
+    (plantedCropId: string) => {
+      harvestCropMut.mutate(plantedCropId);
+    },
+    [harvestCropMut],
+  );
+
+  // --- Canvas container size tracking for minimap ---
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setCanvasContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // --- Minimap items ---
+  const minimapItems = useMemo(() => {
+    if (!field) return [];
+    const items: Array<{ xM: number; yM: number; widthM: number; heightM: number; color: string; kind: string }> = [];
+    for (const row of field.plantedCrops) {
+      const placement = field.placements.find((p) => p.plantedCropId === row.plantedCrop.id);
+      if (!placement) continue;
+      items.push({
+        xM: Number(placement.xM),
+        yM: Number(placement.yM),
+        widthM: Number(placement.widthM),
+        heightM: Number(placement.heightM),
+        color: row.crop?.color ?? "#d1d5db",
+        kind: "crop",
+      });
+    }
+    for (const fac of field.facilities) {
+      items.push({
+        xM: Number(fac.xM),
+        yM: Number(fac.yM),
+        widthM: Number(fac.widthM),
+        heightM: Number(fac.heightM),
+        color: "#94a3b8",
+        kind: "facility",
+      });
+    }
+    return items;
+  }, [field]);
+
+  // --- Minimap navigation ---
+  const PIXELS_PER_METER = 100;
+  const handleMinimapNavigate = useCallback(
+    (xM: number, yM: number) => {
+      const newPanX = -(xM * PIXELS_PER_METER * zoom - canvasContainerSize.width / 2);
+      const newPanY = -(yM * PIXELS_PER_METER * zoom - canvasContainerSize.height / 2);
+      setPan(newPanX, newPanY);
+    },
+    [zoom, canvasContainerSize, setPan],
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -571,13 +772,23 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         <EditorToolbar />
 
         {/* Center: canvas */}
-        <div className="min-w-0 flex-1 overflow-hidden bg-muted/30">
+        <div ref={canvasContainerRef} className="relative min-w-0 flex-1 overflow-hidden bg-muted/30">
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
             onPlaceUtilityNode={handlePlaceUtilityNode}
             onConnectUtilityNodes={handleConnectUtilityNodes}
             onQuickAdd={handleQuickAdd}
+          />
+          <EditorMinimap
+            fieldWidthM={Number(field.widthM)}
+            fieldHeightM={Number(field.heightM)}
+            items={minimapItems}
+            zoom={zoom}
+            pan={pan}
+            viewportWidth={canvasContainerSize.width}
+            viewportHeight={canvasContainerSize.height}
+            onNavigate={handleMinimapNavigate}
           />
         </div>
 
@@ -592,8 +803,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           facilityCount={facilityCount}
           onDeleteSelected={handleDeleteSelected}
           onChangeCrop={handleChangeCrop}
+          onMarkHarvested={handleMarkHarvested}
           onSplitHorizontal={handleSplitHorizontal}
           onSplitVertical={handleSplitVertical}
+          onAlign={handleAlign}
           memo={field.memo}
           onMemoChange={handleMemoChange}
         />

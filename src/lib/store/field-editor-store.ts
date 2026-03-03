@@ -86,6 +86,7 @@ interface FieldEditorState {
   toggleInspector(): void;
 
   toggleLayerVisibility(layer: keyof FieldEditorState['layerVisibility']): void;
+  zoomToSelection(itemBounds: { xM: number; yM: number; widthM: number; heightM: number }[], viewportWidth: number, viewportHeight: number): void;
   setCursorPosition(pos: { xM: number; yM: number } | null): void;
   setClipboard(items: ClipboardItem[]): void;
 
@@ -237,6 +238,27 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
         [layer]: !state.layerVisibility[layer],
       },
     }));
+  },
+
+  // --- Zoom to selection ---
+  zoomToSelection(itemBounds, viewportWidth, viewportHeight) {
+    if (itemBounds.length === 0) return;
+    const PIXELS_PER_METER = 100;
+    const padding = 0.9; // 10% padding on each side
+    const minX = Math.min(...itemBounds.map((b) => b.xM));
+    const minY = Math.min(...itemBounds.map((b) => b.yM));
+    const maxX = Math.max(...itemBounds.map((b) => b.xM + b.widthM));
+    const maxY = Math.max(...itemBounds.map((b) => b.yM + b.heightM));
+    const boundsW = maxX - minX;
+    const boundsH = maxY - minY;
+    const scaleX = (viewportWidth * padding) / (boundsW * PIXELS_PER_METER);
+    const scaleY = (viewportHeight * padding) / (boundsH * PIXELS_PER_METER);
+    const newZoom = clampZoom(Math.min(scaleX, scaleY));
+    const centerXPx = ((minX + maxX) / 2) * PIXELS_PER_METER * newZoom;
+    const centerYPx = ((minY + maxY) / 2) * PIXELS_PER_METER * newZoom;
+    const panX = viewportWidth / 2 - centerXPx;
+    const panY = viewportHeight / 2 - centerYPx;
+    set({ zoom: newZoom, pan: { x: panX, y: panY } });
   },
 
   // --- Cursor position ---

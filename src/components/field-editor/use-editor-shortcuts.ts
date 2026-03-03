@@ -12,6 +12,7 @@ interface EditorShortcutOptions {
   onCopy?: () => void
   onPaste?: () => void
   onDuplicate?: () => void
+  onZoomToSelection?: () => void
   fieldDimensions?: { widthM: number; heightM: number }
   viewportSize?: { width: number; height: number }
 }
@@ -27,6 +28,7 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
     onCopy,
     onPaste,
     onDuplicate,
+    onZoomToSelection,
     fieldDimensions,
     viewportSize,
   } = options
@@ -40,6 +42,9 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
     resetZoom,
     zoomToFit,
     toggleInspector,
+    toggleGrid,
+    toggleSnap,
+    toggleLayerVisibility,
     undo,
     redo,
     gridSpacing,
@@ -112,6 +117,13 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
         return
       }
 
+      // Ctrl+2: zoom to selection
+      if (isMod && e.key === '2') {
+        e.preventDefault()
+        onZoomToSelection?.()
+        return
+      }
+
       // Ctrl+C: copy
       if (isMod && (e.key === 'c' || e.key === 'C') && !e.shiftKey) {
         e.preventDefault()
@@ -138,6 +150,13 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       if (isMod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault()
         onDuplicate?.()
+        return
+      }
+
+      // Ctrl+': toggle snap
+      if (isMod && e.key === "'") {
+        e.preventDefault()
+        toggleSnap()
         return
       }
 
@@ -213,6 +232,26 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           toggleInspector()
           break
 
+        // Toggle grid
+        case 'g':
+        case 'G':
+          toggleGrid()
+          break
+
+        // Layer visibility toggles (1-4 without modifiers)
+        case '1':
+          toggleLayerVisibility('crops')
+          break
+        case '2':
+          toggleLayerVisibility('facilities')
+          break
+        case '3':
+          toggleLayerVisibility('waterUtilities')
+          break
+        case '4':
+          toggleLayerVisibility('electricUtilities')
+          break
+
         // Arrow keys: nudge pan (gridSpacing is in meters, convert to pixels)
         case 'ArrowUp': {
           e.preventDefault()
@@ -249,6 +288,9 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       resetZoom,
       zoomToFit,
       toggleInspector,
+      toggleGrid,
+      toggleSnap,
+      toggleLayerVisibility,
       undo,
       redo,
       gridSpacing,
@@ -259,6 +301,7 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       onCopy,
       onPaste,
       onDuplicate,
+      onZoomToSelection,
       fieldDimensions,
       viewportSize,
     ],

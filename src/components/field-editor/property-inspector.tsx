@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
   Calendar,
+  Check,
   CircleDot,
   Eye,
   EyeOff,
@@ -20,6 +27,8 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
+
+export type AlignType = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom';
 
 import { cn } from "@/lib/utils";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
@@ -62,8 +71,10 @@ interface PropertyInspectorProps {
   facilityCount?: number;
   onDeleteSelected?: () => void;
   onChangeCrop?: (plantedCropId: string) => void;
+  onMarkHarvested?: (plantedCropId: string) => void;
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
+  onAlign?: (type: AlignType) => void;
   memo?: string | null;
   onMemoChange?: (memo: string) => void;
 }
@@ -78,8 +89,10 @@ export function PropertyInspector({
   facilityCount = 0,
   onDeleteSelected,
   onChangeCrop,
+  onMarkHarvested,
   onSplitHorizontal,
   onSplitVertical,
+  onAlign,
   memo,
   onMemoChange,
 }: PropertyInspectorProps) {
@@ -191,6 +204,7 @@ export function PropertyInspector({
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
                 onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop.id) : undefined}
+                onMarkHarvested={onMarkHarvested && selectedItem.plantedCrop.status === "growing" ? () => onMarkHarvested(selectedItem.plantedCrop.id) : undefined}
                 onSplitHorizontal={onSplitHorizontal}
                 onSplitVertical={onSplitVertical}
               />
@@ -228,6 +242,7 @@ export function PropertyInspector({
                 count={selectedIds.length}
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
+                onAlign={onAlign}
               />
             )}
 
@@ -400,6 +415,7 @@ function CropSelectionSection({
   onDelete,
   onDeselect,
   onChangeCrop,
+  onMarkHarvested,
   onSplitHorizontal,
   onSplitVertical,
 }: {
@@ -411,6 +427,7 @@ function CropSelectionSection({
   onDelete?: () => void;
   onDeselect: () => void;
   onChangeCrop?: () => void;
+  onMarkHarvested?: () => void;
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
 }) {
@@ -544,6 +561,18 @@ function CropSelectionSection({
           >
             <RefreshCw className="mr-1 size-3" />
             變更作物
+          </Button>
+        )}
+
+        {onMarkHarvested && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full text-xs"
+            onClick={onMarkHarvested}
+          >
+            <Check className="mr-1 size-3" />
+            標記為已收成
           </Button>
         )}
 
@@ -894,10 +923,12 @@ function MultiSelectionSection({
   count,
   onDelete,
   onDeselect,
+  onAlign,
 }: {
   count: number;
   onDelete?: () => void;
   onDeselect: () => void;
+  onAlign?: (type: AlignType) => void;
 }) {
   return (
     <>
@@ -907,6 +938,67 @@ function MultiSelectionSection({
           已選取 {count} 個項目
         </p>
       </div>
+
+      {onAlign && (
+        <>
+          <Separator />
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-muted-foreground">對齊</h4>
+            <div className="flex gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('left')}>
+                      <AlignStartVertical className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>靠左對齊</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('centerH')}>
+                      <AlignCenterHorizontal className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>水平置中</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('right')}>
+                      <AlignEndVertical className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>靠右對齊</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('top')}>
+                      <AlignStartHorizontal className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>靠上對齊</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('centerV')}>
+                      <AlignCenterVertical className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>垂直置中</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() => onAlign('bottom')}>
+                      <AlignEndHorizontal className="size-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>靠下對齊</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        </>
+      )}
 
       <Separator />
 
