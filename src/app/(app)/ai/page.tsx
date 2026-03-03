@@ -70,7 +70,7 @@ export default function AiAssistantPage() {
       field.plantedCrops
         .filter((pc) => pc.plantedCrop.status === 'growing')
         .map((pc) => {
-          const cropName = cropMap.get(pc.plantedCrop.cropId) ?? '未知作物'
+          const cropName = (pc.plantedCrop.cropId ? cropMap.get(pc.plantedCrop.cropId) : null) ?? '未知作物'
           return `- ${cropName}（${field.name}），種植日期：${pc.plantedCrop.plantedDate}`
         }),
     )
