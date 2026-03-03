@@ -121,7 +121,10 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
   const gridVisible = useFieldEditor((s) => s.gridVisible);
   const gridSpacing = useFieldEditor((s) => s.gridSpacing);
   const snapEnabled = useFieldEditor((s) => s.snapEnabled);
+  const selectMultiple = useFieldEditor((s) => s.selectMultiple);
   const executeCommand = useFieldEditor((s) => s.executeCommand);
+  const layerVisibility = useFieldEditor((s) => s.layerVisibility);
+  const setCursorPosition = useFieldEditor((s) => s.setCursorPosition);
 
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
@@ -143,6 +146,27 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
   const [drawRectState, setDrawRectState] = useState<DrawRectState | null>(
     null,
   );
+  const [marqueeState, setMarqueeState] = useState<{
+    startXM: number;
+    startYM: number;
+    endXM: number;
+    endYM: number;
+    shiftHeld: boolean;
+  } | null>(null);
+  const [polygonPoints, setPolygonPoints] = useState<{ xM: number; yM: number }[]>([]);
+  const [polygonCursorPos, setPolygonCursorPos] = useState<{ xM: number; yM: number } | null>(null);
+
+  // Clear polygon state when switching away from draw_polygon.
+  // The cleanup function runs when activeTool changes away from draw_polygon,
+  // which is a valid synchronization with external state (the Zustand store).
+  useEffect(() => {
+    if (activeTool === "draw_polygon") {
+      return () => {
+        setPolygonPoints([]);
+        setPolygonCursorPos(null);
+      };
+    }
+  }, [activeTool]);
 
   // Resize container on mount / window resize
   useEffect(() => {
@@ -229,6 +253,32 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
     [utilityNodes],
   );
 
+  // Filter canvas items by layer visibility
+  const visibleCanvasItems = useMemo(() => {
+    return canvasItems.filter((item) => {
+      if (item.kind === "crop" && !layerVisibility.crops) return false;
+      if (item.kind === "facility" && !layerVisibility.facilities) return false;
+      return true;
+    });
+  }, [canvasItems, layerVisibility.crops, layerVisibility.facilities]);
+
+  // Filter utility nodes/edges by layer visibility
+  const visibleUtilityNodes = useMemo(() => {
+    return utilityNodes.filter((node) => {
+      if (node.kind === "water" && !layerVisibility.waterUtilities) return false;
+      if (node.kind === "electric" && !layerVisibility.electricUtilities) return false;
+      return true;
+    });
+  }, [utilityNodes, layerVisibility.waterUtilities, layerVisibility.electricUtilities]);
+
+  const visibleUtilityEdges = useMemo(() => {
+    return utilityEdges.filter((edge) => {
+      if (edge.kind === "water" && !layerVisibility.waterUtilities) return false;
+      if (edge.kind === "electric" && !layerVisibility.electricUtilities) return false;
+      return true;
+    });
+  }, [utilityEdges, layerVisibility.waterUtilities, layerVisibility.electricUtilities]);
+
   // Grid lines
   const gridLines = useMemo(() => {
     if (!gridVisible) return [];
@@ -289,11 +339,13 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
 
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
+      // Don't clear selection when using polygon tool (clicks add vertices)
+      if (activeTool === "draw_polygon") return;
       if (e.target === e.target.getStage()) {
         clearSelection();
       }
     },
-    [clearSelection],
+    [clearSelection, activeTool],
   );
 
   const handleStageDragEnd = useCallback(
@@ -335,14 +387,60 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         });
         return;
       }
+
+      if (activeTool === "draw_polygon") {
+        const snapped = { xM: snapM(pos.xM), yM: snapM(pos.yM) };
+
+        if (polygonPoints.length >= 3) {
+          // Check if cursor is near first point (close polygon)
+          const firstPt = polygonPoints[0];
+          const dxPx = (snapped.xM - firstPt.xM) * PIXELS_PER_METER * zoom;
+          const dyPx = (snapped.yM - firstPt.yM) * PIXELS_PER_METER * zoom;
+          const distPx = Math.sqrt(dxPx * dxPx + dyPx * dyPx);
+          if (distPx < 15) {
+            // Close polygon: compute bounding box
+            const xs = polygonPoints.map((p) => p.xM);
+            const ys = polygonPoints.map((p) => p.yM);
+            const minX = Math.min(...xs);
+            const minY = Math.min(...ys);
+            const maxX = Math.max(...xs);
+            const maxY = Math.max(...ys);
+            const w = maxX - minX;
+            const h = maxY - minY;
+            if (w >= MIN_SIZE_M && h >= MIN_SIZE_M) {
+              onDrawRectComplete?.({ xM: minX, yM: minY, widthM: w, heightM: h });
+            }
+            setPolygonPoints([]);
+            setPolygonCursorPos(null);
+            return;
+          }
+        }
+        // Add vertex
+        setPolygonPoints((prev) => [...prev, snapped]);
+        return;
+      }
+
+      if (activeTool === "select") {
+        setMarqueeState({
+          startXM: pos.xM,
+          startYM: pos.yM,
+          endXM: pos.xM,
+          endYM: pos.yM,
+          shiftHeld: e.evt.shiftKey,
+        });
+        return;
+      }
     },
-    [activeTool, getPointerMeters, snapM],
+    [activeTool, getPointerMeters, snapM, polygonPoints, zoom, onDrawRectComplete],
   );
 
   const handleStageMouseMove = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       const pos = getPointerMeters();
       if (!pos) return;
+
+      // Update cursor position for status bar
+      setCursorPosition({ xM: pos.xM, yM: pos.yM });
 
       if (activeTool === "measure" && measureState) {
         setMeasureState((prev) =>
@@ -358,6 +456,18 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
           prev
             ? { ...prev, endXM: snapM(pos.xM), endYM: snapM(pos.yM) }
             : null,
+        );
+        return;
+      }
+
+      if (activeTool === "draw_polygon" && polygonPoints.length > 0) {
+        setPolygonCursorPos({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
+        return;
+      }
+
+      if (activeTool === "select" && marqueeState) {
+        setMarqueeState((prev) =>
+          prev ? { ...prev, endXM: pos.xM, endYM: pos.yM } : null,
         );
         return;
       }
@@ -382,9 +492,12 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
       activeTool,
       measureState,
       drawRectState,
+      marqueeState,
+      polygonPoints,
       resizeState,
       getPointerMeters,
       snapM,
+      setCursorPosition,
     ],
   );
 
@@ -409,7 +522,40 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
       setDrawRectState(null);
       return;
     }
-  }, [activeTool, measureState, drawRectState, onDrawRectComplete]);
+
+    // Marquee select: find enclosed items
+    if (activeTool === "select" && marqueeState) {
+      const minX = Math.min(marqueeState.startXM, marqueeState.endXM);
+      const minY = Math.min(marqueeState.startYM, marqueeState.endYM);
+      const maxX = Math.max(marqueeState.startXM, marqueeState.endXM);
+      const maxY = Math.max(marqueeState.startYM, marqueeState.endYM);
+
+      // Only select if the marquee had some area
+      if (maxX - minX > 0.01 || maxY - minY > 0.01) {
+        const matchedIds: string[] = [];
+        for (const item of canvasItems) {
+          if (
+            item.xM >= minX &&
+            item.yM >= minY &&
+            item.xM + item.widthM <= maxX &&
+            item.yM + item.heightM <= maxY
+          ) {
+            matchedIds.push(item.id);
+          }
+        }
+
+        if (marqueeState.shiftHeld) {
+          // Add to existing selection
+          const combined = new Set([...selectedIds, ...matchedIds]);
+          selectMultiple([...combined]);
+        } else {
+          selectMultiple(matchedIds);
+        }
+      }
+      setMarqueeState(null);
+      return;
+    }
+  }, [activeTool, measureState, drawRectState, marqueeState, canvasItems, selectedIds, selectMultiple, onDrawRectComplete]);
 
   // --- Item event handlers ---
 
@@ -703,9 +849,11 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         ? "cursor-crosshair"
         : activeTool === "draw_rect"
           ? "cursor-crosshair"
-          : activeTool === "measure"
+          : activeTool === "draw_polygon"
             ? "cursor-crosshair"
-            : "cursor-default";
+            : activeTool === "measure"
+              ? "cursor-crosshair"
+              : "cursor-default";
 
   // Measure distance computation
   const measureDist = measureState
@@ -731,6 +879,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
         onClick={handleStageClick}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
+        onMouseLeave={() => setCursorPosition(null)}
         onMouseUp={(e) => {
           handleStageMouseUp();
           if (resizeState) {
@@ -816,7 +965,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
           />
 
           {/* Utility edges */}
-          {utilityEdges.map((edge) => {
+          {visibleUtilityEdges.map((edge) => {
             const from = utilityNodeById.get(edge.fromNodeId);
             const to = utilityNodeById.get(edge.toNodeId);
             if (!from || !to) return null;
@@ -838,7 +987,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
           })}
 
           {/* Utility nodes (draggable) */}
-          {utilityNodes.map((node) => (
+          {visibleUtilityNodes.map((node) => (
             <Group
               key={node.id}
               x={Number(node.xM) * PIXELS_PER_METER}
@@ -866,7 +1015,7 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
           ))}
 
           {/* Canvas items (crops + facilities) */}
-          {canvasItems.map((item) => {
+          {visibleCanvasItems.map((item) => {
             const xPx = item.xM * PIXELS_PER_METER;
             const yPx = item.yM * PIXELS_PER_METER;
             const wPx = item.widthM * PIXELS_PER_METER;
@@ -993,6 +1142,74 @@ export function EditorCanvas({ field, onDrawRectComplete }: EditorCanvasProps) {
               dash={[6, 3]}
               listening={false}
             />
+          )}
+
+          {/* Marquee selection preview */}
+          {marqueeState && (
+            <Rect
+              x={
+                Math.min(marqueeState.startXM, marqueeState.endXM) *
+                PIXELS_PER_METER
+              }
+              y={
+                Math.min(marqueeState.startYM, marqueeState.endYM) *
+                PIXELS_PER_METER
+              }
+              width={
+                Math.abs(marqueeState.endXM - marqueeState.startXM) *
+                PIXELS_PER_METER
+              }
+              height={
+                Math.abs(marqueeState.endYM - marqueeState.startYM) *
+                PIXELS_PER_METER
+              }
+              fill="#3b82f620"
+              stroke="#3b82f6"
+              strokeWidth={1}
+              dash={[4, 4]}
+              listening={false}
+            />
+          )}
+
+          {/* Polygon draw preview */}
+          {polygonPoints.length > 0 && activeTool === "draw_polygon" && (
+            <Group listening={false}>
+              {/* Completed segments */}
+              {polygonPoints.length >= 2 && (
+                <Line
+                  points={polygonPoints.flatMap(p => [p.xM * PIXELS_PER_METER, p.yM * PIXELS_PER_METER])}
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  dash={[6, 3]}
+                />
+              )}
+              {/* Preview line to cursor */}
+              {polygonCursorPos && polygonPoints.length > 0 && (
+                <Line
+                  points={[
+                    polygonPoints[polygonPoints.length - 1].xM * PIXELS_PER_METER,
+                    polygonPoints[polygonPoints.length - 1].yM * PIXELS_PER_METER,
+                    polygonCursorPos.xM * PIXELS_PER_METER,
+                    polygonCursorPos.yM * PIXELS_PER_METER,
+                  ]}
+                  stroke="#22c55e80"
+                  strokeWidth={1}
+                  dash={[4, 4]}
+                />
+              )}
+              {/* Vertex dots */}
+              {polygonPoints.map((pt, i) => (
+                <Circle
+                  key={i}
+                  x={pt.xM * PIXELS_PER_METER}
+                  y={pt.yM * PIXELS_PER_METER}
+                  radius={i === 0 && polygonPoints.length >= 3 ? 8 : 4}
+                  fill={i === 0 ? "#22c55e" : "#16a34a"}
+                  stroke="#15803d"
+                  strokeWidth={1}
+                />
+              ))}
+            </Group>
           )}
 
           {/* Measure tool overlay */}

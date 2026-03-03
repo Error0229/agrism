@@ -30,6 +30,7 @@ export function EditorStatusBar({
   const snapEnabled = useFieldEditor((s) => s.snapEnabled);
   const zoom = useFieldEditor((s) => s.zoom);
   const selectedIds = useFieldEditor((s) => s.selectedIds);
+  const cursorPosition = useFieldEditor((s) => s.cursorPosition);
 
   return (
     <div className="flex h-7 items-center gap-4 border-t bg-background px-3 text-xs text-muted-foreground">
@@ -66,9 +67,19 @@ export function EditorStatusBar({
 
       <div className="flex-1" />
 
+      {/* Cursor position */}
+      {cursorPosition && (
+        <span>
+          X: {cursorPosition.xM.toFixed(1)}m &nbsp; Y: {cursorPosition.yM.toFixed(1)}m
+        </span>
+      )}
+
       {/* Selection */}
       {selectedIds.length > 0 && (
-        <span>已選取 {selectedIds.length} 項</span>
+        <>
+          <Separator />
+          <span>已選取 {selectedIds.length} 項</span>
+        </>
       )}
 
       {/* Zoom */}

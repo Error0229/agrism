@@ -2,7 +2,18 @@ import { create } from "zustand";
 
 import type { Command } from "./editor-commands";
 
-export type EditorTool = "select" | "draw_rect" | "hand" | "eraser" | "measure";
+export type EditorTool = "select" | "draw_rect" | "draw_polygon" | "hand" | "eraser" | "measure";
+
+export interface ClipboardItem {
+  kind: "crop" | "facility";
+  xM: number;
+  yM: number;
+  widthM: number;
+  heightM: number;
+  cropId?: string;
+  facilityType?: string;
+  name?: string;
+}
 
 const MAX_UNDO_STACK = 100;
 const MIN_ZOOM = 0.1;
@@ -32,6 +43,20 @@ interface FieldEditorState {
   // Inspector
   inspectorOpen: boolean;
 
+  // Layer visibility
+  layerVisibility: {
+    crops: boolean;
+    facilities: boolean;
+    waterUtilities: boolean;
+    electricUtilities: boolean;
+  };
+
+  // Cursor position (meters)
+  cursorPosition: { xM: number; yM: number } | null;
+
+  // Clipboard
+  clipboard: ClipboardItem[];
+
   // Undo/Redo
   undoStack: Command[];
   redoStack: Command[];
@@ -52,12 +77,17 @@ interface FieldEditorState {
   zoomIn(): void;
   zoomOut(): void;
   resetZoom(): void;
+  zoomToFit(fieldWidthM: number, fieldHeightM: number, viewportWidth: number, viewportHeight: number): void;
   setPan(x: number, y: number): void;
 
   toggleGrid(): void;
   setGridSpacing(meters: number): void;
   toggleSnap(): void;
   toggleInspector(): void;
+
+  toggleLayerVisibility(layer: keyof FieldEditorState['layerVisibility']): void;
+  setCursorPosition(pos: { xM: number; yM: number } | null): void;
+  setClipboard(items: ClipboardItem[]): void;
 
   executeCommand(command: Command): Promise<void>;
   undo(): Promise<void>;
@@ -82,6 +112,9 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   gridSpacing: 1,
   snapEnabled: true,
   inspectorOpen: true,
+  layerVisibility: { crops: true, facilities: true, waterUtilities: true, electricUtilities: true },
+  cursorPosition: null,
+  clipboard: [],
   undoStack: [],
   redoStack: [],
 
@@ -163,6 +196,17 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
     set({ zoom: 1, pan: { x: 0, y: 0 } });
   },
 
+  zoomToFit(fieldWidthM, fieldHeightM, viewportWidth, viewportHeight) {
+    const PIXELS_PER_METER = 100;
+    const padding = 0.9; // use 90% of viewport
+    const scaleX = (viewportWidth * padding) / (fieldWidthM * PIXELS_PER_METER);
+    const scaleY = (viewportHeight * padding) / (fieldHeightM * PIXELS_PER_METER);
+    const newZoom = clampZoom(Math.min(scaleX, scaleY));
+    const panX = (viewportWidth - fieldWidthM * PIXELS_PER_METER * newZoom) / 2;
+    const panY = (viewportHeight - fieldHeightM * PIXELS_PER_METER * newZoom) / 2;
+    set({ zoom: newZoom, pan: { x: panX, y: panY } });
+  },
+
   setPan(x, y) {
     set({ pan: { x, y } });
   },
@@ -183,6 +227,26 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   // --- Inspector ---
   toggleInspector() {
     set((state) => ({ inspectorOpen: !state.inspectorOpen }));
+  },
+
+  // --- Layer visibility ---
+  toggleLayerVisibility(layer) {
+    set((state) => ({
+      layerVisibility: {
+        ...state.layerVisibility,
+        [layer]: !state.layerVisibility[layer],
+      },
+    }));
+  },
+
+  // --- Cursor position ---
+  setCursorPosition(pos) {
+    set({ cursorPosition: pos });
+  },
+
+  // --- Clipboard ---
+  setClipboard(items) {
+    set({ clipboard: items });
   },
 
   // --- Undo / Redo ---

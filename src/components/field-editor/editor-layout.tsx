@@ -14,7 +14,7 @@ import {
   useCreateFacility,
 } from "@/hooks/use-fields";
 import { useFarmId } from "@/hooks/use-farm-id";
-import { useFieldEditor } from "@/lib/store/field-editor-store";
+import { useFieldEditor, type ClipboardItem } from "@/lib/store/field-editor-store";
 import {
   createDeleteCommand,
   createPlantCropCommand,
@@ -53,6 +53,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const selectedIds = useFieldEditor((s) => s.selectedIds);
   const executeCommand = useFieldEditor((s) => s.executeCommand);
 
+  const selectMultiple = useFieldEditor((s) => s.selectMultiple);
+  const clipboard = useFieldEditor((s) => s.clipboard);
+  const setClipboard = useFieldEditor((s) => s.setClipboard);
+
   const createRegionMut = useCreateRegion(farmId ?? "");
   const assignCropToRegion = useAssignCropToRegion();
   const removePlantedCrop = useRemovePlantedCrop();
@@ -69,6 +73,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     widthM: number;
     heightM: number;
   } | null>(null);
+
+  // Crop reassignment state
+  const [reassignPlantedCropId, setReassignPlantedCropId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveField(fieldId);
@@ -138,7 +145,137 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     void executeCommand(cmd);
   }, [selectedIds, field, removePlantedCrop, restorePlantedCrop, deleteFacility, createFacility, executeCommand]);
 
-  useEditorShortcuts({ onDeleteSelected: handleDeleteSelected });
+  const handleSelectAll = useCallback(() => {
+    if (!field) return;
+    const allIds: string[] = [
+      ...field.placements.map((p) => p.id),
+      ...field.facilities.map((f) => f.id),
+    ];
+    selectMultiple(allIds);
+  }, [field, selectMultiple]);
+
+  const handleCopy = useCallback(() => {
+    if (selectedIds.length === 0 || !field) return;
+    const items: ClipboardItem[] = [];
+    for (const id of selectedIds) {
+      const placement = field.placements.find((p) => p.id === id);
+      if (placement) {
+        const row = field.plantedCrops.find(
+          (pc) => pc.plantedCrop.id === placement.plantedCropId,
+        );
+        items.push({
+          kind: "crop",
+          xM: Number(placement.xM),
+          yM: Number(placement.yM),
+          widthM: Number(placement.widthM),
+          heightM: Number(placement.heightM),
+          cropId: row?.crop?.id,
+          name: row?.crop?.name,
+        });
+        continue;
+      }
+      const facility = field.facilities.find((f) => f.id === id);
+      if (facility) {
+        items.push({
+          kind: "facility",
+          xM: Number(facility.xM),
+          yM: Number(facility.yM),
+          widthM: Number(facility.widthM),
+          heightM: Number(facility.heightM),
+          facilityType: facility.facilityType,
+          name: facility.name,
+        });
+      }
+    }
+    setClipboard(items);
+  }, [selectedIds, field, setClipboard]);
+
+  const handlePaste = useCallback(async () => {
+    if (clipboard.length === 0 || !farmId) return;
+    const OFFSET_M = 1;
+    for (const item of clipboard) {
+      if (item.kind === "crop") {
+        const result = await createRegionMut.mutateAsync({
+          fieldId,
+          data: {
+            xM: item.xM + OFFSET_M,
+            yM: item.yM + OFFSET_M,
+            widthM: item.widthM,
+            heightM: item.heightM,
+          },
+        });
+        if (item.cropId) {
+          await assignCropToRegion.mutateAsync({
+            plantedCropId: result.plantedCrop.id,
+            cropId: item.cropId,
+          });
+        }
+      } else if (item.kind === "facility") {
+        await createFacility.mutateAsync({
+          fieldId,
+          data: {
+            facilityType: item.facilityType ?? "custom",
+            name: item.name ?? "設施",
+            xM: item.xM + OFFSET_M,
+            yM: item.yM + OFFSET_M,
+            widthM: item.widthM,
+            heightM: item.heightM,
+          } as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+        });
+      }
+    }
+  }, [clipboard, farmId, fieldId, createRegionMut, assignCropToRegion, createFacility]);
+
+  const handleDuplicate = useCallback(async () => {
+    handleCopy();
+    // Need to paste from what we just copied — but clipboard is async
+    // Copy sets clipboard synchronously via zustand, so we can read it next tick
+    const items = useFieldEditor.getState().clipboard;
+    if (items.length === 0 || !farmId) return;
+    const OFFSET_M = 1;
+    for (const item of items) {
+      if (item.kind === "crop") {
+        const result = await createRegionMut.mutateAsync({
+          fieldId,
+          data: {
+            xM: item.xM + OFFSET_M,
+            yM: item.yM + OFFSET_M,
+            widthM: item.widthM,
+            heightM: item.heightM,
+          },
+        });
+        if (item.cropId) {
+          await assignCropToRegion.mutateAsync({
+            plantedCropId: result.plantedCrop.id,
+            cropId: item.cropId,
+          });
+        }
+      } else if (item.kind === "facility") {
+        await createFacility.mutateAsync({
+          fieldId,
+          data: {
+            facilityType: item.facilityType ?? "custom",
+            name: item.name ?? "設施",
+            xM: item.xM + OFFSET_M,
+            yM: item.yM + OFFSET_M,
+            widthM: item.widthM,
+            heightM: item.heightM,
+          } as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+        });
+      }
+    }
+  }, [handleCopy, farmId, fieldId, createRegionMut, assignCropToRegion, createFacility]);
+
+  useEditorShortcuts({
+    onDeleteSelected: handleDeleteSelected,
+    onSelectAll: handleSelectAll,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onDuplicate: handleDuplicate,
+    fieldDimensions: field
+      ? { widthM: Number(field.widthM), heightM: Number(field.heightM) }
+      : undefined,
+  });
 
   const handleDrawRectComplete = useCallback(
     async (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
@@ -187,6 +324,22 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       setPendingRectInfo(null);
     },
     [pendingRegionId, assignCropToRegion],
+  );
+
+  const handleChangeCrop = useCallback(
+    (plantedCropId: string) => {
+      setReassignPlantedCropId(plantedCropId);
+    },
+    [],
+  );
+
+  const handleReassignCrop = useCallback(
+    async (cropId: string) => {
+      if (!reassignPlantedCropId) return;
+      await assignCropToRegion.mutateAsync({ plantedCropId: reassignPlantedCropId, cropId });
+      setReassignPlantedCropId(null);
+    },
+    [reassignPlantedCropId, assignCropToRegion],
   );
 
   if (isLoading) {
@@ -308,6 +461,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           harvestedCount={harvestedCount}
           facilityCount={facilityCount}
           onDeleteSelected={handleDeleteSelected}
+          onChangeCrop={handleChangeCrop}
         />
       </div>
 
@@ -332,6 +486,21 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           }}
           onSelect={handleAssignCrop}
           rectInfo={pendingRectInfo}
+        />
+      )}
+
+      {/* Crop reassignment dialog */}
+      {farmId && (
+        <PlantCropDialog
+          farmId={farmId}
+          open={reassignPlantedCropId !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReassignPlantedCropId(null);
+            }
+          }}
+          onSelect={handleReassignCrop}
+          rectInfo={null}
         />
       )}
     </div>

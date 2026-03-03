@@ -3,12 +3,15 @@
 import { useMemo } from "react";
 import {
   Calendar,
+  Eye,
+  EyeOff,
   Grid3X3,
   Magnet,
   MapPin,
   Move,
   PanelRightClose,
   PanelRightOpen,
+  RefreshCw,
   Sprout,
   Trash2,
   Wrench,
@@ -46,6 +49,7 @@ interface PropertyInspectorProps {
   harvestedCount?: number;
   facilityCount?: number;
   onDeleteSelected?: () => void;
+  onChangeCrop?: (plantedCropId: string) => void;
 }
 
 export function PropertyInspector({
@@ -57,6 +61,7 @@ export function PropertyInspector({
   harvestedCount = 0,
   facilityCount = 0,
   onDeleteSelected,
+  onChangeCrop,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
@@ -68,6 +73,8 @@ export function PropertyInspector({
   const toggleSnap = useFieldEditor((s) => s.toggleSnap);
   const gridSpacing = useFieldEditor((s) => s.gridSpacing);
   const setGridSpacing = useFieldEditor((s) => s.setGridSpacing);
+  const layerVisibility = useFieldEditor((s) => s.layerVisibility);
+  const toggleLayerVisibility = useFieldEditor((s) => s.toggleLayerVisibility);
 
   // Resolve a single selected item into crop or facility data
   const selectedItem = useMemo(() => {
@@ -147,6 +154,8 @@ export function PropertyInspector({
                 toggleSnap={toggleSnap}
                 gridSpacing={gridSpacing}
                 setGridSpacing={setGridSpacing}
+                layerVisibility={layerVisibility}
+                toggleLayerVisibility={toggleLayerVisibility}
               />
             )}
 
@@ -155,6 +164,7 @@ export function PropertyInspector({
                 item={selectedItem}
                 onDelete={onDeleteSelected}
                 onDeselect={clearSelection}
+                onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop.id) : undefined}
               />
             )}
 
@@ -221,6 +231,8 @@ function FieldInfoSection({
   toggleSnap,
   gridSpacing,
   setGridSpacing,
+  layerVisibility,
+  toggleLayerVisibility,
 }: {
   fieldName?: string;
   fieldWidthM?: number;
@@ -234,6 +246,13 @@ function FieldInfoSection({
   toggleSnap: () => void;
   gridSpacing: number;
   setGridSpacing: (m: number) => void;
+  layerVisibility: {
+    crops: boolean;
+    facilities: boolean;
+    waterUtilities: boolean;
+    electricUtilities: boolean;
+  };
+  toggleLayerVisibility: (layer: "crops" | "facilities" | "waterUtilities" | "electricUtilities") => void;
 }) {
   const area =
     fieldWidthM != null && fieldHeightM != null
@@ -286,9 +305,38 @@ function FieldInfoSection({
         </div>
       </div>
 
+      {/* Layer visibility */}
+      <div className="space-y-2">
+        <SectionHeading>圖層</SectionHeading>
+        <ToggleRow
+          icon={layerVisibility.crops ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          label="作物區域"
+          enabled={layerVisibility.crops}
+          onToggle={() => toggleLayerVisibility("crops")}
+        />
+        <ToggleRow
+          icon={layerVisibility.facilities ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          label="設施"
+          enabled={layerVisibility.facilities}
+          onToggle={() => toggleLayerVisibility("facilities")}
+        />
+        <ToggleRow
+          icon={layerVisibility.waterUtilities ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          label="水利設施"
+          enabled={layerVisibility.waterUtilities}
+          onToggle={() => toggleLayerVisibility("waterUtilities")}
+        />
+        <ToggleRow
+          icon={layerVisibility.electricUtilities ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          label="電力設施"
+          enabled={layerVisibility.electricUtilities}
+          onToggle={() => toggleLayerVisibility("electricUtilities")}
+        />
+      </div>
+
       {/* Quick stats */}
       <div className="space-y-2">
-        <SectionHeading>快速統計</SectionHeading>
+        <SectionHeading>統計</SectionHeading>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <StatCard label="種植中" value={growingCount} />
           <StatCard label="已收成" value={harvestedCount} />
@@ -305,6 +353,7 @@ function CropSelectionSection({
   item,
   onDelete,
   onDeselect,
+  onChangeCrop,
 }: {
   item: {
     placement: FieldData["placements"][number];
@@ -313,6 +362,7 @@ function CropSelectionSection({
   };
   onDelete?: () => void;
   onDeselect: () => void;
+  onChangeCrop?: () => void;
 }) {
   const { placement, plantedCrop, crop } = item;
 
@@ -434,26 +484,39 @@ function CropSelectionSection({
       <Separator />
 
       {/* Actions */}
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 text-xs"
-          onClick={onDeselect}
-        >
-          取消選取
-        </Button>
-        {onDelete && (
+      <div className="space-y-2">
+        {onChangeCrop && (
           <Button
-            variant="destructive"
+            variant="secondary"
             size="sm"
-            className="text-xs"
-            onClick={onDelete}
+            className="w-full text-xs"
+            onClick={onChangeCrop}
           >
-            <Trash2 className="mr-1 size-3" />
-            刪除
+            <RefreshCw className="mr-1 size-3" />
+            變更作物
           </Button>
         )}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-xs"
+            onClick={onDeselect}
+          >
+            取消選取
+          </Button>
+          {onDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="text-xs"
+              onClick={onDelete}
+            >
+              <Trash2 className="mr-1 size-3" />
+              刪除
+            </Button>
+          )}
+        </div>
       </div>
     </>
   );

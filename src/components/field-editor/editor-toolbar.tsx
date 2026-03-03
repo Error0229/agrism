@@ -4,6 +4,7 @@ import {
   Eraser,
   Hand,
   MousePointer,
+  Pentagon,
   Ruler,
   Square,
 } from "lucide-react";
@@ -29,12 +30,13 @@ interface ToolDef {
 const TOOLS: ToolDef[] = [
   { id: "select", label: "選取", shortcut: "V", icon: MousePointer },
   { id: "draw_rect", label: "繪製區域", shortcut: "R", icon: Square },
+  { id: "draw_polygon", label: "多邊形區域", shortcut: "P", icon: Pentagon },
   { id: "hand", label: "平移", shortcut: "H", icon: Hand },
   { id: "eraser", label: "橡皮擦", shortcut: "E", icon: Eraser },
   { id: "measure", label: "測量", shortcut: "M", icon: Ruler },
 ];
 
-const SELECTION_TOOLS: EditorTool[] = ["select", "draw_rect"];
+const SELECTION_TOOLS: EditorTool[] = ["select", "draw_rect", "draw_polygon"];
 const NAVIGATION_TOOLS: EditorTool[] = ["hand"];
 const ACTION_TOOLS: EditorTool[] = ["eraser", "measure"];
 

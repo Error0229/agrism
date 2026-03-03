@@ -8,6 +8,12 @@ const PAN_PX_PER_METER = 50
 
 interface EditorShortcutOptions {
   onDeleteSelected?: () => void
+  onSelectAll?: () => void
+  onCopy?: () => void
+  onPaste?: () => void
+  onDuplicate?: () => void
+  fieldDimensions?: { widthM: number; heightM: number }
+  viewportSize?: { width: number; height: number }
 }
 
 /**
@@ -15,7 +21,15 @@ interface EditorShortcutOptions {
  * Should be called once in the editor layout component.
  */
 export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
-  const { onDeleteSelected } = options
+  const {
+    onDeleteSelected,
+    onSelectAll,
+    onCopy,
+    onPaste,
+    onDuplicate,
+    fieldDimensions,
+    viewportSize,
+  } = options
   const {
     setTool,
     setTemporaryTool,
@@ -23,6 +37,8 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
     clearSelection,
     zoomIn,
     zoomOut,
+    resetZoom,
+    zoomToFit,
     toggleInspector,
     undo,
     redo,
@@ -54,6 +70,77 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
         return
       }
 
+      // Ctrl+A: select all
+      if (isMod && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault()
+        onSelectAll?.()
+        return
+      }
+
+      // Ctrl+=  / Ctrl++: zoom in
+      if (isMod && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        zoomIn()
+        return
+      }
+
+      // Ctrl+-: zoom out
+      if (isMod && e.key === '-') {
+        e.preventDefault()
+        zoomOut()
+        return
+      }
+
+      // Ctrl+0: zoom to fit
+      if (isMod && e.key === '0') {
+        e.preventDefault()
+        if (fieldDimensions && viewportSize) {
+          zoomToFit(
+            fieldDimensions.widthM,
+            fieldDimensions.heightM,
+            viewportSize.width,
+            viewportSize.height,
+          )
+        }
+        return
+      }
+
+      // Ctrl+1: reset zoom to 100%
+      if (isMod && e.key === '1') {
+        e.preventDefault()
+        resetZoom()
+        return
+      }
+
+      // Ctrl+C: copy
+      if (isMod && (e.key === 'c' || e.key === 'C') && !e.shiftKey) {
+        e.preventDefault()
+        onCopy?.()
+        return
+      }
+
+      // Ctrl+X: cut
+      if (isMod && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault()
+        onCopy?.()
+        onDeleteSelected?.()
+        return
+      }
+
+      // Ctrl+V: paste
+      if (isMod && (e.key === 'v' || e.key === 'V') && !e.shiftKey) {
+        e.preventDefault()
+        onPaste?.()
+        return
+      }
+
+      // Ctrl+D: duplicate
+      if (isMod && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        onDuplicate?.()
+        return
+      }
+
       // Skip other shortcuts if a modifier is held
       if (isMod) return
 
@@ -79,6 +166,10 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
         case 'M':
           setTool('measure')
           break
+        case 'p':
+        case 'P':
+          setTool('draw_polygon')
+          break
 
         // Space: temporary hand tool
         case ' ':
@@ -100,7 +191,7 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
           }
           break
 
-        // Zoom
+        // Zoom (without modifier)
         case '=':
         case '+':
           zoomIn()
@@ -147,6 +238,8 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       clearSelection,
       zoomIn,
       zoomOut,
+      resetZoom,
+      zoomToFit,
       toggleInspector,
       undo,
       redo,
@@ -154,6 +247,12 @@ export function useEditorShortcuts(options: EditorShortcutOptions = {}) {
       pan,
       setPan,
       onDeleteSelected,
+      onSelectAll,
+      onCopy,
+      onPaste,
+      onDuplicate,
+      fieldDimensions,
+      viewportSize,
     ],
   )
 
