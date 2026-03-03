@@ -288,7 +288,7 @@ export default function CalendarPage() {
           {/* Filters */}
           <div className="flex flex-wrap gap-2 pt-2">
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[130px]" size="sm">
+              <SelectTrigger className="w-full sm:w-[130px]" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -302,7 +302,7 @@ export default function CalendarPage() {
             </Select>
 
             <Select value={filterCompleted} onValueChange={setFilterCompleted}>
-              <SelectTrigger className="w-[120px]" size="sm">
+              <SelectTrigger className="w-full sm:w-[120px]" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

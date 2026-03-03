@@ -132,7 +132,7 @@ export default function AiAssistantPage() {
         </p>
       </div>
 
-      <div className="flex flex-col h-[calc(100vh-14rem)]">
+      <div className="flex flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-14rem)]">
         <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
           <div className="space-y-4 pb-4">
             {messages.length === 0 && (
