@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, Wheat } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -109,7 +110,38 @@ export default function HarvestRecordsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground">載入中...</p>
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>日期</TableHead>
+                <TableHead>作物</TableHead>
+                <TableHead>田區</TableHead>
+                <TableHead className="text-right">數量</TableHead>
+                <TableHead>品質</TableHead>
+                <TableHead>蟲害</TableHead>
+                <TableHead>天氣</TableHead>
+                <TableHead>備註</TableHead>
+                <TableHead className="w-[50px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="ml-auto h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       ) : logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Wheat className="mb-4 h-12 w-12 text-muted-foreground/50" />

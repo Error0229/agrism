@@ -48,6 +48,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, Pencil, Layers, FlaskConical, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -152,7 +153,26 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
     }
   }
 
-  if (isLoading) return <p className="text-muted-foreground">載入中...</p>
+  if (isLoading) return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Layers className="h-4 w-4" />
+          土壤概況
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-5 w-12" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <Card>
