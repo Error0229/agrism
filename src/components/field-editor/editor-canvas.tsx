@@ -198,9 +198,10 @@ interface EditorCanvasProps {
   onPlaceUtilityNode?: (pos: { xM: number; yM: number }) => void;
   onConnectUtilityNodes?: (fromNodeId: string, toNodeId: string) => void;
   onQuickAdd?: (pos: { xM: number; yM: number }) => void;
+  onContextAction?: (action: string, itemId: string) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -269,6 +270,22 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const [polygonCursorPos, setPolygonCursorPos] = useState<{ xM: number; yM: number } | null>(null);
   const [pendingEdgeFromNodeId, setPendingEdgeFromNodeId] = useState<string | null>(null);
   const [edgeCursorPos, setEdgeCursorPos] = useState<{ xM: number; yM: number } | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    itemId: string;
+    itemKind: "crop" | "facility";
+  } | null>(null);
+
+  // Close context menu on any click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [contextMenu]);
 
   // Clear polygon state when switching away from draw_polygon.
   // The cleanup function runs when activeTool changes away from draw_polygon,
@@ -1063,7 +1080,41 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
     : 0;
 
   return (
-    <div ref={containerRef} className={cn("size-full overflow-hidden", cursorClass, timelineMode && "opacity-75 saturate-[0.7]")}>
+    <div
+      ref={containerRef}
+      className={cn("size-full overflow-hidden", cursorClass, timelineMode && "opacity-75 saturate-[0.7]")}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        // Check if the right-click is on a canvas item using Konva's hit detection
+        const stage = stageRef.current;
+        if (!stage) return;
+        const pos = stage.getPointerPosition();
+        if (!pos) return;
+        const transform = stage.getAbsoluteTransform().copy().invert();
+        const realPos = transform.point(pos);
+        const xM = realPos.x / PIXELS_PER_METER;
+        const yM = realPos.y / PIXELS_PER_METER;
+
+        // Find which item was hit
+        const hitItem = canvasItems.find(
+          (item) =>
+            xM >= item.xM &&
+            xM <= item.xM + item.widthM &&
+            yM >= item.yM &&
+            yM <= item.yM + item.heightM,
+        );
+        if (hitItem) {
+          setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            itemId: hitItem.id,
+            itemKind: hitItem.kind,
+          });
+        } else {
+          setContextMenu(null);
+        }
+      }}
+    >
       <Stage
         ref={stageRef}
         width={containerSize.width}
@@ -1198,7 +1249,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                   Number(to.xM) * PIXELS_PER_METER,
                   Number(to.yM) * PIXELS_PER_METER,
                 ]}
-                stroke={edge.kind === "water" ? "#0284c7" : "#f97316"}
+                stroke={edge.kind === "water" ? "#0ea5e9" : "#f97316"}
                 strokeWidth={3}
                 dash={edge.kind === "water" ? [6, 4] : undefined}
                 listening={false}
@@ -1673,6 +1724,60 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
           )}
         </Layer>
       </Stage>
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <div className="rounded-md border bg-popover p-1 shadow-md min-w-[160px]">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+              onClick={() => {
+                onContextAction?.("copy", contextMenu.itemId);
+                setContextMenu(null);
+              }}
+            >
+              複製
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+              onClick={() => {
+                onContextAction?.("duplicate", contextMenu.itemId);
+                setContextMenu(null);
+              }}
+            >
+              複製並貼上
+            </button>
+            {contextMenu.itemKind === "crop" && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                onClick={() => {
+                  onContextAction?.("changeCrop", contextMenu.itemId);
+                  setContextMenu(null);
+                }}
+              >
+                更換作物
+              </button>
+            )}
+            <div className="my-1 h-px bg-border" />
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent"
+              onClick={() => {
+                onContextAction?.("delete", contextMenu.itemId);
+                setContextMenu(null);
+              }}
+            >
+              刪除
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

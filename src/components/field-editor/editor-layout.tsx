@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 import { EditorCanvas } from "./editor-canvas";
 import { EditorMinimap } from "./editor-minimap";
@@ -68,6 +69,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const utilityNodeType = useFieldEditor((s) => s.utilityNodeType);
   const setUtilityNodeType = useFieldEditor((s) => s.setUtilityNodeType);
 
+  const initFromStorage = useFieldEditor((s) => s.initFromStorage);
+
   const selectMultiple = useFieldEditor((s) => s.selectMultiple);
   const clipboard = useFieldEditor((s) => s.clipboard);
   const setClipboard = useFieldEditor((s) => s.setClipboard);
@@ -78,6 +81,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const setBackgroundImage = useFieldEditor((s) => s.setBackgroundImage);
   const timelineMode = useFieldEditor((s) => s.timelineMode);
   const enterTimeline = useFieldEditor((s) => s.enterTimeline);
+  const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
+  const toggleInspector = useFieldEditor((s) => s.toggleInspector);
 
   const createRegionMut = useCreateRegion(farmId ?? "");
   const assignCropToRegion = useAssignCropToRegion();
@@ -130,6 +135,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   useEffect(() => {
     setActiveField(fieldId);
   }, [fieldId, setActiveField]);
+
+  useEffect(() => {
+    initFromStorage();
+  }, [initFromStorage]);
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedIds.length === 0 || !field) return;
@@ -649,12 +658,18 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleConnectUtilityNodes = useCallback(
     async (fromNodeId: string, toNodeId: string) => {
       if (!field) return;
-      // Determine kind from the source node
       const fromNode = field.utilityNodes.find((n) => n.id === fromNodeId);
-      const kind = fromNode?.kind ?? "water";
+      const toNode = field.utilityNodes.find((n) => n.id === toNodeId);
+      if (!fromNode || !toNode) return;
+
+      if (fromNode.kind !== toNode.kind) {
+        alert('無法連接不同類型的設施節點（水利與電力）');
+        return;
+      }
+
       await createUtilityEdge.mutateAsync({
         fieldId: field.id,
-        data: { fromNodeId, toNodeId, kind },
+        data: { fromNodeId, toNodeId, kind: fromNode.kind },
       });
       setTool("select");
     },
@@ -680,6 +695,41 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       setPendingRectInfo(rect);
     },
     [farmId, fieldId, createRegionMut],
+  );
+
+  // --- Context menu action (right-click on canvas item) ---
+  const handleContextAction = useCallback(
+    (action: string, itemId: string) => {
+      // Select the item first
+      useFieldEditor.getState().select(itemId);
+
+      switch (action) {
+        case "copy":
+          // Copy needs selection to be reflected first, then use handleCopy
+          setTimeout(() => handleCopy(), 0);
+          break;
+        case "duplicate":
+          setTimeout(() => handleDuplicate(), 0);
+          break;
+        case "changeCrop": {
+          const item = field?.placements.find((p) => p.id === itemId);
+          if (item) {
+            handleChangeCrop(item.plantedCropId);
+          }
+          break;
+        }
+        case "delete":
+          setTimeout(() => {
+            // Re-read to get updated selection
+            const state = useFieldEditor.getState();
+            if (state.selectedIds.length > 0) {
+              handleDeleteSelected();
+            }
+          }, 0);
+          break;
+      }
+    },
+    [field, handleCopy, handleDuplicate, handleChangeCrop, handleDeleteSelected],
   );
 
   // --- Memo ---
@@ -922,8 +972,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
       {/* Main area: toolbar + canvas + inspector */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: toolbar */}
-        <EditorToolbar />
+        {/* Left: toolbar (desktop vertical) */}
+        <div className="hidden md:flex">
+          <EditorToolbar />
+        </div>
 
         {/* Center: canvas */}
         <div ref={canvasContainerRef} className="relative min-w-0 flex-1 overflow-hidden bg-muted/30">
@@ -933,6 +985,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             onPlaceUtilityNode={handlePlaceUtilityNode}
             onConnectUtilityNodes={handleConnectUtilityNodes}
             onQuickAdd={handleQuickAdd}
+            onContextAction={handleContextAction}
           />
           <EditorMinimap
             fieldWidthM={Number(field.widthM)}
@@ -946,25 +999,59 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           />
         </div>
 
-        {/* Right: property inspector */}
-        <PropertyInspector
-          field={field}
-          fieldName={field.name}
-          fieldWidthM={Number(field.widthM)}
-          fieldHeightM={Number(field.heightM)}
-          growingCount={growingCount}
-          harvestedCount={harvestedCount}
-          facilityCount={facilityCount}
-          onDeleteSelected={handleDeleteSelected}
-          onChangeCrop={handleChangeCrop}
-          onMarkHarvested={handleMarkHarvested}
-          onSplitHorizontal={handleSplitHorizontal}
-          onSplitVertical={handleSplitVertical}
-          onMergeZones={handleMergeZones}
-          onAlign={handleAlign}
-          memo={field.memo}
-          onMemoChange={handleMemoChange}
-        />
+        {/* Right: property inspector (desktop only) */}
+        <div className="hidden md:block">
+          <PropertyInspector
+            field={field}
+            fieldName={field.name}
+            fieldWidthM={Number(field.widthM)}
+            fieldHeightM={Number(field.heightM)}
+            growingCount={growingCount}
+            harvestedCount={harvestedCount}
+            facilityCount={facilityCount}
+            onDeleteSelected={handleDeleteSelected}
+            onChangeCrop={handleChangeCrop}
+            onMarkHarvested={handleMarkHarvested}
+            onSplitHorizontal={handleSplitHorizontal}
+            onSplitVertical={handleSplitVertical}
+            onMergeZones={handleMergeZones}
+            onAlign={handleAlign}
+            memo={field.memo}
+            onMemoChange={handleMemoChange}
+          />
+        </div>
+
+        {/* Mobile inspector (bottom sheet) */}
+        <div className="md:hidden">
+          <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open) toggleInspector(); }}>
+            <SheetContent side="bottom" className="max-h-[60vh] overflow-y-auto" showCloseButton={false}>
+              <SheetTitle className="sr-only">屬性面板</SheetTitle>
+              <PropertyInspector
+                field={field}
+                fieldName={field.name}
+                fieldWidthM={Number(field.widthM)}
+                fieldHeightM={Number(field.heightM)}
+                growingCount={growingCount}
+                harvestedCount={harvestedCount}
+                facilityCount={facilityCount}
+                onDeleteSelected={handleDeleteSelected}
+                onChangeCrop={handleChangeCrop}
+                onMarkHarvested={handleMarkHarvested}
+                onSplitHorizontal={handleSplitHorizontal}
+                onSplitVertical={handleSplitVertical}
+                onMergeZones={handleMergeZones}
+                onAlign={handleAlign}
+                memo={field.memo}
+                onMemoChange={handleMemoChange}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+
+      {/* Bottom: mobile toolbar (horizontal) */}
+      <div className="md:hidden">
+        <EditorToolbar orientation="horizontal" />
       </div>
 
       {/* Bottom: status bar */}

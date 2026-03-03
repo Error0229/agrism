@@ -129,11 +129,24 @@ interface FieldEditorState {
   timelineNextMonth(): void;
   timelineToday(): void;
 
+  initFromStorage(): void;
+
   executeCommand(command: Command): Promise<void>;
   undo(): Promise<void>;
   redo(): Promise<void>;
   canUndo(): boolean;
   canRedo(): boolean;
+}
+
+const SETTINGS_STORAGE_KEY = 'field-editor-settings';
+
+interface PersistedSettings {
+  layerVisibility?: Record<string, boolean>;
+  gridVisible?: boolean;
+  gridSpacing?: number;
+  snapEnabled?: boolean;
+  showHarvested?: boolean;
+  inspectorOpen?: boolean;
 }
 
 function clampZoom(value: number): number {
@@ -398,6 +411,23 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
     set({ timelineDate: new Date().toISOString().split('T')[0] });
   },
 
+  // --- Persistence ---
+  initFromStorage() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) return;
+      const settings: PersistedSettings = JSON.parse(raw);
+      set({
+        ...(settings.layerVisibility && { layerVisibility: { ...get().layerVisibility, ...settings.layerVisibility } }),
+        ...(settings.gridVisible !== undefined && { gridVisible: settings.gridVisible }),
+        ...(settings.gridSpacing !== undefined && { gridSpacing: settings.gridSpacing }),
+        ...(settings.snapEnabled !== undefined && { snapEnabled: settings.snapEnabled }),
+        ...(settings.showHarvested !== undefined && { showHarvested: settings.showHarvested }),
+        ...(settings.inspectorOpen !== undefined && { inspectorOpen: settings.inspectorOpen }),
+      });
+    } catch { /* ignore corrupt data */ }
+  },
+
   // --- Undo / Redo ---
   async executeCommand(command) {
     await command.execute();
@@ -437,3 +467,23 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
     return get().redoStack.length > 0;
   },
 }));
+
+// Persist settings to localStorage (debounced)
+let persistTimeout: ReturnType<typeof setTimeout> | null = null;
+
+useFieldEditor.subscribe((state) => {
+  if (persistTimeout) clearTimeout(persistTimeout);
+  persistTimeout = setTimeout(() => {
+    try {
+      const settings: PersistedSettings = {
+        layerVisibility: state.layerVisibility,
+        gridVisible: state.gridVisible,
+        gridSpacing: state.gridSpacing,
+        snapEnabled: state.snapEnabled,
+        showHarvested: state.showHarvested,
+        inspectorOpen: state.inspectorOpen,
+      };
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    } catch { /* ignore storage errors */ }
+  }, 500);
+});

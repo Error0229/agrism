@@ -53,13 +53,26 @@ function getGroup(tool: EditorTool): number {
   return 0;
 }
 
-export function EditorToolbar() {
+interface EditorToolbarProps {
+  orientation?: "vertical" | "horizontal";
+}
+
+export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) {
   const activeTool = useFieldEditor((s) => s.activeTool);
   const setTool = useFieldEditor((s) => s.setTool);
 
+  const isHorizontal = orientation === "horizontal";
+
   return (
     <TooltipProvider>
-      <div className="flex h-full w-12 flex-col items-center gap-1 border-r bg-background py-2">
+      <div
+        className={cn(
+          "flex items-center gap-1 bg-background",
+          isHorizontal
+            ? "h-12 w-full flex-row justify-center border-t px-2"
+            : "h-full w-12 flex-col border-r py-2",
+        )}
+      >
         {TOOLS.map((tool, index) => {
           const group = getGroup(tool.id);
           const prevTool = index > 0 ? TOOLS[index - 1] : null;
@@ -68,8 +81,21 @@ export function EditorToolbar() {
           const isActive = activeTool === tool.id;
 
           return (
-            <div key={tool.id} className="flex flex-col items-center">
-              {showSep && <Separator className="my-1 w-8" />}
+            <div
+              key={tool.id}
+              className={cn(
+                "flex items-center",
+                isHorizontal ? "flex-row" : "flex-col",
+              )}
+            >
+              {showSep && (
+                <Separator
+                  orientation={isHorizontal ? "vertical" : "horizontal"}
+                  className={cn(
+                    isHorizontal ? "mx-1 h-6" : "my-1 w-8",
+                  )}
+                />
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -85,7 +111,10 @@ export function EditorToolbar() {
                     <Icon className="size-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
+                <TooltipContent
+                  side={isHorizontal ? "top" : "right"}
+                  sideOffset={8}
+                >
                   {tool.label} ({tool.shortcut})
                 </TooltipContent>
               </Tooltip>
