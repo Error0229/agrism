@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Wheat } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function HarvestRecordsPage() {
   const farmId = useFarmId()
@@ -77,19 +78,24 @@ export default function HarvestRecordsPage() {
 
   async function handleSubmit() {
     if (!form.cropId || !form.fieldId || !form.quantity) return
-    await createLog.mutateAsync({
-      cropId: form.cropId,
-      fieldId: form.fieldId,
-      date: form.date,
-      quantity: Number(form.quantity),
-      unit: form.unit,
-      qualityGrade: form.qualityGrade ? (form.qualityGrade as QualityGrade) : undefined,
-      pestIncidentLevel: form.pestIncidentLevel ? (form.pestIncidentLevel as PestIncident) : undefined,
-      weatherImpact: form.weatherImpact ? (form.weatherImpact as WeatherImpact) : undefined,
-      notes: form.notes || undefined,
-    })
-    setOpen(false)
-    resetForm()
+    try {
+      await createLog.mutateAsync({
+        cropId: form.cropId,
+        fieldId: form.fieldId,
+        date: form.date,
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        qualityGrade: form.qualityGrade ? (form.qualityGrade as QualityGrade) : undefined,
+        pestIncidentLevel: form.pestIncidentLevel ? (form.pestIncidentLevel as PestIncident) : undefined,
+        weatherImpact: form.weatherImpact ? (form.weatherImpact as WeatherImpact) : undefined,
+        notes: form.notes || undefined,
+      })
+      toast.success('收成紀錄已新增')
+      setOpen(false)
+      resetForm()
+    } catch {
+      toast.error('新增收成紀錄失敗')
+    }
   }
 
   return (
@@ -163,7 +169,10 @@ export default function HarvestRecordsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteLog.mutate(log.id)}
+                      onClick={() => deleteLog.mutate(log.id, {
+                        onSuccess: () => toast.success('收成紀錄已刪除'),
+                        onError: () => toast.error('刪除收成紀錄失敗'),
+                      })}
                       disabled={deleteLog.isPending}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

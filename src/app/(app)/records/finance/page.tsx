@@ -45,6 +45,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react'
+import { toast } from 'sonner'
 
 function formatNT(amount: number) {
   return `NT$ ${amount.toLocaleString('zh-TW')}`
@@ -78,15 +79,20 @@ export default function FinanceRecordsPage() {
 
   async function handleSubmit() {
     if (!form.category || !form.amount || !form.description) return
-    await createRecord.mutateAsync({
-      type: form.type as FinanceType,
-      category: form.category,
-      amount: Number(form.amount),
-      date: form.date,
-      description: form.description,
-    })
-    setOpen(false)
-    resetForm()
+    try {
+      await createRecord.mutateAsync({
+        type: form.type as FinanceType,
+        category: form.category,
+        amount: Number(form.amount),
+        date: form.date,
+        description: form.description,
+      })
+      toast.success('財務紀錄已新增')
+      setOpen(false)
+      resetForm()
+    } catch {
+      toast.error('新增財務紀錄失敗')
+    }
   }
 
   const net = summary?.net ?? 0
@@ -210,7 +216,10 @@ export default function FinanceRecordsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteRecord.mutate(r.id)}
+                      onClick={() => deleteRecord.mutate(r.id, {
+                        onSuccess: () => toast.success('財務紀錄已刪除'),
+                        onError: () => toast.error('刪除財務紀錄失敗'),
+                      })}
                       disabled={deleteRecord.isPending}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />

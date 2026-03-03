@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   PlotType,
   SunHours,
@@ -101,8 +102,12 @@ export function CreateFieldDialog({
       },
       {
         onSuccess: () => {
+          toast.success('田地已建立')
           resetForm()
           onOpenChange(false)
+        },
+        onError: () => {
+          toast.error('建立田地失敗')
         },
       },
     )

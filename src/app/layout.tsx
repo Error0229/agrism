@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { AppSessionProvider } from "@/components/auth/session-provider";
 import { RootShell } from "@/components/layout/root-shell";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
             <RootShell>{children}</RootShell>
           </AppSessionProvider>
         </Providers>
+        <Toaster />
       </body>
     </html>
   );

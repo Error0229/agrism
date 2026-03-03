@@ -33,6 +33,7 @@ import { useFields } from '@/hooks/use-fields'
 import { TaskType, TaskDifficulty } from '@/lib/types/enums'
 import { TASK_TYPE_LABELS, TASK_DIFFICULTY_LABELS } from '@/lib/types/labels'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const TASK_TYPE_VALUES = Object.values(TaskType) as TaskType[]
 const TASK_DIFFICULTY_VALUES = Object.values(TaskDifficulty) as TaskDifficulty[]
@@ -86,8 +87,12 @@ export function AddTaskDialog() {
       },
       {
         onSuccess: () => {
+          toast.success('任務已新增')
           setOpen(false)
           resetForm()
+        },
+        onError: () => {
+          toast.error('新增任務失敗')
         },
       },
     )

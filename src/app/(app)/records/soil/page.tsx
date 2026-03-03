@@ -49,6 +49,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Pencil, Layers, FlaskConical, StickyNote } from 'lucide-react'
+import { toast } from 'sonner'
 
 function PhIndicator({ value }: { value: number }) {
   // Map pH 0-14 to hue: red(0) -> yellow(60) -> green(120) -> blue(240)
@@ -137,13 +138,18 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
   }
 
   async function handleSave() {
-    await upsert.mutateAsync({
-      texture: form.texture ? (form.texture as SoilTexture) : undefined,
-      ph: form.ph ? Number(form.ph) : undefined,
-      ec: form.ec ? Number(form.ec) : undefined,
-      organicMatterPct: form.organicMatterPct ? Number(form.organicMatterPct) : undefined,
-    })
-    setEditing(false)
+    try {
+      await upsert.mutateAsync({
+        texture: form.texture ? (form.texture as SoilTexture) : undefined,
+        ph: form.ph ? Number(form.ph) : undefined,
+        ec: form.ec ? Number(form.ec) : undefined,
+        organicMatterPct: form.organicMatterPct ? Number(form.organicMatterPct) : undefined,
+      })
+      toast.success('土壤概況已儲存')
+      setEditing(false)
+    } catch {
+      toast.error('儲存土壤概況失敗')
+    }
   }
 
   if (isLoading) return <p className="text-muted-foreground">載入中...</p>
@@ -286,15 +292,20 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
 
   async function handleSubmit() {
     if (!form.amendmentType || !form.quantity) return
-    await createAmendment.mutateAsync({
-      date: form.date,
-      amendmentType: form.amendmentType,
-      quantity: Number(form.quantity),
-      unit: form.unit,
-      notes: form.notes || undefined,
-    })
-    setOpen(false)
-    resetForm()
+    try {
+      await createAmendment.mutateAsync({
+        date: form.date,
+        amendmentType: form.amendmentType,
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        notes: form.notes || undefined,
+      })
+      toast.success('土壤改良紀錄已新增')
+      setOpen(false)
+      resetForm()
+    } catch {
+      toast.error('新增土壤改良紀錄失敗')
+    }
   }
 
   return (
@@ -337,7 +348,10 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteAmendment.mutate(a.id)}
+                        onClick={() => deleteAmendment.mutate(a.id, {
+                          onSuccess: () => toast.success('土壤改良紀錄已刪除'),
+                          onError: () => toast.error('刪除土壤改良紀錄失敗'),
+                        })}
                         disabled={deleteAmendment.isPending}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -443,13 +457,18 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
 
   async function handleSubmit() {
     if (!form.content) return
-    await createNote.mutateAsync({
-      date: form.date,
-      ph: form.ph ? Number(form.ph) : undefined,
-      content: form.content,
-    })
-    setOpen(false)
-    resetForm()
+    try {
+      await createNote.mutateAsync({
+        date: form.date,
+        ph: form.ph ? Number(form.ph) : undefined,
+        content: form.content,
+      })
+      toast.success('觀察筆記已新增')
+      setOpen(false)
+      resetForm()
+    } catch {
+      toast.error('新增觀察筆記失敗')
+    }
   }
 
   return (
@@ -481,7 +500,10 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteNote.mutate(n.id)}
+                  onClick={() => deleteNote.mutate(n.id, {
+                    onSuccess: () => toast.success('觀察筆記已刪除'),
+                    onError: () => toast.error('刪除觀察筆記失敗'),
+                  })}
                   disabled={deleteNote.isPending}
                   className="ml-2 shrink-0"
                 >

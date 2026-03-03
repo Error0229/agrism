@@ -47,6 +47,7 @@ import {
   TASK_DIFFICULTY_LABELS,
 } from '@/lib/types/labels'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { AddTaskDialog } from '@/components/calendar/add-task-dialog'
 
 // ── Task type dot colors ──────────────────────────────────────────────
@@ -352,7 +353,10 @@ export default function CalendarPage() {
                   >
                     {/* Toggle complete button */}
                     <button
-                      onClick={() => toggleTask.mutate(task.id)}
+                      onClick={() => toggleTask.mutate(task.id, {
+                        onSuccess: () => toast.success(task.completed ? '任務已標記為未完成' : '任務已完成'),
+                        onError: () => toast.error('更新任務狀態失敗'),
+                      })}
                       className={cn(
                         'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
                         task.completed
@@ -426,7 +430,10 @@ export default function CalendarPage() {
                       variant="ghost"
                       size="icon-xs"
                       className="shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteTask.mutate(task.id)}
+                      onClick={() => deleteTask.mutate(task.id, {
+                        onSuccess: () => toast.success('任務已刪除'),
+                        onError: () => toast.error('刪除任務失敗'),
+                      })}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
