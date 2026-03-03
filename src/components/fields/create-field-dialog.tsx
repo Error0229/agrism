@@ -43,7 +43,7 @@ import {
 } from '@/lib/types/labels'
 
 interface CreateFieldDialogProps {
-  farmId: string
+  farmId: string | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -53,7 +53,7 @@ export function CreateFieldDialog({
   open,
   onOpenChange,
 }: CreateFieldDialogProps) {
-  const createField = useCreateField(farmId)
+  const createField = useCreateField(farmId ?? '')
 
   const [name, setName] = useState('')
   const [widthM, setWidthM] = useState('')
@@ -78,6 +78,10 @@ export function CreateFieldDialog({
   }
 
   function handleSubmit() {
+    if (!farmId) {
+      toast.error('無法取得農場資訊，請重新登入')
+      return
+    }
     const w = parseFloat(widthM)
     const h = parseFloat(heightM)
     if (!name.trim()) {

@@ -73,13 +73,11 @@ export default function FieldsPage() {
       )}
 
       {/* Create field dialog */}
-      {farmId && (
-        <CreateFieldDialog
-          farmId={farmId}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-        />
-      )}
+      <CreateFieldDialog
+        farmId={farmId}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   )
 }
