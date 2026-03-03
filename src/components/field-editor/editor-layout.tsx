@@ -25,6 +25,7 @@ import {
   createDeleteCommand,
   createPlantCropCommand,
 } from "@/lib/store/editor-commands";
+import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -62,6 +63,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const zoomOut = useFieldEditor((s) => s.zoomOut);
   const selectedIds = useFieldEditor((s) => s.selectedIds);
   const executeCommand = useFieldEditor((s) => s.executeCommand);
+
+  const activeTool = useFieldEditor((s) => s.activeTool);
+  const utilityNodeType = useFieldEditor((s) => s.utilityNodeType);
+  const setUtilityNodeType = useFieldEditor((s) => s.setUtilityNodeType);
 
   const selectMultiple = useFieldEditor((s) => s.selectMultiple);
   const clipboard = useFieldEditor((s) => s.clipboard);
@@ -256,11 +261,12 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           });
         }
       } else if (item.kind === "facility") {
+        const name = item.name ?? "設施";
         await createFacility.mutateAsync({
           fieldId,
           data: {
-            facilityType: item.facilityType ?? "custom",
-            name: item.name ?? "設施",
+            facilityType: item.facilityType ?? deriveFacilityType(name),
+            name,
             xM: item.xM + OFFSET_M,
             yM: item.yM + OFFSET_M,
             widthM: item.widthM,
@@ -296,11 +302,12 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           });
         }
       } else if (item.kind === "facility") {
+        const dupName = item.name ?? "設施";
         await createFacility.mutateAsync({
           fieldId,
           data: {
-            facilityType: item.facilityType ?? "custom",
-            name: item.name ?? "設施",
+            facilityType: item.facilityType ?? deriveFacilityType(dupName),
+            name: dupName,
             xM: item.xM + OFFSET_M,
             yM: item.yM + OFFSET_M,
             widthM: item.widthM,
@@ -613,12 +620,22 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handlePlaceUtilityNode = useCallback(
     async (pos: { xM: number; yM: number }) => {
       if (!field) return;
+      const nodeType = useFieldEditor.getState().utilityNodeType;
+      // Derive kind from node type
+      const waterTypes = ["pump", "tank", "valve", "outlet", "junction"];
+      const kind = waterTypes.includes(nodeType) ? "water" : "electric";
+      // Use the node type label as default label
+      const NODE_TYPE_LABELS: Record<string, string> = {
+        pump: '水泵', tank: '水塔', valve: '閥門', outlet: '出水口',
+        junction: '接頭', panel: '配電箱', switch: '開關',
+      };
+      const label = NODE_TYPE_LABELS[nodeType] ?? "新節點";
       await createUtilityNode.mutateAsync({
         fieldId: field.id,
         data: {
-          kind: "water",
-          nodeType: null,
-          label: "新節點",
+          kind,
+          nodeType,
+          label,
           xM: pos.xM,
           yM: pos.yM,
         },
@@ -777,6 +794,30 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         </Button>
 
         <span className="text-sm font-medium">{field.name}</span>
+
+        {/* Utility node type selector (when utility_node tool is active) */}
+        {activeTool === "utility_node" && (
+          <div className="flex items-center gap-1 border-l pl-2 ml-2">
+            <span className="text-xs text-muted-foreground">節點類型:</span>
+            <select
+              value={utilityNodeType}
+              onChange={(e) => setUtilityNodeType(e.target.value)}
+              className="h-7 rounded border bg-background px-1 text-xs"
+            >
+              <optgroup label="水利">
+                <option value="pump">水泵</option>
+                <option value="tank">水塔</option>
+                <option value="valve">閥門</option>
+                <option value="outlet">出水口</option>
+                <option value="junction">接頭</option>
+              </optgroup>
+              <optgroup label="電力">
+                <option value="panel">配電箱</option>
+                <option value="switch">開關</option>
+              </optgroup>
+            </select>
+          </div>
+        )}
 
         <div className="flex-1" />
 

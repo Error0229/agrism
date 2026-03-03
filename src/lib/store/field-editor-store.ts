@@ -68,6 +68,14 @@ interface FieldEditorState {
   backgroundImage: string | null;
   backgroundOpacity: number;
 
+  // Calibration
+  calibrationMode: boolean;
+  calibrationPoints: { xM: number; yM: number }[];
+  calibrationDistanceM: number | null;
+
+  // Utility node type for placement
+  utilityNodeType: string;
+
   // Undo/Redo
   undoStack: Command[];
   redoStack: Command[];
@@ -75,6 +83,7 @@ interface FieldEditorState {
   // Actions
   setActiveField(fieldId: string | null): void;
   setTool(tool: EditorTool): void;
+  setUtilityNodeType(type: string): void;
   setTemporaryTool(tool: EditorTool): void;
   restoreTool(): void;
 
@@ -104,6 +113,12 @@ interface FieldEditorState {
 
   setBackgroundImage(dataUrl: string | null): void;
   setBackgroundOpacity(opacity: number): void;
+
+  enterCalibration(): void;
+  exitCalibration(): void;
+  addCalibrationPoint(point: { xM: number; yM: number }): void;
+  setCalibrationDistance(meters: number): void;
+  resetCalibration(): void;
 
   enterTimeline(date?: string): void;
   exitTimeline(): void;
@@ -145,6 +160,10 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   clipboard: [],
   backgroundImage: null,
   backgroundOpacity: 0.5,
+  calibrationMode: false,
+  calibrationPoints: [],
+  calibrationDistanceM: null,
+  utilityNodeType: "junction",
   undoStack: [],
   redoStack: [],
 
@@ -165,6 +184,10 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   // --- Tool ---
   setTool(tool) {
     set({ activeTool: tool, previousTool: null });
+  },
+
+  setUtilityNodeType(type) {
+    set({ utilityNodeType: type });
   },
 
   setTemporaryTool(tool) {
@@ -312,6 +335,25 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
 
   setBackgroundOpacity(opacity) {
     set({ backgroundOpacity: Math.max(0, Math.min(1, opacity)) });
+  },
+
+  // --- Calibration ---
+  enterCalibration() {
+    set({ calibrationMode: true, calibrationPoints: [], calibrationDistanceM: null });
+  },
+  exitCalibration() {
+    set({ calibrationMode: false });
+  },
+  addCalibrationPoint(point) {
+    set((state) => ({
+      calibrationPoints: [...state.calibrationPoints, point].slice(0, 2),
+    }));
+  },
+  setCalibrationDistance(meters) {
+    set({ calibrationDistanceM: meters });
+  },
+  resetCalibration() {
+    set({ calibrationPoints: [], calibrationDistanceM: null });
   },
 
   // --- Timeline mode ---

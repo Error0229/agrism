@@ -129,6 +129,16 @@ export const UTILITY_KIND_LABELS: Record<UtilityKind, string> = {
   electric: '電線',
 }
 
+export const UTILITY_NODE_TYPE_LABELS: Record<string, string> = {
+  pump: '水泵',
+  tank: '水塔',
+  valve: '閥門',
+  outlet: '出水口',
+  junction: '接頭',
+  panel: '配電箱',
+  switch: '開關',
+}
+
 export const QUALITY_GRADE_LABELS: Record<QualityGrade, string> = {
   a: 'A級',
   b: 'B級',

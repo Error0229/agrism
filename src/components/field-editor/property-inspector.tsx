@@ -25,9 +25,11 @@ import {
   SplitSquareHorizontal,
   SplitSquareVertical,
   Sprout,
+  Crosshair,
   Trash2,
   Wrench,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export type AlignType = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom';
 
@@ -46,6 +48,7 @@ import {
 import {
   useUpdateUtilityNode,
   useDeleteUtilityNode,
+  useDeleteUtilityEdge,
   useUpdateFacility,
 } from "@/hooks/use-fields";
 import {
@@ -53,8 +56,11 @@ import {
   PLANTED_CROP_STATUS_LABELS,
   FACILITY_TYPE_LABELS,
   UTILITY_KIND_LABELS,
+  UTILITY_NODE_TYPE_LABELS,
 } from "@/lib/types/labels";
 import type { CropCategory, PlantedCropStatus, FacilityType, UtilityKind } from "@/lib/types/enums";
+import { deriveFacilityType } from "@/lib/utils/facility-helpers";
+import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
 
 // Field data type derived from getFieldById()
@@ -119,6 +125,13 @@ export function PropertyInspector({
   const setBackgroundImage = useFieldEditor((s) => s.setBackgroundImage);
   const timelineMode = useFieldEditor((s) => s.timelineMode);
   const timelineDate = useFieldEditor((s) => s.timelineDate);
+  const calibrationMode = useFieldEditor((s) => s.calibrationMode);
+  const calibrationPoints = useFieldEditor((s) => s.calibrationPoints);
+  const calibrationDistanceM = useFieldEditor((s) => s.calibrationDistanceM);
+  const enterCalibration = useFieldEditor((s) => s.enterCalibration);
+  const exitCalibration = useFieldEditor((s) => s.exitCalibration);
+  const setCalibrationDistance = useFieldEditor((s) => s.setCalibrationDistance);
+  const resetCalibration = useFieldEditor((s) => s.resetCalibration);
 
   // Timeline stats
   const timelineStats = useMemo(() => {
@@ -315,6 +328,42 @@ export function PropertyInspector({
                     />
                     <span className="w-8 text-right text-xs">{Math.round(backgroundOpacity * 100)}%</span>
                   </div>
+
+                  {/* Calibration */}
+                  {!calibrationMode ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={enterCalibration}
+                    >
+                      <Crosshair className="mr-1 size-3" />
+                      校準比例
+                    </Button>
+                  ) : (
+                    <CalibrationPanel
+                      calibrationPoints={calibrationPoints}
+                      calibrationDistanceM={calibrationDistanceM}
+                      onSetDistance={setCalibrationDistance}
+                      onApply={() => {
+                        if (calibrationPoints.length === 2 && calibrationDistanceM && calibrationDistanceM > 0) {
+                          const dx = calibrationPoints[1].xM - calibrationPoints[0].xM;
+                          const dy = calibrationPoints[1].yM - calibrationPoints[0].yM;
+                          const pixelDistM = Math.sqrt(dx * dx + dy * dy);
+                          if (pixelDistM > 0) {
+                            const metersPerUnit = calibrationDistanceM / pixelDistM;
+                            toast.success(`校準完成：1 單位 = ${metersPerUnit.toFixed(2)} 公尺`);
+                          }
+                        }
+                        exitCalibration();
+                      }}
+                      onCancel={() => {
+                        resetCalibration();
+                        exitCalibration();
+                      }}
+                    />
+                  )}
+
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setBackgroundImage(null)}>
                     移除圖片
                   </Button>
@@ -786,10 +835,16 @@ function FacilitySelectionSection({
             onBlur={(e) => {
               const val = e.target.value.trim();
               if (val && val !== facility.name) {
+                const derived = deriveFacilityType(val);
+                const data: { name: string; facilityType?: FacilityType } = { name: val };
+                // Auto-derive facility type from name when type is currently 'custom'
+                if (facility.facilityType === "custom" && derived !== "custom") {
+                  data.facilityType = derived as FacilityType;
+                }
                 updateFacility.mutate({
                   id: facility.id,
                   fieldId: field.id,
-                  data: { name: val },
+                  data,
                 });
               }
             }}
@@ -859,23 +914,31 @@ function UtilityNodeSelectionSection({
   const { utilityNode } = item;
   const updateNode = useUpdateUtilityNode();
   const deleteNode = useDeleteUtilityNode();
+  const deleteEdge = useDeleteUtilityEdge();
 
   const kindLabel =
     UTILITY_KIND_LABELS[utilityNode.kind as UtilityKind] ?? utilityNode.kind;
 
-  // Find connected nodes via edges
-  const connectedNodes = useMemo(() => {
-    const connected: { id: string; label: string }[] = [];
+  const nodeTypeLabel = utilityNode.nodeType
+    ? (UTILITY_NODE_TYPE_LABELS[utilityNode.nodeType] ?? utilityNode.nodeType)
+    : null;
+
+  // Node types for current kind
+  const nodeTypesForKind = utilityNode.kind === "water" ? WATER_NODE_TYPES : ELECTRIC_NODE_TYPES;
+
+  // Find connected edges with node info
+  const connectedEdges = useMemo(() => {
+    const edges: { edgeId: string; nodeId: string; nodeLabel: string }[] = [];
     for (const edge of field.utilityEdges) {
       if (edge.fromNodeId === utilityNode.id) {
         const toNode = field.utilityNodes.find((n) => n.id === edge.toNodeId);
-        if (toNode) connected.push({ id: toNode.id, label: toNode.label });
+        if (toNode) edges.push({ edgeId: edge.id, nodeId: toNode.id, nodeLabel: toNode.label });
       } else if (edge.toNodeId === utilityNode.id) {
         const fromNode = field.utilityNodes.find((n) => n.id === edge.fromNodeId);
-        if (fromNode) connected.push({ id: fromNode.id, label: fromNode.label });
+        if (fromNode) edges.push({ edgeId: edge.id, nodeId: fromNode.id, nodeLabel: fromNode.label });
       }
     }
-    return connected;
+    return edges;
   }, [field.utilityEdges, field.utilityNodes, utilityNode.id]);
 
   return (
@@ -890,7 +953,9 @@ function UtilityNodeSelectionSection({
           />
           <div>
             <p className="text-sm font-medium">{utilityNode.label}</p>
-            <p className="text-[10px] text-muted-foreground">{kindLabel}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {kindLabel}{nodeTypeLabel ? ` / ${nodeTypeLabel}` : ""}
+            </p>
           </div>
         </div>
       </div>
@@ -919,20 +984,26 @@ function UtilityNodeSelectionSection({
           </select>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">子類型</label>
-          <Input
-            defaultValue={utilityNode.nodeType ?? ""}
-            placeholder="general"
-            className="h-7 text-xs"
-            onBlur={(e) => {
-              const val = e.target.value.trim();
+          <label className="text-xs text-muted-foreground">節點類型</label>
+          <select
+            value={utilityNode.nodeType ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
               updateNode.mutate({
                 id: utilityNode.id,
                 fieldId: field.id,
                 data: { nodeType: val || null },
               });
             }}
-          />
+            className="h-7 w-full rounded border bg-background px-2 text-xs"
+          >
+            <option value="">未指定</option>
+            {nodeTypesForKind.map((nt) => (
+              <option key={nt} value={nt}>
+                {UTILITY_NODE_TYPE_LABELS[nt] ?? nt}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">標籤</label>
@@ -955,17 +1026,27 @@ function UtilityNodeSelectionSection({
 
       <Separator />
 
-      {/* Connected nodes */}
+      {/* Connected edges with delete */}
       <div className="space-y-1.5">
-        <SectionHeading>連接</SectionHeading>
-        {connectedNodes.length === 0 ? (
+        <SectionHeading>連接 ({connectedEdges.length})</SectionHeading>
+        {connectedEdges.length === 0 ? (
           <p className="text-xs text-muted-foreground">無連接</p>
         ) : (
           <div className="space-y-1">
-            {connectedNodes.map((cn) => (
-              <div key={cn.id} className="flex items-center gap-1.5 text-xs">
+            {connectedEdges.map((ce) => (
+              <div key={ce.edgeId} className="flex items-center gap-1.5 text-xs">
                 <span className="text-muted-foreground">&rarr;</span>
-                <span>{cn.label}</span>
+                <span className="flex-1">{ce.nodeLabel}</span>
+                <button
+                  type="button"
+                  className="text-destructive hover:text-destructive/80"
+                  onClick={() => {
+                    deleteEdge.mutate({ id: ce.edgeId, fieldId: field.id });
+                  }}
+                  title="刪除連線"
+                >
+                  <Trash2 className="size-3" />
+                </button>
               </div>
             ))}
           </div>
@@ -1220,6 +1301,96 @@ function StatCard({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border p-2 text-center">
       <div className="text-lg font-semibold">{value}</div>
       <div className="text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+// --- Calibration panel ---
+
+function CalibrationPanel({
+  calibrationPoints,
+  calibrationDistanceM,
+  onSetDistance,
+  onApply,
+  onCancel,
+}: {
+  calibrationPoints: { xM: number; yM: number }[];
+  calibrationDistanceM: number | null;
+  onSetDistance: (meters: number) => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const hasBothPoints = calibrationPoints.length === 2;
+
+  return (
+    <div className="space-y-2 rounded border border-red-200 bg-red-50/50 p-2 dark:border-red-900 dark:bg-red-950/20">
+      <p className="text-xs font-medium text-red-700 dark:text-red-400">
+        校準模式
+      </p>
+      <p className="text-[10px] text-muted-foreground">
+        點擊地圖上兩個已知距離的點
+      </p>
+      <div className="space-y-1 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">點 1:</span>
+          {calibrationPoints[0] ? (
+            <span className="text-green-600 dark:text-green-400">
+              ✓ ({calibrationPoints[0].xM.toFixed(1)}, {calibrationPoints[0].yM.toFixed(1)})
+            </span>
+          ) : (
+            <span className="text-muted-foreground">等待中...</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">點 2:</span>
+          {calibrationPoints[1] ? (
+            <span className="text-green-600 dark:text-green-400">
+              ✓ ({calibrationPoints[1].xM.toFixed(1)}, {calibrationPoints[1].yM.toFixed(1)})
+            </span>
+          ) : (
+            <span className="text-muted-foreground">等待中...</span>
+          )}
+        </div>
+      </div>
+      {hasBothPoints && (
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">
+            實際距離 (公尺):
+          </label>
+          <Input
+            type="number"
+            min={0.01}
+            step={0.1}
+            placeholder="例如: 10"
+            className="h-7 text-xs"
+            value={calibrationDistanceM ?? ""}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (val > 0) onSetDistance(val);
+            }}
+          />
+        </div>
+      )}
+      <div className="flex gap-2">
+        {hasBothPoints && calibrationDistanceM && calibrationDistanceM > 0 && (
+          <Button
+            variant="default"
+            size="sm"
+            className="flex-1 text-xs"
+            onClick={onApply}
+          >
+            套用
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={onCancel}
+        >
+          取消
+        </Button>
+      </div>
     </div>
   );
 }

@@ -141,6 +141,14 @@ export const UtilityKind = {
 } as const
 export type UtilityKind = (typeof UtilityKind)[keyof typeof UtilityKind]
 
+export const WATER_NODE_TYPES = ['pump', 'tank', 'valve', 'outlet', 'junction'] as const
+export type WaterNodeType = (typeof WATER_NODE_TYPES)[number]
+
+export const ELECTRIC_NODE_TYPES = ['panel', 'outlet', 'switch', 'junction'] as const
+export type ElectricNodeType = (typeof ELECTRIC_NODE_TYPES)[number]
+
+export type UtilityNodeType = WaterNodeType | ElectricNodeType
+
 export const QualityGrade = {
   A: 'a',
   B: 'b',

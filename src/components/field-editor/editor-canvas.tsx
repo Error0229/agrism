@@ -23,6 +23,7 @@ import {
 } from "@/lib/store/editor-commands";
 import { buildPlannerGridLines, snapToGrid } from "@/lib/utils/planner-grid";
 import type { PlannerGridSizeMeters } from "@/lib/utils/planner-grid-settings";
+import { UTILITY_NODE_TYPE_LABELS } from "@/lib/types/labels";
 
 // ---------------------------------------------------------------------------
 // Types — derived from getFieldById() return shape
@@ -229,6 +230,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
   const backgroundOpacity = useFieldEditor((s) => s.backgroundOpacity);
   const timelineMode = useFieldEditor((s) => s.timelineMode);
   const timelineDate = useFieldEditor((s) => s.timelineDate);
+  const calibrationMode = useFieldEditor((s) => s.calibrationMode);
+  const calibrationPoints = useFieldEditor((s) => s.calibrationPoints);
+  const addCalibrationPoint = useFieldEditor((s) => s.addCalibrationPoint);
 
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
@@ -504,6 +508,15 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
 
   const handleStageClick = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
+      // Calibration mode: intercept clicks to place calibration points
+      if (calibrationMode) {
+        const pos = getPointerMeters();
+        if (pos) {
+          addCalibrationPoint({ xM: pos.xM, yM: pos.yM });
+        }
+        return;
+      }
+
       // Don't clear selection when using polygon tool (clicks add vertices)
       if (activeTool === "draw_polygon") return;
 
@@ -523,7 +536,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
         clearSelection();
       }
     },
-    [clearSelection, activeTool, getPointerMeters, snapM, onPlaceUtilityNode],
+    [clearSelection, activeTool, getPointerMeters, snapM, onPlaceUtilityNode, calibrationMode, addCalibrationPoint],
   );
 
   const handleStageDragEnd = useCallback(
@@ -1028,16 +1041,18 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
 
   // Cursor based on tool
   const cursorClass =
-    activeTool === "hand"
-      ? "cursor-grab"
-      : activeTool === "eraser" ||
-          activeTool === "draw_rect" ||
-          activeTool === "draw_polygon" ||
-          activeTool === "measure" ||
-          activeTool === "utility_node" ||
-          activeTool === "utility_edge"
-        ? "cursor-crosshair"
-        : "cursor-default";
+    calibrationMode
+      ? "cursor-crosshair"
+      : activeTool === "hand"
+        ? "cursor-grab"
+        : activeTool === "eraser" ||
+            activeTool === "draw_rect" ||
+            activeTool === "draw_polygon" ||
+            activeTool === "measure" ||
+            activeTool === "utility_node" ||
+            activeTool === "utility_edge"
+          ? "cursor-crosshair"
+          : "cursor-default";
 
   // Measure distance computation
   const measureDist = measureState
@@ -1251,6 +1266,17 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                   text={node.label}
                   fontSize={10}
                   fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
+                  listening={false}
+                />
+                {/* Node type label below circle */}
+                <Text
+                  x={-20}
+                  y={10}
+                  width={40}
+                  align="center"
+                  text={node.nodeType ? (UTILITY_NODE_TYPE_LABELS[node.nodeType] ?? node.nodeType) : (node.kind === "water" ? "水管" : "電線")}
+                  fontSize={8}
+                  fill="#6b7280"
                   listening={false}
                 />
               </Group>
@@ -1510,6 +1536,71 @@ export function EditorCanvas({ field, onDrawRectComplete, onPlaceUtilityNode, on
                 dash={[6, 4]}
                 listening={false}
               />
+            );
+          })()}
+
+          {/* Calibration overlay */}
+          {calibrationMode && calibrationPoints.map((pt, i) => (
+            <Group key={`cal-${i}`} listening={false}>
+              <Circle
+                x={pt.xM * PIXELS_PER_METER}
+                y={pt.yM * PIXELS_PER_METER}
+                radius={6}
+                stroke="red"
+                strokeWidth={2}
+                fill="transparent"
+              />
+              <Line
+                points={[
+                  pt.xM * PIXELS_PER_METER - 10, pt.yM * PIXELS_PER_METER,
+                  pt.xM * PIXELS_PER_METER + 10, pt.yM * PIXELS_PER_METER,
+                ]}
+                stroke="red"
+                strokeWidth={1}
+              />
+              <Line
+                points={[
+                  pt.xM * PIXELS_PER_METER, pt.yM * PIXELS_PER_METER - 10,
+                  pt.xM * PIXELS_PER_METER, pt.yM * PIXELS_PER_METER + 10,
+                ]}
+                stroke="red"
+                strokeWidth={1}
+              />
+              <Text
+                x={pt.xM * PIXELS_PER_METER + 8}
+                y={pt.yM * PIXELS_PER_METER - 12}
+                text={`點 ${i + 1}`}
+                fill="red"
+                fontSize={12}
+              />
+            </Group>
+          ))}
+          {calibrationMode && calibrationPoints.length === 2 && (() => {
+            const p0 = calibrationPoints[0];
+            const p1 = calibrationPoints[1];
+            const dx = p1.xM - p0.xM;
+            const dy = p1.yM - p0.yM;
+            const distM = Math.sqrt(dx * dx + dy * dy);
+            return (
+              <Group listening={false}>
+                <Line
+                  points={[
+                    p0.xM * PIXELS_PER_METER, p0.yM * PIXELS_PER_METER,
+                    p1.xM * PIXELS_PER_METER, p1.yM * PIXELS_PER_METER,
+                  ]}
+                  stroke="red"
+                  strokeWidth={1}
+                  dash={[6, 4]}
+                />
+                <Text
+                  x={((p0.xM + p1.xM) / 2) * PIXELS_PER_METER + 6}
+                  y={((p0.yM + p1.yM) / 2) * PIXELS_PER_METER - 14}
+                  text={`${distM.toFixed(2)} m (地圖)`}
+                  fill="red"
+                  fontSize={11}
+                  fontStyle="bold"
+                />
+              </Group>
             );
           })()}
 
