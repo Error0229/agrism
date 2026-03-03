@@ -38,6 +38,7 @@ export function RootShell({ children }: { children: ReactNode }) {
   }
 
   const pageTitle = getPageTitle(pathname ?? "/");
+  const isFieldEditor = pathname?.match(/^\/fields\/[^/]+$/) != null;
 
   return (
     <TooltipProvider>
@@ -49,7 +50,7 @@ export function RootShell({ children }: { children: ReactNode }) {
             <Separator orientation="vertical" className="mr-2 !h-4" />
             <span className="text-sm text-muted-foreground">{pageTitle}</span>
           </header>
-          <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+          <main className={isFieldEditor ? "flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 md:p-6"}>{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

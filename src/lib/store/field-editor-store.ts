@@ -64,9 +64,8 @@ interface FieldEditorState {
   // Clipboard
   clipboard: ClipboardItem[];
 
-  // Background image (map import)
-  backgroundImage: string | null;
-  backgroundOpacity: number;
+  // Background images (per-field map import)
+  backgroundImages: Record<string, { dataUrl: string; opacity: number }>;
 
   // Calibration
   calibrationMode: boolean;
@@ -111,8 +110,9 @@ interface FieldEditorState {
   setCursorPosition(pos: { xM: number; yM: number } | null): void;
   setClipboard(items: ClipboardItem[]): void;
 
-  setBackgroundImage(dataUrl: string | null): void;
-  setBackgroundOpacity(opacity: number): void;
+  getBackgroundImage(fieldId: string): { dataUrl: string; opacity: number } | null;
+  setBackgroundImage(fieldId: string, dataUrl: string | null): void;
+  setBackgroundOpacity(fieldId: string, opacity: number): void;
 
   enterCalibration(): void;
   exitCalibration(): void;
@@ -171,8 +171,7 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   timelineDate: null,
   cursorPosition: null,
   clipboard: [],
-  backgroundImage: null,
-  backgroundOpacity: 0.5,
+  backgroundImages: {},
   calibrationMode: false,
   calibrationPoints: [],
   calibrationDistanceM: null,
@@ -341,13 +340,38 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
     set({ clipboard: items });
   },
 
-  // --- Background image ---
-  setBackgroundImage(dataUrl) {
-    set({ backgroundImage: dataUrl });
+  // --- Background image (per-field) ---
+  getBackgroundImage(fieldId) {
+    const entry = get().backgroundImages[fieldId];
+    return entry ?? null;
   },
 
-  setBackgroundOpacity(opacity) {
-    set({ backgroundOpacity: Math.max(0, Math.min(1, opacity)) });
+  setBackgroundImage(fieldId, dataUrl) {
+    set((state) => {
+      if (!dataUrl) {
+        const { [fieldId]: _, ...rest } = state.backgroundImages;
+        return { backgroundImages: rest };
+      }
+      return {
+        backgroundImages: {
+          ...state.backgroundImages,
+          [fieldId]: { dataUrl, opacity: state.backgroundImages[fieldId]?.opacity ?? 0.5 },
+        },
+      };
+    });
+  },
+
+  setBackgroundOpacity(fieldId, opacity) {
+    set((state) => {
+      const entry = state.backgroundImages[fieldId];
+      if (!entry) return {};
+      return {
+        backgroundImages: {
+          ...state.backgroundImages,
+          [fieldId]: { ...entry, opacity: Math.max(0, Math.min(1, opacity)) },
+        },
+      };
+    });
   },
 
   // --- Calibration ---

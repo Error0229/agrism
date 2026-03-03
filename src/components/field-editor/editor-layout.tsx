@@ -11,6 +11,7 @@ import {
   useHarvestCrop,
   useRemovePlantedCrop,
   useRestorePlantedCrop,
+  useDeletePlantedCropWithPlacement,
   useDeleteFacility,
   useCreateFacility,
   useCreateUtilityNode,
@@ -91,6 +92,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const harvestCropMut = useHarvestCrop();
   const removePlantedCrop = useRemovePlantedCrop();
   const restorePlantedCrop = useRestorePlantedCrop();
+  const deletePlantedCropWithPlacement = useDeletePlantedCropWithPlacement();
   const deleteFacility = useDeleteFacility();
   const createFacility = useCreateFacility();
   const createUtilityNode = useCreateUtilityNode();
@@ -110,7 +112,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        setBackgroundImage(reader.result);
+        setBackgroundImage(fieldId, reader.result);
       }
     };
     reader.readAsDataURL(file);
@@ -790,6 +792,23 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     [harvestCropMut],
   );
 
+  // --- Delete area (remove both placement and planted_crop) ---
+  const handleDeleteArea = useCallback(
+    (plantedCropId: string) => {
+      deletePlantedCropWithPlacement.mutate(plantedCropId);
+      useFieldEditor.getState().clearSelection();
+    },
+    [deletePlantedCropWithPlacement],
+  );
+
+  // --- Remove plant (unassign crop from region, keep region) ---
+  const handleRemovePlant = useCallback(
+    (plantedCropId: string) => {
+      removePlantedCrop.mutate(plantedCropId);
+    },
+    [removePlantedCrop],
+  );
+
   // --- Canvas container size tracking for minimap ---
   useEffect(() => {
     const el = canvasContainerRef.current;
@@ -1084,6 +1103,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                 harvestedCount={harvestedCount}
                 facilityCount={facilityCount}
                 onDeleteSelected={handleDeleteSelected}
+                onDeleteArea={handleDeleteArea}
+                onRemovePlant={handleRemovePlant}
                 onChangeCrop={handleChangeCrop}
                 onMarkHarvested={handleMarkHarvested}
                 onSplitHorizontal={handleSplitHorizontal}

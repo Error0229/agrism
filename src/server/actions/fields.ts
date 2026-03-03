@@ -431,6 +431,13 @@ export async function restorePlantedCrop(id: string) {
   return updated
 }
 
+export async function deletePlantedCropWithPlacement(id: string) {
+  // Delete the crop_placement that references this planted_crop
+  await db.delete(cropPlacements).where(eq(cropPlacements.plantedCropId, id))
+  // Delete the planted_crop record itself
+  await db.delete(plantedCrops).where(eq(plantedCrops.id, id))
+}
+
 export async function updateCropPlacement(
   placementId: string,
   data: z.infer<typeof updateCropPlacementSchema>,

@@ -11,6 +11,7 @@ import {
   useUpdateCropPlacement,
   useRemovePlantedCrop,
   useRestorePlantedCrop,
+  useDeletePlantedCropWithPlacement,
   useDeleteFacility,
   useCreateFacility,
   useUpdateFacility,
@@ -64,6 +65,16 @@ interface ResizeState {
   startXPx: number;
   startYPx: number;
   origBounds: { xM: number; yM: number; widthM: number; heightM: number };
+  origShapePoints?: { x: number; y: number }[] | null;
+}
+
+interface ResizePreview {
+  id: string;
+  xM: number;
+  yM: number;
+  widthM: number;
+  heightM: number;
+  shapePoints?: { x: number; y: number }[] | null;
 }
 
 // Measure tool state
@@ -90,6 +101,63 @@ const PIXELS_PER_METER = 100;
 const HANDLE_SIZE = 8;
 const MIN_SIZE_M = 0.2; // minimum 20cm resize
 const SNAP_THRESHOLD_M = 0.15; // snap within 15cm
+
+// ---------------------------------------------------------------------------
+// Resize bounds computation (shared between live preview and commit)
+// ---------------------------------------------------------------------------
+
+function computeResizeBounds(
+  state: ResizeState,
+  realPosX: number,
+  realPosY: number,
+  snapM: (m: number) => number,
+): { xM: number; yM: number; widthM: number; heightM: number; shapePoints?: { x: number; y: number }[] | null } | null {
+  const curXM = snapM(realPosX / PIXELS_PER_METER);
+  const curYM = snapM(realPosY / PIXELS_PER_METER);
+  const orig = state.origBounds;
+  const dir = state.dir;
+
+  let newX = orig.xM;
+  let newY = orig.yM;
+  let newW = orig.widthM;
+  let newH = orig.heightM;
+
+  if (dir.includes("w")) {
+    newW = Math.max(MIN_SIZE_M, orig.xM + orig.widthM - curXM);
+    newX = orig.xM + orig.widthM - newW;
+  }
+  if (dir.includes("e")) {
+    newW = Math.max(MIN_SIZE_M, curXM - orig.xM);
+  }
+  if (dir.includes("n")) {
+    newH = Math.max(MIN_SIZE_M, orig.yM + orig.heightM - curYM);
+    newY = orig.yM + orig.heightM - newH;
+  }
+  if (dir.includes("s")) {
+    newH = Math.max(MIN_SIZE_M, curYM - orig.yM);
+  }
+
+  newX = snapM(newX);
+  newY = snapM(newY);
+  newW = snapM(newW) || MIN_SIZE_M;
+  newH = snapM(newH) || MIN_SIZE_M;
+
+  // Scale polygon shape points if present
+  let newShapePoints: { x: number; y: number }[] | null | undefined = undefined;
+  if (state.origShapePoints && state.origShapePoints.length >= 3) {
+    const scaleX = newW / orig.widthM;
+    const scaleY = newH / orig.heightM;
+    // origShapePoints are in absolute meters; transform relative to bounding box origin
+    const origMinX = orig.xM;
+    const origMinY = orig.yM;
+    newShapePoints = state.origShapePoints.map((p) => ({
+      x: newX + (p.x - origMinX) * scaleX,
+      y: newY + (p.y - origMinY) * scaleY,
+    }));
+  }
+
+  return { xM: newX, yM: newY, widthM: newW, heightM: newH, shapePoints: newShapePoints };
+}
 
 // ---------------------------------------------------------------------------
 // Snap-to-object alignment guides
@@ -235,8 +303,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const layerVisibility = useFieldEditor((s) => s.layerVisibility);
   const showHarvested = useFieldEditor((s) => s.showHarvested);
   const setCursorPosition = useFieldEditor((s) => s.setCursorPosition);
-  const backgroundImage = useFieldEditor((s) => s.backgroundImage);
-  const backgroundOpacity = useFieldEditor((s) => s.backgroundOpacity);
+  const activeFieldId = useFieldEditor((s) => s.activeFieldId);
+  const bgEntry = useFieldEditor((s) => activeFieldId ? s.backgroundImages[activeFieldId] : undefined);
   const timelineMode = useFieldEditor((s) => s.timelineMode);
   const timelineDate = useFieldEditor((s) => s.timelineDate);
   const calibrationMode = useFieldEditor((s) => s.calibrationMode);
@@ -247,13 +315,15 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const updatePlacement = useUpdateCropPlacement();
   const removePlantedCrop = useRemovePlantedCrop();
   const restorePlantedCrop = useRestorePlantedCrop();
+  const deletePlantedCropWithPlacement = useDeletePlantedCropWithPlacement();
   const deleteFacility = useDeleteFacility();
   const createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
 
-  // Background image for map import
-  const bgImage = useKonvaImage(backgroundImage);
+  // Background image for map import (per-field)
+  const bgImage = useKonvaImage(bgEntry?.dataUrl ?? null);
+  const backgroundOpacity = bgEntry?.opacity ?? 0.5;
 
   // Local interaction state
   const [activeGuides, setActiveGuides] = useState<SnapGuide[]>([]);
@@ -263,6 +333,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     { xM: number; yM: number }
   > | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
+  const [resizePreview, setResizePreview] = useState<ResizePreview | null>(null);
   const [measureState, setMeasureState] = useState<MeasureState | null>(null);
   const [drawRectState, setDrawRectState] = useState<DrawRectState | null>(
     null,
@@ -446,7 +517,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   // Compute overlap conflict warnings between visible crop items
   const overlaps = useMemo(() => {
     const cropItems = visibleCanvasItems.filter((item) => item.kind === "crop");
-    const result: { xPx: number; yPx: number }[] = [];
+    const result: { xPx: number; yPx: number; item1Name: string; item2Name: string }[] = [];
     for (let i = 0; i < cropItems.length; i++) {
       for (let j = i + 1; j < cropItems.length; j++) {
         const a = cropItems[i];
@@ -467,6 +538,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           result.push({
             xPx: ((aCx + bCx) / 2) * PIXELS_PER_METER,
             yPx: ((aCy + bCy) / 2) * PIXELS_PER_METER,
+            item1Name: a.label,
+            item2Name: b.label,
           });
         }
       }
@@ -595,14 +668,20 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         return;
       }
 
-      // Utility edge tool: cancel on empty stage click (no node hit)
-      if (activeTool === "utility_edge") return;
+      // Utility edge tool: cancel pending connection on empty stage click
+      if (activeTool === "utility_edge") {
+        if (pendingEdgeFromNodeId) {
+          setPendingEdgeFromNodeId(null);
+          setEdgeCursorPos(null);
+        }
+        return;
+      }
 
       if (e.target === e.target.getStage()) {
         clearSelection();
       }
     },
-    [clearSelection, activeTool, getPointerMeters, snapM, onPlaceUtilityNode, calibrationMode, addCalibrationPoint],
+    [clearSelection, activeTool, getPointerMeters, snapM, onPlaceUtilityNode, calibrationMode, addCalibrationPoint, pendingEdgeFromNodeId],
   );
 
   const handleStageDragEnd = useCallback(
@@ -741,7 +820,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         return;
       }
 
-      // Handle resize drag
+      // Handle resize drag — compute live preview
       if (resizeState) {
         e.evt.preventDefault();
         const stage = stageRef.current;
@@ -750,10 +829,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         if (!stagePos) return;
         const transform = stage.getAbsoluteTransform().copy().invert();
         const realPos = transform.point(stagePos);
-        // Store current pixel position to compute final bounds on mouse up
-        setResizeState((prev) =>
-          prev ? { ...prev, startXPx: realPos.x, startYPx: realPos.y } : null,
-        );
+
+        const preview = computeResizeBounds(resizeState, realPos.x, realPos.y, snapM);
+        if (preview) {
+          setResizePreview({
+            id: resizeState.itemId,
+            ...preview,
+          });
+        }
         return;
       }
     },
@@ -836,43 +919,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         if (!item) return;
         e.cancelBubble = true;
 
-        // Snapshot facility data for undo re-creation
-        const facilitySnapshot = item.kind === "facility" ? {
-          facilityType: item.facilityType ?? "custom",
-          name: item.label,
-          xM: item.xM,
-          yM: item.yM,
-          widthM: item.widthM,
-          heightM: item.heightM,
-        } : null;
-
-        const cmd = createDeleteCommand({
-          ids: [itemId],
-          async deleteFn(id) {
-            const target = itemById.get(id);
-            if (!target) return;
-            if (target.kind === "crop" && target.plantedCropId) {
-              await removePlantedCrop.mutateAsync(target.plantedCropId);
-            } else if (target.kind === "facility") {
-              await deleteFacility.mutateAsync({
-                id: target.id,
-                fieldId: field.id,
-              });
-            }
-          },
-          async restoreFn(id) {
-            const target = itemById.get(id);
-            if (target?.kind === "crop" && target.plantedCropId) {
-              await restorePlantedCrop.mutateAsync(target.plantedCropId);
-            } else if (facilitySnapshot) {
-              await createFacility.mutateAsync({
-                fieldId: field.id,
-                data: facilitySnapshot as Parameters<typeof createFacility.mutateAsync>[0]["data"],
-              });
-            }
-          },
-        });
-        executeCommand(cmd);
+        // Eraser deletes the area entirely (hard delete, no undo)
+        if (item.kind === "crop" && item.plantedCropId) {
+          deletePlantedCropWithPlacement.mutate(item.plantedCropId);
+        } else if (item.kind === "facility") {
+          deleteFacility.mutate({ id: item.id, fieldId: field.id });
+        }
         return;
       }
 
@@ -888,12 +940,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       activeTool,
       select,
       toggleSelect,
-      executeCommand,
       itemById,
-      removePlantedCrop,
-      restorePlantedCrop,
+      deletePlantedCropWithPlacement,
       deleteFacility,
-      createFacility,
       field.id,
     ],
   );
@@ -988,6 +1037,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           widthM: item.widthM,
           heightM: item.heightM,
         },
+        origShapePoints: item.shapePoints ?? null,
       });
     },
     [itemById],
@@ -998,6 +1048,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     const item = itemById.get(resizeState.itemId);
     if (!item) {
       setResizeState(null);
+      setResizePreview(null);
       return;
     }
 
@@ -1005,50 +1056,27 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     const stage = stageRef.current;
     if (!stage) {
       setResizeState(null);
+      setResizePreview(null);
       return;
     }
     const pos = stage.getPointerPosition();
     if (!pos) {
       setResizeState(null);
+      setResizePreview(null);
       return;
     }
     const transform = stage.getAbsoluteTransform().copy().invert();
     const realPos = transform.point(pos);
 
-    const curXM = snapM(realPos.x / PIXELS_PER_METER);
-    const curYM = snapM(realPos.y / PIXELS_PER_METER);
+    const result = computeResizeBounds(resizeState, realPos.x, realPos.y, snapM);
+    if (!result) {
+      setResizeState(null);
+      setResizePreview(null);
+      return;
+    }
 
     const orig = resizeState.origBounds;
-    let newX = orig.xM;
-    let newY = orig.yM;
-    let newW = orig.widthM;
-    let newH = orig.heightM;
-
-    const dir = resizeState.dir;
-
-    // Compute new bounds based on handle direction
-    if (dir.includes("w")) {
-      newW = Math.max(MIN_SIZE_M, orig.xM + orig.widthM - curXM);
-      newX = orig.xM + orig.widthM - newW;
-    }
-    if (dir.includes("e")) {
-      newW = Math.max(MIN_SIZE_M, curXM - orig.xM);
-    }
-    if (dir.includes("n")) {
-      newH = Math.max(MIN_SIZE_M, orig.yM + orig.heightM - curYM);
-      newY = orig.yM + orig.heightM - newH;
-    }
-    if (dir.includes("s")) {
-      newH = Math.max(MIN_SIZE_M, curYM - orig.yM);
-    }
-
-    // Snap new dimensions
-    newX = snapM(newX);
-    newY = snapM(newY);
-    newW = snapM(newW) || MIN_SIZE_M;
-    newH = snapM(newH) || MIN_SIZE_M;
-
-    const newBounds = { xM: newX, yM: newY, widthM: newW, heightM: newH };
+    const { xM: newX, yM: newY, widthM: newW, heightM: newH, shapePoints: newShapePoints } = result;
 
     // Skip if nothing changed
     if (
@@ -1058,8 +1086,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       Math.abs(newH - orig.heightM) < 0.001
     ) {
       setResizeState(null);
+      setResizePreview(null);
       return;
     }
+
+    const newBounds = { xM: newX, yM: newY, widthM: newW, heightM: newH };
+    const oldShapePoints = resizeState.origShapePoints;
 
     const cmd = createResizeCommand({
       id: resizeState.itemId,
@@ -1067,10 +1099,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       newBounds,
       async updateFn(id, data) {
         if (item.kind === "crop") {
+          const updateData: typeof data & { shapePoints?: { x: number; y: number }[] | null } = { ...data };
+          if (newShapePoints !== undefined) {
+            updateData.shapePoints = newShapePoints;
+          }
           await updatePlacement.mutateAsync({
             placementId: id,
             fieldId: field.id,
-            data,
+            data: updateData,
           });
         } else if (item.kind === "facility") {
           await updateFacility.mutateAsync({
@@ -1082,8 +1118,22 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       },
     });
 
+    // For undo: also restore old shape points
+    const origUndo = cmd.undo;
+    cmd.undo = async () => {
+      await origUndo();
+      if (item.kind === "crop" && oldShapePoints !== undefined) {
+        await updatePlacement.mutateAsync({
+          placementId: resizeState.itemId,
+          fieldId: field.id,
+          data: { shapePoints: oldShapePoints },
+        });
+      }
+    };
+
     executeCommand(cmd);
     setResizeState(null);
+    setResizePreview(null);
   }, [
     resizeState,
     itemById,
@@ -1308,6 +1358,151 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             listening={false}
           />
 
+          {/* Canvas items (crops + facilities) */}
+          {visibleCanvasItems.map((item) => {
+            // Use resize preview dimensions if this item is being resized
+            const rp = resizePreview?.id === item.id ? resizePreview : null;
+            const renderXM = rp ? rp.xM : item.xM;
+            const renderYM = rp ? rp.yM : item.yM;
+            const renderWM = rp ? rp.widthM : item.widthM;
+            const renderHM = rp ? rp.heightM : item.heightM;
+            const renderShapePoints = rp?.shapePoints !== undefined ? rp.shapePoints : item.shapePoints;
+
+            const xPx = renderXM * PIXELS_PER_METER;
+            const yPx = renderYM * PIXELS_PER_METER;
+            const wPx = renderWM * PIXELS_PER_METER;
+            const hPx = renderHM * PIXELS_PER_METER;
+            const isSelected = selectedSet.has(item.id);
+            const isHovered = hoveredItemId === item.id;
+            const isHarvested = item.status === "harvested";
+            const isDraggable =
+              activeTool === "select" &&
+              item.status !== "harvested" &&
+              item.status !== "removed";
+
+            // Check if this item has polygon shape points
+            const hasPolygonShape = renderShapePoints && renderShapePoints.length >= 3;
+
+            return (
+              <Group
+                key={item.id}
+                x={xPx}
+                y={yPx}
+                draggable={isDraggable}
+                onDragStart={handleItemDragStart}
+                onDragMove={snapEnabled ? handleItemDragMove : undefined}
+                onDragEnd={(e) => handleItemDragEnd(item.id, e)}
+                onClick={(e) => handleItemClick(item.id, e)}
+                onMouseEnter={() => setHoveredItemId(item.id)}
+                onMouseLeave={() => setHoveredItemId(null)}
+              >
+                {/* Shape: polygon or rectangle */}
+                {hasPolygonShape ? (
+                  <Line
+                    points={renderShapePoints!.flatMap(p => [
+                      (p.x - renderXM) * PIXELS_PER_METER,
+                      (p.y - renderYM) * PIXELS_PER_METER,
+                    ])}
+                    closed
+                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
+                    stroke={
+                      isSelected
+                        ? "#16a34a"
+                        : isHovered
+                          ? "#3b82f6"
+                          : isHarvested
+                            ? "#6b7280"
+                            : item.color
+                    }
+                    strokeWidth={isSelected ? 2 : 1}
+                    dash={isHarvested ? [4, 4] : undefined}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                ) : (
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={wPx}
+                    height={hPx}
+                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
+                    stroke={
+                      isSelected
+                        ? "#16a34a"
+                        : isHovered
+                          ? "#3b82f6"
+                          : isHarvested
+                            ? "#6b7280"
+                            : item.color
+                    }
+                    strokeWidth={isSelected ? 2 : 1}
+                    dash={isHarvested ? [4, 4] : undefined}
+                    cornerRadius={4}
+                    shadowColor={isSelected ? "#16a34a" : "transparent"}
+                    shadowBlur={isSelected ? 8 : 0}
+                  />
+                )}
+
+                {/* Emoji */}
+                <Text
+                  x={4}
+                  y={4}
+                  text={item.emoji}
+                  fontSize={16}
+                  listening={false}
+                />
+
+                {/* Label */}
+                <Text
+                  x={4}
+                  y={24}
+                  text={item.label}
+                  fontSize={10}
+                  fill="#374151"
+                  listening={false}
+                />
+
+                {/* Status for harvested */}
+                {isHarvested && (
+                  <Text
+                    x={4}
+                    y={36}
+                    text="\u5df2\u6536\u6210"
+                    fontSize={9}
+                    fill="#4b5563"
+                    listening={false}
+                  />
+                )}
+
+                {/* Dimensions on select */}
+                {isSelected && (
+                  <Text
+                    x={0}
+                    y={hPx + 4}
+                    text={`${renderWM.toFixed(1)} \u00d7 ${renderHM.toFixed(1)} m`}
+                    fontSize={9}
+                    fill="#16a34a"
+                    listening={false}
+                  />
+                )}
+
+                {/* Resize handles for selected items */}
+                {isSelected && isDraggable && (
+                  <ResizeHandles
+                    itemId={item.id}
+                    xPx={0}
+                    yPx={0}
+                    wPx={wPx}
+                    hPx={hPx}
+                    scale={zoom}
+                    onResizeStart={handleResizeStart}
+                  />
+                )}
+              </Group>
+            );
+          })}
+
+
           {/* Utility edges */}
           {visibleUtilityEdges.map((edge) => {
             const from = utilityNodeById.get(edge.fromNodeId);
@@ -1407,142 +1602,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             );
           })}
 
-          {/* Canvas items (crops + facilities) */}
-          {visibleCanvasItems.map((item) => {
-            const xPx = item.xM * PIXELS_PER_METER;
-            const yPx = item.yM * PIXELS_PER_METER;
-            const wPx = item.widthM * PIXELS_PER_METER;
-            const hPx = item.heightM * PIXELS_PER_METER;
-            const isSelected = selectedSet.has(item.id);
-            const isHovered = hoveredItemId === item.id;
-            const isHarvested = item.status === "harvested";
-            const isDraggable =
-              activeTool === "select" &&
-              item.status !== "harvested" &&
-              item.status !== "removed";
-
-            // Check if this item has polygon shape points
-            const hasPolygonShape = item.shapePoints && item.shapePoints.length >= 3;
-
-            return (
-              <Group
-                key={item.id}
-                x={xPx}
-                y={yPx}
-                draggable={isDraggable}
-                onDragStart={handleItemDragStart}
-                onDragMove={snapEnabled ? handleItemDragMove : undefined}
-                onDragEnd={(e) => handleItemDragEnd(item.id, e)}
-                onClick={(e) => handleItemClick(item.id, e)}
-                onMouseEnter={() => setHoveredItemId(item.id)}
-                onMouseLeave={() => setHoveredItemId(null)}
-              >
-                {/* Shape: polygon or rectangle */}
-                {hasPolygonShape ? (
-                  <Line
-                    points={item.shapePoints!.flatMap(p => [
-                      (p.x - item.xM) * PIXELS_PER_METER,
-                      (p.y - item.yM) * PIXELS_PER_METER,
-                    ])}
-                    closed
-                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
-                    stroke={
-                      isSelected
-                        ? "#16a34a"
-                        : isHovered
-                          ? "#3b82f6"
-                          : isHarvested
-                            ? "#6b7280"
-                            : item.color
-                    }
-                    strokeWidth={isSelected ? 2 : 1}
-                    dash={isHarvested ? [4, 4] : undefined}
-                    shadowColor={isSelected ? "#16a34a" : "transparent"}
-                    shadowBlur={isSelected ? 8 : 0}
-                  />
-                ) : (
-                  <Rect
-                    x={0}
-                    y={0}
-                    width={wPx}
-                    height={hPx}
-                    fill={isHarvested ? "#9ca3af44" : `${item.color}40`}
-                    stroke={
-                      isSelected
-                        ? "#16a34a"
-                        : isHovered
-                          ? "#3b82f6"
-                          : isHarvested
-                            ? "#6b7280"
-                            : item.color
-                    }
-                    strokeWidth={isSelected ? 2 : 1}
-                    dash={isHarvested ? [4, 4] : undefined}
-                    cornerRadius={4}
-                    shadowColor={isSelected ? "#16a34a" : "transparent"}
-                    shadowBlur={isSelected ? 8 : 0}
-                  />
-                )}
-
-                {/* Emoji */}
-                <Text
-                  x={4}
-                  y={4}
-                  text={item.emoji}
-                  fontSize={16}
-                  listening={false}
-                />
-
-                {/* Label */}
-                <Text
-                  x={4}
-                  y={24}
-                  text={item.label}
-                  fontSize={10}
-                  fill="#374151"
-                  listening={false}
-                />
-
-                {/* Status for harvested */}
-                {isHarvested && (
-                  <Text
-                    x={4}
-                    y={36}
-                    text="\u5df2\u6536\u6210"
-                    fontSize={9}
-                    fill="#4b5563"
-                    listening={false}
-                  />
-                )}
-
-                {/* Dimensions on select */}
-                {isSelected && (
-                  <Text
-                    x={0}
-                    y={hPx + 4}
-                    text={`${item.widthM.toFixed(1)} \u00d7 ${item.heightM.toFixed(1)} m`}
-                    fontSize={9}
-                    fill="#16a34a"
-                    listening={false}
-                  />
-                )}
-
-                {/* Resize handles for selected items */}
-                {isSelected && isDraggable && (
-                  <ResizeHandles
-                    itemId={item.id}
-                    xPx={0}
-                    yPx={0}
-                    wPx={wPx}
-                    hPx={hPx}
-                    scale={zoom}
-                    onResizeStart={handleResizeStart}
-                  />
-                )}
-              </Group>
-            );
-          })}
-
           {/* Smart alignment guides */}
           {activeGuides.map((guide, i) => (
             <Line
@@ -1562,8 +1621,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           {/* Overlap conflict warnings */}
           {overlaps.map((overlap, i) => (
             <Group key={`overlap-${i}`} x={overlap.xPx} y={overlap.yPx} listening={false}>
-              <Circle radius={10} fill="#fbbf24" stroke="#d97706" strokeWidth={1} />
-              <Text x={-4} y={-6} text={"\u26a0"} fontSize={11} fill="#92400e" />
+              <Circle radius={8} fill="#facc15" stroke="#ca8a04" strokeWidth={1.5} />
+              <Text text="!" x={-3} y={-6} fontSize={12} fontStyle="bold" fill="#854d0e" />
+              <Text
+                text={`${overlap.item1Name} ↔ ${overlap.item2Name} 重疊`}
+                x={12} y={-6} fontSize={10} fill="#854d0e"
+              />
             </Group>
           ))}
 

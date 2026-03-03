@@ -8,7 +8,7 @@ export default async function FieldDetailPage({
   const { fieldId } = await params;
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)]">
+    <div className="h-full">
       <EditorLayout fieldId={fieldId} />
     </div>
   );

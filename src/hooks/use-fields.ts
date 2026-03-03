@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   getFields,
   getFieldById,
@@ -14,6 +14,7 @@ import {
   harvestCrop,
   removePlantedCrop,
   restorePlantedCrop,
+  deletePlantedCropWithPlacement,
   updateCropPlacement,
   createFacility,
   updateFacility,
@@ -29,6 +30,23 @@ export const fieldKeys = {
   all: ['fields'] as const,
   list: (farmId: string) => [...fieldKeys.all, 'list', farmId] as const,
   detail: (id: string) => [...fieldKeys.all, 'detail', id] as const,
+}
+
+// Type for the field detail query data
+type FieldDetail = Awaited<ReturnType<typeof getFieldById>>
+
+/** Cancel outgoing queries and snapshot the previous field detail data */
+async function snapshotField(qc: QueryClient, fieldId: string) {
+  await qc.cancelQueries({ queryKey: fieldKeys.detail(fieldId) })
+  const previous = qc.getQueryData<FieldDetail>(fieldKeys.detail(fieldId))
+  return previous
+}
+
+/** Rollback on error */
+function rollbackField(qc: QueryClient, fieldId: string, previous: FieldDetail | undefined) {
+  if (previous !== undefined) {
+    qc.setQueryData(fieldKeys.detail(fieldId), previous)
+  }
 }
 
 export function useFields(farmId: string | undefined) {
@@ -123,6 +141,16 @@ export function useRestorePlantedCrop() {
   })
 }
 
+export function useDeletePlantedCropWithPlacement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deletePlantedCropWithPlacement(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: fieldKeys.all })
+    },
+  })
+}
+
 export function useCreateRegion(farmId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -154,7 +182,23 @@ export function useUpdateCropPlacement() {
       fieldId: string
       data: Parameters<typeof updateCropPlacement>[1]
     }) => updateCropPlacement(args.placementId, args.data),
-    onSuccess: (_data, variables) => {
+    async onMutate(variables) {
+      const previous = await snapshotField(qc, variables.fieldId)
+      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          placements: old.placements.map((p) =>
+            p.id === variables.placementId ? { ...p, ...variables.data } : p
+          ),
+        }
+      })
+      return { previous }
+    },
+    onError: (_err, variables, context) => {
+      rollbackField(qc, variables.fieldId, context?.previous)
+    },
+    onSettled: (_data, _err, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
   })
@@ -181,7 +225,23 @@ export function useUpdateFacility() {
       fieldId: string
       data: Parameters<typeof updateFacility>[1]
     }) => updateFacility(args.id, args.data),
-    onSuccess: (_data, variables) => {
+    async onMutate(variables) {
+      const previous = await snapshotField(qc, variables.fieldId)
+      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          facilities: old.facilities.map((f) =>
+            f.id === variables.id ? { ...f, ...variables.data } : f
+          ),
+        }
+      })
+      return { previous }
+    },
+    onError: (_err, variables, context) => {
+      rollbackField(qc, variables.fieldId, context?.previous)
+    },
+    onSettled: (_data, _err, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
   })
@@ -192,7 +252,21 @@ export function useDeleteFacility() {
   return useMutation({
     mutationFn: (args: { id: string; fieldId: string }) =>
       deleteFacility(args.id),
-    onSuccess: (_data, variables) => {
+    async onMutate(variables) {
+      const previous = await snapshotField(qc, variables.fieldId)
+      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          facilities: old.facilities.filter((f) => f.id !== variables.id),
+        }
+      })
+      return { previous }
+    },
+    onError: (_err, variables, context) => {
+      rollbackField(qc, variables.fieldId, context?.previous)
+    },
+    onSettled: (_data, _err, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
   })
@@ -219,7 +293,23 @@ export function useUpdateUtilityNode() {
       fieldId: string
       data: Parameters<typeof updateUtilityNode>[1]
     }) => updateUtilityNode(args.id, args.data),
-    onSuccess: (_data, variables) => {
+    async onMutate(variables) {
+      const previous = await snapshotField(qc, variables.fieldId)
+      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          utilityNodes: old.utilityNodes.map((n) =>
+            n.id === variables.id ? { ...n, ...variables.data } : n
+          ),
+        }
+      })
+      return { previous }
+    },
+    onError: (_err, variables, context) => {
+      rollbackField(qc, variables.fieldId, context?.previous)
+    },
+    onSettled: (_data, _err, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
   })
@@ -265,7 +355,18 @@ export function useUpdateFieldMemo() {
   return useMutation({
     mutationFn: ({ fieldId, memo }: { fieldId: string; memo: string }) =>
       updateFieldMemo(fieldId, memo),
-    onSuccess: (_data, variables) => {
+    async onMutate(variables) {
+      const previous = await snapshotField(qc, variables.fieldId)
+      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
+        if (!old) return old
+        return { ...old, memo: variables.memo }
+      })
+      return { previous }
+    },
+    onError: (_err, variables, context) => {
+      rollbackField(qc, variables.fieldId, context?.previous)
+    },
+    onSettled: (_data, _err, variables) => {
       qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
     },
   })

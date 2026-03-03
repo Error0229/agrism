@@ -77,6 +77,8 @@ interface PropertyInspectorProps {
   harvestedCount?: number;
   facilityCount?: number;
   onDeleteSelected?: () => void;
+  onDeleteArea?: (plantedCropId: string) => void;
+  onRemovePlant?: (plantedCropId: string) => void;
   onChangeCrop?: (plantedCropId: string) => void;
   onMarkHarvested?: (plantedCropId: string) => void;
   onSplitHorizontal?: () => void;
@@ -96,6 +98,8 @@ export function PropertyInspector({
   harvestedCount = 0,
   facilityCount = 0,
   onDeleteSelected,
+  onDeleteArea,
+  onRemovePlant,
   onChangeCrop,
   onMarkHarvested,
   onSplitHorizontal,
@@ -119,8 +123,10 @@ export function PropertyInspector({
   const toggleLayerVisibility = useFieldEditor((s) => s.toggleLayerVisibility);
   const showHarvested = useFieldEditor((s) => s.showHarvested);
   const toggleShowHarvested = useFieldEditor((s) => s.toggleShowHarvested);
-  const backgroundImage = useFieldEditor((s) => s.backgroundImage);
-  const backgroundOpacity = useFieldEditor((s) => s.backgroundOpacity);
+  const activeFieldId = useFieldEditor((s) => s.activeFieldId);
+  const bgEntry = useFieldEditor((s) => activeFieldId ? s.backgroundImages[activeFieldId] : undefined);
+  const backgroundImage = bgEntry?.dataUrl ?? null;
+  const backgroundOpacity = bgEntry?.opacity ?? 0.5;
   const setBackgroundOpacity = useFieldEditor((s) => s.setBackgroundOpacity);
   const setBackgroundImage = useFieldEditor((s) => s.setBackgroundImage);
   const timelineMode = useFieldEditor((s) => s.timelineMode);
@@ -265,6 +271,8 @@ export function PropertyInspector({
               <CropSelectionSection
                 item={selectedItem}
                 onDelete={onDeleteSelected}
+                onDeleteArea={onDeleteArea ? () => onDeleteArea(selectedItem.plantedCrop.id) : undefined}
+                onRemovePlant={onRemovePlant && selectedItem.plantedCrop.cropId ? () => onRemovePlant(selectedItem.plantedCrop.id) : undefined}
                 onDeselect={clearSelection}
                 onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop.id) : undefined}
                 onMarkHarvested={onMarkHarvested && selectedItem.plantedCrop.status === "growing" ? () => onMarkHarvested(selectedItem.plantedCrop.id) : undefined}
@@ -323,7 +331,7 @@ export function PropertyInspector({
                       min={0}
                       max={100}
                       value={Math.round(backgroundOpacity * 100)}
-                      onChange={(e) => setBackgroundOpacity(Number(e.target.value) / 100)}
+                      onChange={(e) => { if (activeFieldId) setBackgroundOpacity(activeFieldId, Number(e.target.value) / 100); }}
                       className="flex-1"
                     />
                     <span className="w-8 text-right text-xs">{Math.round(backgroundOpacity * 100)}%</span>
@@ -364,7 +372,7 @@ export function PropertyInspector({
                     />
                   )}
 
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setBackgroundImage(null)}>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { if (activeFieldId) setBackgroundImage(activeFieldId, null); }}>
                     移除圖片
                   </Button>
                 </div>
@@ -548,6 +556,8 @@ function FieldInfoSection({
 function CropSelectionSection({
   item,
   onDelete,
+  onDeleteArea,
+  onRemovePlant,
   onDeselect,
   onChangeCrop,
   onMarkHarvested,
@@ -560,6 +570,8 @@ function CropSelectionSection({
     crop: FieldData["plantedCrops"][number]["crop"];
   };
   onDelete?: () => void;
+  onDeleteArea?: () => void;
+  onRemovePlant?: () => void;
   onDeselect: () => void;
   onChangeCrop?: () => void;
   onMarkHarvested?: () => void;
@@ -742,6 +754,18 @@ function CropSelectionSection({
           </>
         )}
 
+        {onRemovePlant && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs"
+            onClick={onRemovePlant}
+          >
+            <Sprout className="mr-1 size-3" />
+            移除作物
+          </Button>
+        )}
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -751,15 +775,15 @@ function CropSelectionSection({
           >
             取消選取
           </Button>
-          {onDelete && (
+          {onDeleteArea && (
             <Button
               variant="destructive"
               size="sm"
               className="text-xs"
-              onClick={onDelete}
+              onClick={onDeleteArea}
             >
               <Trash2 className="mr-1 size-3" />
-              刪除
+              刪除區域
             </Button>
           )}
         </div>
