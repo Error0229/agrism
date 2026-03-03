@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Clock, ImagePlus, Loader2, Redo2, Undo2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   useFieldById,
@@ -46,6 +47,7 @@ import { EditorStatusBar } from "./editor-status-bar";
 import { EditorTimelineBar } from "./editor-timeline-bar";
 import { PropertyInspector, type AlignType } from "./property-inspector";
 import { PlantCropDialog } from "./plant-crop-dialog";
+import { FieldManageMenu } from "./field-manage-menu";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 
 interface EditorLayoutProps {
@@ -868,8 +870,27 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="flex h-full flex-col">
+        {/* Skeleton top bar */}
+        <div className="flex h-10 items-center gap-2 border-b bg-background px-2">
+          <Skeleton className="size-8 rounded" />
+          <Skeleton className="h-4 w-24" />
+          <div className="flex-1" />
+          <Skeleton className="size-8 rounded" />
+          <Skeleton className="size-8 rounded" />
+          <Skeleton className="size-8 rounded" />
+        </div>
+        {/* Skeleton body */}
+        <div className="flex flex-1 overflow-hidden">
+          <div className="hidden md:flex w-10 border-r bg-background flex-col gap-2 items-center py-2">
+            <Skeleton className="size-7 rounded" />
+            <Skeleton className="size-7 rounded" />
+            <Skeleton className="size-7 rounded" />
+          </div>
+          <div className="flex-1 flex items-center justify-center bg-muted/30">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -896,18 +917,28 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Top bar */}
-      <div className={cn("flex h-10 items-center gap-2 border-b bg-background px-2", timelineMode && "bg-amber-50/50 dark:bg-amber-950/10")}>
-        <Button asChild variant="ghost" size="icon" className="size-8">
+      <div className={cn("flex h-10 items-center gap-1 md:gap-2 border-b bg-background px-2 overflow-hidden", timelineMode && "bg-amber-50/50 dark:bg-amber-950/10")}>
+        <Button asChild variant="ghost" size="icon" className="size-8 shrink-0">
           <Link href="/fields">
             <ArrowLeft className="size-4" />
           </Link>
         </Button>
 
-        <span className="truncate text-sm font-medium">{field.name}</span>
+        <span className="min-w-0 truncate text-sm font-medium">{field.name}</span>
 
-        {/* Utility node type selector (when utility_node tool is active) */}
+        {farmId && (
+          <FieldManageMenu
+            fieldId={field.id}
+            farmId={farmId}
+            fieldName={field.name}
+            fieldWidthM={Number(field.widthM)}
+            fieldHeightM={Number(field.heightM)}
+          />
+        )}
+
+        {/* Utility node type selector (when utility_node tool is active) — desktop only */}
         {activeTool === "utility_node" && (
-          <div className="flex items-center gap-1 border-l pl-2 ml-2">
+          <div className="hidden md:flex items-center gap-1 border-l pl-2 ml-2">
             <span className="text-xs text-muted-foreground">節點類型:</span>
             <select
               value={utilityNodeType}
@@ -938,7 +969,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               <Button
                 variant={timelineMode ? "secondary" : "ghost"}
                 size="icon"
-                className={cn("size-8", timelineMode && "text-amber-700 dark:text-amber-300")}
+                className={cn("size-8 shrink-0", timelineMode && "text-amber-700 dark:text-amber-300")}
                 onClick={() => enterTimeline()}
                 aria-label="時間軸"
               >
@@ -949,7 +980,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Map import */}
+        {/* Map import — hidden on mobile to save space */}
         <input
           ref={fileInputRef}
           type="file"
@@ -963,7 +994,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8"
+                className="size-8 shrink-0 hidden md:inline-flex"
                 onClick={handleImportMap}
                 aria-label="匯入地圖"
               >
@@ -981,7 +1012,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8"
+                className="size-8 shrink-0"
                 disabled={!canUndo()}
                 onClick={() => undo()}
                 aria-label="復原"
@@ -997,7 +1028,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-8"
+                className="size-8 shrink-0"
                 disabled={!canRedo()}
                 onClick={() => redo()}
                 aria-label="重做"
@@ -1009,8 +1040,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Zoom */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        {/* Zoom — hidden on mobile to save space */}
+        <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground">
           <Button
             variant="ghost"
             size="icon"
@@ -1124,12 +1155,14 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         <EditorToolbar orientation="horizontal" />
       </div>
 
-      {/* Bottom: status bar */}
-      <EditorStatusBar
-        fieldName={field.name}
-        fieldWidthM={Number(field.widthM)}
-        fieldHeightM={Number(field.heightM)}
-      />
+      {/* Bottom: status bar — hidden on mobile to maximize canvas space */}
+      <div className="hidden md:block">
+        <EditorStatusBar
+          fieldName={field.name}
+          fieldWidthM={Number(field.widthM)}
+          fieldHeightM={Number(field.heightM)}
+        />
+      </div>
 
       {/* Crop assignment dialog (opens after draw_rect creates a region) */}
       {farmId && (

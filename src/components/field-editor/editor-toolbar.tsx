@@ -69,7 +69,7 @@ export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) 
         className={cn(
           "flex items-center gap-1 bg-background",
           isHorizontal
-            ? "h-12 w-full flex-row justify-center border-t px-2"
+            ? "h-12 w-full flex-row justify-center border-t px-2 overflow-x-auto"
             : "h-full w-12 flex-col border-r py-2",
         )}
       >
