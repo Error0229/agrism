@@ -8,8 +8,11 @@ import {
   updateField,
   deleteField,
   plantCrop,
+  createRegion,
+  assignCropToRegion,
   harvestCrop,
   removePlantedCrop,
+  restorePlantedCrop,
   updateCropPlacement,
   createFacility,
   updateFacility,
@@ -103,6 +106,39 @@ export function useRemovePlantedCrop() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => removePlantedCrop(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: fieldKeys.all })
+    },
+  })
+}
+
+export function useRestorePlantedCrop() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => restorePlantedCrop(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: fieldKeys.all })
+    },
+  })
+}
+
+export function useCreateRegion(farmId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof createRegion>[1] }) =>
+      createRegion(fieldId, data),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
+      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
+    },
+  })
+}
+
+export function useAssignCropToRegion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ plantedCropId, cropId }: { plantedCropId: string; cropId: string }) =>
+      assignCropToRegion(plantedCropId, cropId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: fieldKeys.all })
     },

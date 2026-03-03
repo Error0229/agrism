@@ -66,6 +66,34 @@ export function createResizeCommand(params: {
   };
 }
 
+export function createPlantCropCommand(params: {
+  plantFn: () => Promise<{ plantedCropId: string }>;
+  removeFn: (plantedCropId: string) => Promise<void>;
+  restoreFn: (plantedCropId: string) => Promise<void>;
+}): Command {
+  const { plantFn, removeFn, restoreFn } = params;
+  let plantedCropId: string | null = null;
+
+  return {
+    id: nextCommandId(),
+    label: "Plant crop",
+    async execute() {
+      if (plantedCropId) {
+        // Re-executing after undo (redo): restore the soft-deleted crop
+        await restoreFn(plantedCropId);
+      } else {
+        // First execution: create the crop
+        const result = await plantFn();
+        plantedCropId = result.plantedCropId;
+      }
+    },
+    async undo() {
+      if (!plantedCropId) return;
+      await removeFn(plantedCropId);
+    },
+  };
+}
+
 export function createDeleteCommand(params: {
   ids: string[];
   deleteFn: (id: string) => Promise<void>;

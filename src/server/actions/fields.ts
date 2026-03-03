@@ -49,6 +49,15 @@ const plantCropSchema = z.object({
   shapePoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
 })
 
+const createRegionSchema = z.object({
+  xM: z.number().min(0),
+  yM: z.number().min(0),
+  widthM: z.number().positive(),
+  heightM: z.number().positive(),
+  cropId: z.string().uuid().optional(),
+  shapePoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+})
+
 const updatePlantedCropSchema = z.object({
   notes: z.string().nullable().optional(),
   customGrowthDays: z.number().int().positive().nullable().optional(),
@@ -193,7 +202,7 @@ export async function getFieldById(id: string) {
         crop: crops,
       })
       .from(plantedCrops)
-      .innerJoin(crops, eq(plantedCrops.cropId, crops.id))
+      .leftJoin(crops, eq(plantedCrops.cropId, crops.id))
       .where(eq(plantedCrops.fieldId, id)),
     db
       .select()
@@ -314,6 +323,48 @@ export async function plantCrop(
   return { plantedCrop: planted, placement }
 }
 
+export async function createRegion(
+  fieldId: string,
+  data: z.infer<typeof createRegionSchema>,
+) {
+  const parsed = createRegionSchema.parse(data)
+
+  const [planted] = await db
+    .insert(plantedCrops)
+    .values({
+      cropId: parsed.cropId ?? null,
+      fieldId,
+      plantedDate: new Date().toISOString().split('T')[0],
+      status: 'growing',
+    })
+    .returning()
+
+  const [placement] = await db
+    .insert(cropPlacements)
+    .values({
+      plantedCropId: planted.id,
+      fieldId,
+      xM: parsed.xM,
+      yM: parsed.yM,
+      widthM: parsed.widthM,
+      heightM: parsed.heightM,
+      shapePoints: parsed.shapePoints ?? null,
+    })
+    .returning()
+
+  return { plantedCrop: planted, placement }
+}
+
+export async function assignCropToRegion(plantedCropId: string, cropId: string) {
+  const [updated] = await db
+    .update(plantedCrops)
+    .set({ cropId })
+    .where(eq(plantedCrops.id, plantedCropId))
+    .returning()
+
+  return updated
+}
+
 export async function updatePlantedCrop(
   id: string,
   data: z.infer<typeof updatePlantedCropSchema>,
@@ -346,6 +397,16 @@ export async function removePlantedCrop(id: string) {
   const [updated] = await db
     .update(plantedCrops)
     .set({ status: 'removed' })
+    .where(eq(plantedCrops.id, id))
+    .returning()
+
+  return updated
+}
+
+export async function restorePlantedCrop(id: string) {
+  const [updated] = await db
+    .update(plantedCrops)
+    .set({ status: 'growing' })
     .where(eq(plantedCrops.id, id))
     .returning()
 

@@ -98,9 +98,7 @@ export const plantedCrops = pgTable(
   'planted_crops',
   {
     id: uuid().defaultRandom().primaryKey(),
-    cropId: uuid('crop_id')
-      .notNull()
-      .references(() => crops.id),
+    cropId: uuid('crop_id').references(() => crops.id),
     fieldId: uuid('field_id')
       .notNull()
       .references(() => fields.id),

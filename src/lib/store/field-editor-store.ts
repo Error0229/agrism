@@ -4,7 +4,7 @@ import type { Command } from "./editor-commands";
 
 export type EditorTool = "select" | "draw_rect" | "hand" | "eraser" | "measure";
 
-const MAX_UNDO_STACK = 50;
+const MAX_UNDO_STACK = 100;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 0.25;
