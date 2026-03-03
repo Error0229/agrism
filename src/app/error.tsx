@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
@@ -27,7 +28,7 @@ export default function GlobalError({
           重試
         </Button>
         <Button variant="outline" asChild>
-          <a href="/">回到首頁</a>
+          <Link href="/">回到首頁</Link>
         </Button>
       </div>
     </div>
