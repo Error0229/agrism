@@ -35,4 +35,19 @@ test.describe("Page Rendering", () => {
       }
     });
   }
+
+  test("404 page renders for unknown routes", async ({ page }) => {
+    const response = await page.goto("/this-does-not-exist");
+    await page.waitForLoadState("networkidle");
+    const url = page.url();
+
+    if (url.includes("/auth/login")) {
+      // Auth redirect — login page shown
+      await expect(page.locator('input[type="email"]')).toBeVisible();
+    } else {
+      // 404 page should show "找不到此頁面" text
+      await expect(page.getByText("404")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("找不到此頁面")).toBeVisible();
+    }
+  });
 });

@@ -197,13 +197,13 @@ export default function CalendarPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon-sm" onClick={prevMonth}>
+              <Button variant="outline" size="icon-sm" onClick={prevMonth} aria-label="上個月">
                 <ChevronLeft className="size-4" />
               </Button>
               <h2 className="text-lg font-semibold min-w-[140px] text-center">
                 {format(currentMonth, 'yyyy年 M月', { locale: zhTW })}
               </h2>
-              <Button variant="outline" size="icon-sm" onClick={nextMonth}>
+              <Button variant="outline" size="icon-sm" onClick={nextMonth} aria-label="下個月">
                 <ChevronRight className="size-4" />
               </Button>
             </div>

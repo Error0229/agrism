@@ -59,7 +59,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg" aria-label="回到首頁">
           <Sprout className="size-5 text-green-600" />
           <span>花蓮種植指南</span>
         </Link>
@@ -129,7 +129,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <button type="button" onClick={() => signOut({ callbackUrl: "/auth/login" })}>
+              <button type="button" onClick={() => signOut({ callbackUrl: "/auth/login" })} aria-label="登出帳號">
                 <LogOut className="size-4" />
                 <span>登出{session?.user?.email ? ` (${session.user.email})` : ""}</span>
               </button>

@@ -232,7 +232,7 @@ export default function WeatherPage() {
             花蓮地區天氣資訊與預報
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchWeather}>
+        <Button variant="outline" size="sm" onClick={fetchWeather} aria-label="更新天氣資料">
           <RefreshCw className="mr-2 size-4" />
           更新
         </Button>
