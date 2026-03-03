@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useFarmId } from '@/hooks/use-farm-id'
+import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
 import { useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { useFields } from '@/hooks/use-fields'
 import {
@@ -93,7 +93,7 @@ function weatherCodeIcon(code: number) {
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
-  const farmId = useFarmId()
+  const { farmId, sessionStatus } = useFarmIdWithStatus()
   const { data: allTasks, isLoading: tasksLoading } = useTasks(farmId)
   const { data: fieldsData, isLoading: fieldsLoading } = useFields(farmId)
   const toggleTask = useToggleTask()
@@ -109,8 +109,8 @@ export default function DashboardPage() {
       .finally(() => setWeatherLoading(false))
   }, [])
 
-  // Show loading skeleton while session/data loads
-  if (!farmId) {
+  // Show loading skeleton only while session is loading
+  if (sessionStatus === 'loading') {
     return (
       <div className="space-y-6">
         <div>
@@ -123,6 +123,32 @@ export default function DashboardPage() {
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">載入中...</span>
         </div>
+      </div>
+    )
+  }
+
+  // Authenticated but no farm assigned — show onboarding prompt
+  if (!farmId) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">花蓮蔬果種植指南</h1>
+          <p className="text-muted-foreground">
+            {format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}
+          </p>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center space-y-4">
+            <Sprout className="mx-auto size-12 text-green-600" />
+            <h2 className="text-xl font-semibold">歡迎使用花蓮種植指南</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              您尚未建立農場。請先前往設定頁面建立您的第一個農場，即可開始使用所有功能。
+            </p>
+            <Button asChild>
+              <Link href="/settings">前往設定</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
