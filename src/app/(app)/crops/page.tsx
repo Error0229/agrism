@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { useFarmId } from '@/hooks/use-farm-id'
+import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
 import { useCrops } from '@/hooks/use-crops'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,8 +19,9 @@ import { AddCropDialog } from '@/components/crops/add-crop-dialog'
 const ALL_CATEGORIES = Object.values(CropCategory) as string[]
 
 export default function CropsPage() {
-  const farmId = useFarmId()
-  const { data: crops, isLoading } = useCrops(farmId)
+  const { farmId, sessionStatus } = useFarmIdWithStatus()
+  const { data: crops, isLoading: queryLoading } = useCrops(farmId)
+  const isLoading = sessionStatus === 'loading' || queryLoading
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
