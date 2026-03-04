@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 interface EditorMinimapProps {
   fieldWidthM: number;
   fieldHeightM: number;
@@ -22,7 +24,7 @@ const MINIMAP_W = 160;
 const MINIMAP_H = 120;
 const PIXELS_PER_METER = 100;
 
-export function EditorMinimap({
+export const EditorMinimap = React.memo(function EditorMinimap({
   fieldWidthM,
   fieldHeightM,
   items,
@@ -100,4 +102,4 @@ export function EditorMinimap({
       />
     </div>
   );
-}
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Grid3X3, Magnet } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ interface EditorStatusBarProps {
   fieldHeightM?: number;
 }
 
-export function EditorStatusBar({
+export const EditorStatusBar = React.memo(function EditorStatusBar({
   fieldName,
   fieldWidthM,
   fieldHeightM,
@@ -101,7 +102,7 @@ export function EditorStatusBar({
       <span>{Math.round(zoom * 100)}%</span>
     </div>
   );
-}
+});
 
 function Separator() {
   return <span className="text-border">|</span>;

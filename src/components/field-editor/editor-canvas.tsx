@@ -77,6 +77,14 @@ interface ResizePreview {
   shapePoints?: { x: number; y: number }[] | null;
 }
 
+// Vertex drag state for polygon vertex editing
+interface VertexDragState {
+  itemId: string;
+  vertexIndex: number;
+  origShapePoints: { x: number; y: number }[];
+  origBounds: { xM: number; yM: number; widthM: number; heightM: number };
+}
+
 // Measure tool state
 interface MeasureState {
   startXM: number;
@@ -275,9 +283,17 @@ interface EditorCanvasProps {
   onConnectUtilityNodes?: (fromNodeId: string, toNodeId: string) => void;
   onQuickAdd?: (pos: { xM: number; yM: number }) => void;
   onContextAction?: (action: string, itemId: string) => void;
+  onContextMenu?: (data: {
+    x: number;
+    y: number;
+    itemId: string;
+    itemKind: "crop" | "facility";
+    hasActiveCrop: boolean;
+    status: string;
+  }) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction, onContextMenu }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -349,22 +365,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const [polygonCursorPos, setPolygonCursorPos] = useState<{ xM: number; yM: number } | null>(null);
   const [pendingEdgeFromNodeId, setPendingEdgeFromNodeId] = useState<string | null>(null);
   const [edgeCursorPos, setEdgeCursorPos] = useState<{ xM: number; yM: number } | null>(null);
+  const [vertexDragState, setVertexDragState] = useState<VertexDragState | null>(null);
 
-  // Context menu state
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    itemId: string;
-    itemKind: "crop" | "facility";
-  } | null>(null);
-
-  // Close context menu on any click
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handler = () => setContextMenu(null);
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, [contextMenu]);
+  // Context menu state removed — now delegated via onContextMenu prop
 
   // Clear polygon state when switching away from draw_polygon.
   // The cleanup function runs when activeTool changes away from draw_polygon,
@@ -839,6 +842,42 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         }
         return;
       }
+
+      // Handle vertex drag — compute live preview
+      if (vertexDragState) {
+        e.evt.preventDefault();
+        const stage = stageRef.current;
+        if (!stage) return;
+        const stagePos = stage.getPointerPosition();
+        if (!stagePos) return;
+        const transform = stage.getAbsoluteTransform().copy().invert();
+        const realPos = transform.point(stagePos);
+
+        const newVertexXM = snapM(realPos.x / PIXELS_PER_METER);
+        const newVertexYM = snapM(realPos.y / PIXELS_PER_METER);
+
+        const newShapePoints = vertexDragState.origShapePoints.map((p, i) =>
+          i === vertexDragState.vertexIndex ? { x: newVertexXM, y: newVertexYM } : p,
+        );
+
+        // Recalculate bounding box
+        const xs = newShapePoints.map((p) => p.x);
+        const ys = newShapePoints.map((p) => p.y);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+
+        setResizePreview({
+          id: vertexDragState.itemId,
+          xM: minX,
+          yM: minY,
+          widthM: Math.max(maxX - minX, MIN_SIZE_M),
+          heightM: Math.max(maxY - minY, MIN_SIZE_M),
+          shapePoints: newShapePoints,
+        });
+        return;
+      }
     },
     [
       activeTool,
@@ -848,6 +887,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       polygonPoints,
       pendingEdgeFromNodeId,
       resizeState,
+      vertexDragState,
       getPointerMeters,
       snapM,
       setCursorPosition,
@@ -1043,6 +1083,26 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     [itemById],
   );
 
+  // --- Vertex drag handler ---
+  const handleVertexDragStart = useCallback(
+    (itemId: string, vertexIndex: number) => {
+      const item = itemById.get(itemId);
+      if (!item || !item.shapePoints || item.shapePoints.length < 3) return;
+      setVertexDragState({
+        itemId,
+        vertexIndex,
+        origShapePoints: item.shapePoints.map((p) => ({ ...p })),
+        origBounds: {
+          xM: item.xM,
+          yM: item.yM,
+          widthM: item.widthM,
+          heightM: item.heightM,
+        },
+      });
+    },
+    [itemById],
+  );
+
   const handleResizeEnd = useCallback(() => {
     if (!resizeState) return;
     const item = itemById.get(resizeState.itemId);
@@ -1203,11 +1263,70 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     [setCursorPosition],
   );
 
+  // --- Vertex drag commit ---
+  const handleVertexDragEnd = useCallback(() => {
+    if (!vertexDragState) return;
+
+    const item = itemById.get(vertexDragState.itemId);
+    if (!item || !resizePreview?.shapePoints) {
+      setVertexDragState(null);
+      setResizePreview(null);
+      return;
+    }
+
+    const newShapePoints = resizePreview.shapePoints;
+    const newBounds = {
+      xM: resizePreview.xM,
+      yM: resizePreview.yM,
+      widthM: resizePreview.widthM,
+      heightM: resizePreview.heightM,
+    };
+    const origBounds = vertexDragState.origBounds;
+    const origShapePoints = vertexDragState.origShapePoints;
+
+    const cmd = createResizeCommand({
+      id: vertexDragState.itemId,
+      oldBounds: origBounds,
+      newBounds,
+      async updateFn(id, data) {
+        if (item.kind === "crop") {
+          await updatePlacement.mutateAsync({
+            placementId: id,
+            fieldId: field.id,
+            data: { ...data, shapePoints: newShapePoints },
+          });
+        } else if (item.kind === "facility") {
+          await updateFacility.mutateAsync({ id, fieldId: field.id, data });
+        }
+      },
+    });
+
+    // For undo: also restore old shape points
+    const origUndo = cmd.undo;
+    cmd.undo = async () => {
+      await origUndo();
+      if (item.kind === "crop") {
+        await updatePlacement.mutateAsync({
+          placementId: vertexDragState.itemId,
+          fieldId: field.id,
+          data: { shapePoints: origShapePoints },
+        });
+      }
+    };
+
+    executeCommand(cmd);
+    setVertexDragState(null);
+    setResizePreview(null);
+  }, [vertexDragState, resizePreview, itemById, field.id, updatePlacement, updateFacility, executeCommand]);
+
   const handleStageMouseUpCombined = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
       handleStageMouseUp();
       if (resizeState) {
         handleResizeEnd();
+      }
+      if (vertexDragState) {
+        handleVertexDragEnd();
       }
       if (activeTool !== "measure" && measureState) {
         setMeasureState(null);
@@ -1216,12 +1335,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         e.cancelBubble = true;
       }
     },
-    [handleStageMouseUp, resizeState, handleResizeEnd, activeTool, measureState],
+    [handleStageMouseUp, resizeState, handleResizeEnd, vertexDragState, handleVertexDragEnd, activeTool, measureState],
   );
 
-  const handleContextMenu = useCallback(
+  const handleContextMenuEvent = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
+      if (!onContextMenu) return;
       const stage = stageRef.current;
       if (!stage) return;
       const pos = stage.getPointerPosition();
@@ -1239,24 +1359,24 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           yM <= item.yM + item.heightM,
       );
       if (hitItem) {
-        setContextMenu({
+        onContextMenu({
           x: e.clientX,
           y: e.clientY,
           itemId: hitItem.id,
           itemKind: hitItem.kind,
+          hasActiveCrop: hitItem.kind === "crop" && hitItem.status !== "harvested" && hitItem.status !== "removed",
+          status: hitItem.status,
         });
-      } else {
-        setContextMenu(null);
       }
     },
-    [canvasItems],
+    [canvasItems, onContextMenu],
   );
 
   return (
     <div
       ref={containerRef}
       className={cn("size-full overflow-hidden", cursorClass, timelineMode && "opacity-75 saturate-[0.7]")}
-      onContextMenu={handleContextMenu}
+      onContextMenu={handleContextMenuEvent}
     >
       <Stage
         ref={stageRef}
@@ -1276,7 +1396,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         onMouseLeave={handleStageMouseLeave}
         onMouseUp={handleStageMouseUpCombined}
       >
-        <Layer>
+        {/* Layer 1: Grid lines + background image (static) */}
+        <Layer listening={false}>
           {/* Field background */}
           <Rect
             x={0}
@@ -1286,7 +1407,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             fill="#f0fdf4"
             stroke="#86efac"
             strokeWidth={2}
-            listening={false}
           />
 
           {/* Background map image */}
@@ -1298,7 +1418,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
               width={canvasWidth}
               height={canvasHeight}
               opacity={backgroundOpacity}
-              listening={false}
             />
           )}
 
@@ -1311,7 +1430,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                     points={[line.position, 0, line.position, canvasHeight]}
                     stroke={line.major ? "#d1d5db" : "#e5e7eb"}
                     strokeWidth={line.major ? 1.2 : 0.8}
-                    listening={false}
                   />
                   {line.label && (
                     <Text
@@ -1320,7 +1438,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                       text={line.label}
                       fontSize={10}
                       fill="#9ca3af"
-                      listening={false}
                     />
                   )}
                 </Group>
@@ -1332,7 +1449,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   points={[0, line.position, canvasWidth, line.position]}
                   stroke={line.major ? "#d1d5db" : "#e5e7eb"}
                   strokeWidth={line.major ? 1.2 : 0.8}
-                  listening={false}
                 />
                 {line.label && (
                   <Text
@@ -1341,7 +1457,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                     text={line.label}
                     fontSize={10}
                     fill="#9ca3af"
-                    listening={false}
                   />
                 )}
               </Group>
@@ -1355,10 +1470,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             text={`${fieldWidthM} \u00d7 ${fieldHeightM} m`}
             fontSize={12}
             fill="#6b7280"
-            listening={false}
           />
+        </Layer>
 
-          {/* Canvas items (crops + facilities) */}
+        {/* Layer 2: Canvas items (crops + facilities) */}
+        <Layer>
           {visibleCanvasItems.map((item) => {
             // Use resize preview dimensions if this item is being resized
             const rp = resizePreview?.id === item.id ? resizePreview : null;
@@ -1382,6 +1498,19 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
             // Check if this item has polygon shape points
             const hasPolygonShape = renderShapePoints && renderShapePoints.length >= 3;
+
+            // Calculate label position: centroid for polygons, center for rectangles
+            let labelX: number;
+            let labelY: number;
+            if (hasPolygonShape) {
+              const centroidX = renderShapePoints!.reduce((s, p) => s + p.x, 0) / renderShapePoints!.length;
+              const centroidY = renderShapePoints!.reduce((s, p) => s + p.y, 0) / renderShapePoints!.length;
+              labelX = (centroidX - renderXM) * PIXELS_PER_METER;
+              labelY = (centroidY - renderYM) * PIXELS_PER_METER;
+            } else {
+              labelX = wPx / 2;
+              labelY = hPx / 2;
+            }
 
             return (
               <Group
@@ -1443,19 +1572,23 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   />
                 )}
 
-                {/* Emoji */}
+                {/* Centered Emoji */}
                 <Text
-                  x={4}
-                  y={4}
+                  x={labelX - wPx / 2}
+                  y={labelY - 18}
+                  width={wPx}
+                  align="center"
                   text={item.emoji}
                   fontSize={16}
                   listening={false}
                 />
 
-                {/* Label */}
+                {/* Centered Label */}
                 <Text
-                  x={4}
-                  y={24}
+                  x={labelX - wPx / 2}
+                  y={labelY}
+                  width={wPx}
+                  align="center"
                   text={item.label}
                   fontSize={10}
                   fill="#374151"
@@ -1465,8 +1598,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 {/* Status for harvested */}
                 {isHarvested && (
                   <Text
-                    x={4}
-                    y={36}
+                    x={labelX - wPx / 2}
+                    y={labelY + 14}
+                    width={wPx}
+                    align="center"
                     text="\u5df2\u6536\u6210"
                     fontSize={9}
                     fill="#4b5563"
@@ -1486,23 +1621,36 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   />
                 )}
 
-                {/* Resize handles for selected items */}
+                {/* Handles: polygon vertex handles or bounding-box resize handles */}
                 {isSelected && isDraggable && (
-                  <ResizeHandles
-                    itemId={item.id}
-                    xPx={0}
-                    yPx={0}
-                    wPx={wPx}
-                    hPx={hPx}
-                    scale={zoom}
-                    onResizeStart={handleResizeStart}
-                  />
+                  hasPolygonShape ? (
+                    <PolygonVertexHandles
+                      itemId={item.id}
+                      shapePoints={renderShapePoints!}
+                      originXM={renderXM}
+                      originYM={renderYM}
+                      scale={zoom}
+                      onVertexDragStart={handleVertexDragStart}
+                    />
+                  ) : (
+                    <ResizeHandles
+                      itemId={item.id}
+                      xPx={0}
+                      yPx={0}
+                      wPx={wPx}
+                      hPx={hPx}
+                      scale={zoom}
+                      onResizeStart={handleResizeStart}
+                    />
+                  )
                 )}
               </Group>
             );
           })}
+        </Layer>
 
-
+        {/* Layer 3: Utility edges + nodes */}
+        <Layer>
           {/* Utility edges */}
           {visibleUtilityEdges.map((edge) => {
             const from = utilityNodeById.get(edge.fromNodeId);
@@ -1601,7 +1749,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
               </Group>
             );
           })}
+        </Layer>
 
+        {/* Layer 4: Overlays (selection handles, snap guides, draw preview, measure, calibration) */}
+        <Layer>
           {/* Smart alignment guides */}
           {activeGuides.map((guide, i) => (
             <Line
@@ -1879,60 +2030,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           )}
         </Layer>
       </Stage>
-
-      {/* Right-click context menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <div className="rounded-md border bg-popover p-1 shadow-md min-w-[160px]">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-              onClick={() => {
-                onContextAction?.("copy", contextMenu.itemId);
-                setContextMenu(null);
-              }}
-            >
-              複製
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-              onClick={() => {
-                onContextAction?.("duplicate", contextMenu.itemId);
-                setContextMenu(null);
-              }}
-            >
-              複製並貼上
-            </button>
-            {contextMenu.itemKind === "crop" && (
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                onClick={() => {
-                  onContextAction?.("changeCrop", contextMenu.itemId);
-                  setContextMenu(null);
-                }}
-              >
-                更換作物
-              </button>
-            )}
-            <div className="my-1 h-px bg-border" />
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent"
-              onClick={() => {
-                onContextAction?.("delete", contextMenu.itemId);
-                setContextMenu(null);
-              }}
-            >
-              刪除
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1994,6 +2091,48 @@ function ResizeHandles({
           />
         );
       })}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Polygon vertex handles — renders a handle at each vertex position
+// ---------------------------------------------------------------------------
+
+function PolygonVertexHandles({
+  itemId,
+  shapePoints,
+  originXM,
+  originYM,
+  scale,
+  onVertexDragStart,
+}: {
+  itemId: string;
+  shapePoints: { x: number; y: number }[];
+  originXM: number;
+  originYM: number;
+  scale: number;
+  onVertexDragStart: (itemId: string, vertexIndex: number) => void;
+}) {
+  const radius = (HANDLE_SIZE / 2) / scale;
+
+  return (
+    <>
+      {shapePoints.map((pt, i) => (
+        <Circle
+          key={`vertex-${i}`}
+          x={(pt.x - originXM) * PIXELS_PER_METER}
+          y={(pt.y - originYM) * PIXELS_PER_METER}
+          radius={radius}
+          fill="#22c55e"
+          stroke="#166534"
+          strokeWidth={1}
+          onMouseDown={(e) => {
+            e.cancelBubble = true;
+            onVertexDragStart(itemId, i);
+          }}
+        />
+      ))}
     </>
   );
 }

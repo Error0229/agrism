@@ -1,10 +1,11 @@
 "use client";
 
+import React from "react";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react";
 
-export function EditorTimelineBar() {
+export const EditorTimelineBar = React.memo(function EditorTimelineBar() {
   const timelineDate = useFieldEditor((s) => s.timelineDate);
   const setTimelineDate = useFieldEditor((s) => s.setTimelineDate);
   const prevDay = useFieldEditor((s) => s.timelinePrevDay);
@@ -48,4 +49,4 @@ export function EditorTimelineBar() {
       </Button>
     </div>
   );
-}
+});

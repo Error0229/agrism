@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Cable,
   CircleDot,
@@ -57,7 +58,7 @@ interface EditorToolbarProps {
   orientation?: "vertical" | "horizontal";
 }
 
-export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) {
+export const EditorToolbar = React.memo(function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) {
   const activeTool = useFieldEditor((s) => s.activeTool);
   const setTool = useFieldEditor((s) => s.setTool);
 
@@ -125,4 +126,4 @@ export function EditorToolbar({ orientation = "vertical" }: EditorToolbarProps) 
       </div>
     </TooltipProvider>
   );
-}
+});

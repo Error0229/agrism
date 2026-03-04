@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, ImagePlus, Loader2, PanelBottomOpen, Redo2, Undo2 } from "lucide-react";
+import { ArrowLeft, Clock, Copy, CopyPlus, ImagePlus, Loader2, PanelBottomOpen, Redo2, Replace, Scissors, Trash2, Undo2, Wheat } from "lucide-react";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -138,6 +139,16 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // Crop reassignment state
   const [reassignPlantedCropId, setReassignPlantedCropId] = useState<string | null>(null);
 
+  // Context menu state (rendered as HTML overlay in layout, triggered from canvas)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    itemId: string;
+    itemKind: "crop" | "facility";
+    hasActiveCrop: boolean;
+    status: string;
+  } | null>(null);
+
   useEffect(() => {
     setActiveField(fieldId);
   }, [fieldId, setActiveField]);
@@ -145,6 +156,14 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   useEffect(() => {
     initFromStorage();
   }, [initFromStorage]);
+
+  // Close context menu on any click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, [contextMenu]);
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedIds.length === 0 || !field) return;
@@ -708,17 +727,21 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (!fromNode || !toNode) return;
 
       if (fromNode.kind !== toNode.kind) {
-        alert('無法連接不同類型的設施節點（水利與電力）');
+        toast.error('無法連接不同類型的設施節點（水利與電力）');
         return;
       }
 
-      await createUtilityEdge.mutateAsync({
-        fieldId: field.id,
-        data: { fromNodeId, toNodeId, kind: fromNode.kind },
-      });
-      setTool("select");
+      try {
+        await createUtilityEdge.mutateAsync({
+          fieldId: field.id,
+          data: { fromNodeId, toNodeId, kind: fromNode.kind },
+        });
+        toast.success('設施連接已建立');
+      } catch {
+        toast.error('建立連接失敗，請重試');
+      }
     },
-    [field, createUtilityEdge, setTool],
+    [field, createUtilityEdge],
   );
 
   // --- Quick-add (double-click on empty canvas) ---
@@ -740,50 +763,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       setPendingRectInfo(rect);
     },
     [farmId, fieldId, createRegionMut],
-  );
-
-  // --- Context menu action (right-click on canvas item) ---
-  const handleContextAction = useCallback(
-    (action: string, itemId: string) => {
-      // Select the item first
-      useFieldEditor.getState().select(itemId);
-
-      switch (action) {
-        case "copy":
-          // Copy needs selection to be reflected first, then use handleCopy
-          setTimeout(() => handleCopy(), 0);
-          break;
-        case "duplicate":
-          setTimeout(() => handleDuplicate(), 0);
-          break;
-        case "changeCrop": {
-          const item = field?.placements.find((p) => p.id === itemId);
-          if (item) {
-            handleChangeCrop(item.plantedCropId);
-          }
-          break;
-        }
-        case "delete":
-          setTimeout(() => {
-            // Re-read to get updated selection
-            const state = useFieldEditor.getState();
-            if (state.selectedIds.length > 0) {
-              handleDeleteSelected();
-            }
-          }, 0);
-          break;
-      }
-    },
-    [field, handleCopy, handleDuplicate, handleChangeCrop, handleDeleteSelected],
-  );
-
-  // --- Memo ---
-  const handleMemoChange = useCallback(
-    (memo: string) => {
-      if (!field) return;
-      updateFieldMemo.mutate({ fieldId: field.id, memo });
-    },
-    [field, updateFieldMemo],
   );
 
   // --- Mark as harvested ---
@@ -809,6 +788,71 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       removePlantedCrop.mutate(plantedCropId);
     },
     [removePlantedCrop],
+  );
+
+  // --- Context menu action (right-click on canvas item) ---
+  const handleContextAction = useCallback(
+    (action: string, itemId: string) => {
+      // Select the item first
+      useFieldEditor.getState().select(itemId);
+
+      switch (action) {
+        case "copy":
+          // Copy needs selection to be reflected first, then use handleCopy
+          setTimeout(() => handleCopy(), 0);
+          break;
+        case "duplicate":
+          setTimeout(() => handleDuplicate(), 0);
+          break;
+        case "changeCrop": {
+          const item = field?.placements.find((p) => p.id === itemId);
+          if (item) {
+            handleChangeCrop(item.plantedCropId);
+          }
+          break;
+        }
+        case "removePlant": {
+          const item = field?.placements.find((p) => p.id === itemId);
+          if (item) {
+            handleRemovePlant(item.plantedCropId);
+          }
+          break;
+        }
+        case "markHarvested": {
+          const item = field?.placements.find((p) => p.id === itemId);
+          if (item) {
+            handleMarkHarvested(item.plantedCropId);
+          }
+          break;
+        }
+        case "deleteArea": {
+          const item = field?.placements.find((p) => p.id === itemId);
+          if (item) {
+            handleDeleteArea(item.plantedCropId);
+          }
+          break;
+        }
+        case "delete":
+          setTimeout(() => {
+            // Re-read to get updated selection
+            const state = useFieldEditor.getState();
+            if (state.selectedIds.length > 0) {
+              handleDeleteSelected();
+            }
+          }, 0);
+          break;
+      }
+    },
+    [field, handleCopy, handleDuplicate, handleChangeCrop, handleDeleteSelected, handleRemovePlant, handleMarkHarvested, handleDeleteArea],
+  );
+
+  // --- Memo ---
+  const handleMemoChange = useCallback(
+    (memo: string) => {
+      if (!field) return;
+      updateFieldMemo.mutate({ fieldId: field.id, memo });
+    },
+    [field, updateFieldMemo],
   );
 
   // --- Canvas container size tracking for minimap ---
@@ -915,7 +959,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const facilityCount = field.facilities.length;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full w-full max-w-full flex-col overflow-hidden">
       {/* Top bar */}
       <div className={cn("flex h-10 items-center gap-1 md:gap-2 border-b bg-background px-2 overflow-hidden", timelineMode && "bg-amber-50/50 dark:bg-amber-950/10")}>
         <Button asChild variant="ghost" size="icon" className="size-8 shrink-0">
@@ -1068,7 +1112,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       {timelineMode && <EditorTimelineBar />}
 
       {/* Main area: toolbar + canvas + inspector */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex w-full min-w-0 flex-1 overflow-hidden">
         {/* Left: toolbar (desktop vertical) */}
         <div className="hidden md:flex">
           <EditorToolbar />
@@ -1084,6 +1128,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             onConnectUtilityNodes={handleConnectUtilityNodes}
             onQuickAdd={handleQuickAdd}
             onContextAction={handleContextAction}
+            onContextMenu={(data) => setContextMenu(data)}
           />
           <EditorMinimap
             fieldWidthM={Number(field.widthM)}
@@ -1106,6 +1151,110 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             >
               <PanelBottomOpen className="size-5" />
             </Button>
+          )}
+
+          {/* Right-click context menu overlay */}
+          {contextMenu && (
+            <div
+              className="fixed z-50"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              <div className="rounded-md border bg-popover p-1 shadow-md min-w-[160px]">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => {
+                    handleContextAction("copy", contextMenu.itemId);
+                    setContextMenu(null);
+                  }}
+                >
+                  <Copy className="size-3.5 text-muted-foreground" />
+                  複製
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                  onClick={() => {
+                    handleContextAction("duplicate", contextMenu.itemId);
+                    setContextMenu(null);
+                  }}
+                >
+                  <CopyPlus className="size-3.5 text-muted-foreground" />
+                  複製並貼上
+                </button>
+
+                {/* Crop-specific actions */}
+                {contextMenu.itemKind === "crop" && contextMenu.hasActiveCrop && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        handleContextAction("changeCrop", contextMenu.itemId);
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Replace className="size-3.5 text-muted-foreground" />
+                      更換作物
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        handleContextAction("removePlant", contextMenu.itemId);
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Scissors className="size-3.5 text-muted-foreground" />
+                      移除作物
+                    </button>
+                    {contextMenu.status === "growing" && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                        onClick={() => {
+                          handleContextAction("markHarvested", contextMenu.itemId);
+                          setContextMenu(null);
+                        }}
+                      >
+                        <Wheat className="size-3.5 text-muted-foreground" />
+                        標記收成
+                      </button>
+                    )}
+                  </>
+                )}
+
+                <div className="my-1 h-px bg-border" />
+
+                {/* Delete action: different for crop vs facility */}
+                {contextMenu.itemKind === "crop" ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent"
+                    onClick={() => {
+                      handleContextAction("deleteArea", contextMenu.itemId);
+                      setContextMenu(null);
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                    刪除區域
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent"
+                    onClick={() => {
+                      handleContextAction("delete", contextMenu.itemId);
+                      setContextMenu(null);
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                    刪除
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

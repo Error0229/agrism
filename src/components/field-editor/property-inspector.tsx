@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -91,7 +91,7 @@ interface PropertyInspectorProps {
   embedded?: boolean;
 }
 
-export function PropertyInspector({
+export const PropertyInspector = React.memo(function PropertyInspector({
   field,
   fieldName,
   fieldWidthM,
@@ -400,7 +400,7 @@ export function PropertyInspector({
       )}
     </div>
   );
-}
+});
 
 // --- Sub-sections ---
 
@@ -421,7 +421,7 @@ function PropRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function FieldInfoSection({
+const FieldInfoSection = React.memo(function FieldInfoSection({
   fieldName,
   fieldWidthM,
   fieldHeightM,
@@ -558,11 +558,11 @@ function FieldInfoSection({
       </div>
     </>
   );
-}
+});
 
 // --- Crop selection ---
 
-function CropSelectionSection({
+const CropSelectionSection = React.memo(function CropSelectionSection({
   item,
   onDelete,
   onDeleteArea,
@@ -799,11 +799,11 @@ function CropSelectionSection({
       </div>
     </>
   );
-}
+});
 
 // --- Facility selection ---
 
-function FacilitySelectionSection({
+const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
   item,
   field,
   onDelete,
@@ -929,11 +929,11 @@ function FacilitySelectionSection({
       </div>
     </>
   );
-}
+});
 
 // --- Utility node selection ---
 
-function UtilityNodeSelectionSection({
+const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSection({
   item,
   field,
   onDelete,
@@ -1115,11 +1115,11 @@ function UtilityNodeSelectionSection({
       </div>
     </>
   );
-}
+});
 
 // --- Multi selection ---
 
-function MultiSelectionSection({
+const MultiSelectionSection = React.memo(function MultiSelectionSection({
   count,
   onDelete,
   onDeselect,
@@ -1244,7 +1244,7 @@ function MultiSelectionSection({
       </div>
     </>
   );
-}
+});
 
 // --- Shared sub-components ---
 
@@ -1278,7 +1278,7 @@ function ToggleRow({
   );
 }
 
-function MemoSection({
+const MemoSection = React.memo(function MemoSection({
   memo,
   onMemoChange,
 }: {
@@ -1327,7 +1327,7 @@ function MemoSection({
       </p>
     </div>
   );
-}
+});
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
@@ -1340,7 +1340,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
 
 // --- Calibration panel ---
 
-function CalibrationPanel({
+const CalibrationPanel = React.memo(function CalibrationPanel({
   calibrationPoints,
   calibrationDistanceM,
   onSetDistance,
@@ -1426,4 +1426,4 @@ function CalibrationPanel({
       </div>
     </div>
   );
-}
+});
