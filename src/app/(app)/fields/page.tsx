@@ -13,13 +13,10 @@ import { PLOT_TYPE_LABELS } from '@/lib/types/labels'
 import type { PlotType } from '@/lib/types/enums'
 import { CreateFieldDialog } from '@/components/fields/create-field-dialog'
 
-type FieldWithRelations = NonNullable<
-  Awaited<ReturnType<typeof import('@/server/actions/fields').getFields>>
->[number]
-
 export default function FieldsPage() {
   const farmId = useFarmId()
-  const { data: fields, isLoading } = useFields(farmId)
+  const fields = useFields(farmId)
+  const isLoading = fields === undefined
   const [dialogOpen, setDialogOpen] = useState(false)
 
   return (
@@ -67,7 +64,7 @@ export default function FieldsPage() {
       {!isLoading && fields && fields.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {fields.map((field) => (
-            <FieldCard key={field.id} field={field} />
+            <FieldCard key={field._id} field={field} />
           ))}
         </div>
       )}
@@ -82,15 +79,15 @@ export default function FieldsPage() {
   )
 }
 
-function FieldCard({ field }: { field: FieldWithRelations }) {
+function FieldCard({ field }: { field: any }) {
   const areaM2 = field.widthM * field.heightM
-  const growingCrops = field.plantedCrops.filter(
-    (pc) => pc.plantedCrop.status === 'growing',
+  const growingCrops = (field.plantedCrops ?? []).filter(
+    (pc: any) => pc.plantedCrop.status === 'growing',
   )
-  const facilityCount = field.facilities.length
+  const facilityCount = (field.facilities ?? []).length
 
   return (
-    <Link href={`/fields/${field.id}`}>
+    <Link href={`/fields/${field._id}`}>
       <Card className="h-full cursor-pointer transition-shadow hover:shadow-md">
         <CardContent className="space-y-2 pt-6">
           <h3 className="font-semibold">{field.name}</h3>

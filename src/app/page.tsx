@@ -93,10 +93,13 @@ function weatherCodeIcon(code: number) {
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
-  const { farmId, sessionStatus } = useFarmIdWithStatus()
-  const { data: allTasks, isLoading: tasksLoading } = useTasks(farmId)
-  const { data: fieldsData, isLoading: fieldsLoading } = useFields(farmId)
+  const { farmId, isLoading: farmLoading } = useFarmIdWithStatus()
+  const allTasks = useTasks(farmId)
+  const fieldsData = useFields(farmId)
   const toggleTask = useToggleTask()
+
+  const tasksLoading = allTasks === undefined
+  const fieldsLoading = fieldsData === undefined
 
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(true)
@@ -110,7 +113,7 @@ export default function DashboardPage() {
   }, [])
 
   // Show loading skeleton only while session is loading
-  if (sessionStatus === 'loading') {
+  if (farmLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -182,8 +185,12 @@ export default function DashboardPage() {
   )
 
   // ---- Handlers ----
-  const handleToggle = (taskId: string) => {
-    toggleTask.mutate(taskId)
+  const handleToggle = async (taskId: string) => {
+    try {
+      await toggleTask({ id: taskId as any })
+    } catch {
+      // ignore
+    }
   }
 
   return (
@@ -231,7 +238,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {overdueTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="overdue"
                         onToggle={handleToggle}
@@ -250,7 +257,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {todayTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="today"
                         onToggle={handleToggle}
@@ -269,7 +276,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {upcomingTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="upcoming"
                         onToggle={handleToggle}
@@ -321,7 +328,7 @@ export default function DashboardPage() {
 
                 return (
                   <div
-                    key={entry.plantedCrop.id}
+                    key={entry.plantedCrop._id}
                     className="rounded-lg border p-3 space-y-1"
                   >
                     <div className="flex items-center gap-2">
@@ -486,7 +493,7 @@ export default function DashboardPage() {
 
 interface TaskRowProps {
   task: {
-    id: string
+    _id: string
     type: string
     title: string
     dueDate: string
@@ -521,7 +528,7 @@ function TaskRow({ task, variant, onToggle }: TaskRowProps) {
       className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${borderColor}`}
     >
       <button
-        onClick={() => onToggle(task.id)}
+        onClick={() => onToggle(task._id)}
         className={`flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${checkColor}`}
         aria-label="完成任務"
       >

@@ -56,14 +56,14 @@ export default function AiAssistantPage() {
   const [input, setInput] = useState('')
   const farmId = useFarmId()
 
-  // Fetch farm data for context using TanStack Query hooks
-  const { data: fieldsData } = useFields(farmId)
-  const { data: tasksData } = useTasks(farmId)
-  const { data: cropsData } = useCrops(farmId)
+  // Fetch farm data for context using Convex hooks
+  const fieldsData = useFields(farmId)
+  const tasksData = useTasks(farmId)
+  const cropsData = useCrops(farmId)
 
   const context = useMemo(() => {
     const cropMap = new Map(
-      (cropsData ?? []).map((c) => [c.id, c.name]),
+      (cropsData ?? []).map((c) => [c._id, c.name]),
     )
 
     const plantedInfo = (fieldsData ?? []).flatMap((field) =>

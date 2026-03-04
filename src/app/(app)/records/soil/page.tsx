@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
 import { useFields } from '@/hooks/use-fields'
 import {
-  useSoilProfile,
   useUpsertSoilProfile,
   useSoilAmendments,
   useCreateSoilAmendment,
@@ -69,7 +68,7 @@ function PhIndicator({ value }: { value: number }) {
 
 export default function SoilRecordsPage() {
   const farmId = useFarmId()
-  const { data: fields = [] } = useFields(farmId)
+  const fields = useFields(farmId) ?? []
   const [selectedFieldId, setSelectedFieldId] = useState<string>('')
 
   return (
@@ -87,7 +86,7 @@ export default function SoilRecordsPage() {
           </SelectTrigger>
           <SelectContent>
             {fields.map((f) => (
-              <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+              <SelectItem key={f._id} value={f._id}>{f.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -99,16 +98,16 @@ export default function SoilRecordsPage() {
           <p className="text-muted-foreground">請先選擇田區以查看土壤資料</p>
         </div>
       ) : (
-        <FieldSoilContent fieldId={selectedFieldId} />
+        <FieldSoilContent fieldId={selectedFieldId} fields={fields} />
       )}
     </div>
   )
 }
 
-function FieldSoilContent({ fieldId }: { fieldId: string }) {
+function FieldSoilContent({ fieldId, fields }: { fieldId: string; fields: any[] }) {
   return (
     <div className="space-y-6">
-      <SoilProfileSection fieldId={fieldId} />
+      <SoilProfileSection fieldId={fieldId} fields={fields} />
       <SoilAmendmentsSection fieldId={fieldId} />
       <SoilNotesSection fieldId={fieldId} />
     </div>
@@ -116,11 +115,14 @@ function FieldSoilContent({ fieldId }: { fieldId: string }) {
 }
 
 // --- Soil Profile Section ---
+// Soil profile is now inlined in field data (from useFields), not a separate query
 
-function SoilProfileSection({ fieldId }: { fieldId: string }) {
-  const { data: profile, isLoading } = useSoilProfile(fieldId)
-  const upsert = useUpsertSoilProfile(fieldId)
+function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[] }) {
+  const field = fields.find((f) => f._id === fieldId)
+  const profile = field?.soilProfile ?? null
+  const upsert = useUpsertSoilProfile()
   const [editing, setEditing] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     texture: '' as string,
     ph: '',
@@ -139,8 +141,10 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
   }
 
   async function handleSave() {
+    setSubmitting(true)
     try {
-      await upsert.mutateAsync({
+      await upsert({
+        fieldId: fieldId as any,
         texture: form.texture ? (form.texture as SoilTexture) : undefined,
         ph: form.ph ? Number(form.ph) : undefined,
         ec: form.ec ? Number(form.ec) : undefined,
@@ -150,29 +154,10 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
       setEditing(false)
     } catch {
       toast.error('儲存土壤概況失敗')
+    } finally {
+      setSubmitting(false)
     }
   }
-
-  if (isLoading) return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Layers className="h-4 w-4" />
-          土壤概況
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-5 w-12" />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
 
   return (
     <Card>
@@ -243,8 +228,8 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={upsert.isPending}>
-                {upsert.isPending ? '儲存中...' : '儲存'}
+              <Button onClick={handleSave} disabled={submitting}>
+                {submitting ? '儲存中...' : '儲存'}
               </Button>
               <Button variant="outline" onClick={() => setEditing(false)}>取消</Button>
             </div>
@@ -288,10 +273,11 @@ function SoilProfileSection({ fieldId }: { fieldId: string }) {
 // --- Soil Amendments Section ---
 
 function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
-  const { data: amendments = [] } = useSoilAmendments(fieldId)
-  const createAmendment = useCreateSoilAmendment(fieldId)
-  const deleteAmendment = useDeleteSoilAmendment(fieldId)
+  const amendments = useSoilAmendments(fieldId as any) ?? []
+  const createAmendment = useCreateSoilAmendment()
+  const deleteAmendment = useDeleteSoilAmendment()
   const [open, setOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     amendmentType: '',
@@ -312,8 +298,10 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
 
   async function handleSubmit() {
     if (!form.amendmentType || !form.quantity) return
+    setSubmitting(true)
     try {
-      await createAmendment.mutateAsync({
+      await createAmendment({
+        fieldId: fieldId as any,
         date: form.date,
         amendmentType: form.amendmentType,
         quantity: Number(form.quantity),
@@ -325,6 +313,8 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
       resetForm()
     } catch {
       toast.error('新增土壤改良紀錄失敗')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -357,7 +347,7 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
               </TableHeader>
               <TableBody>
                 {amendments.map((a) => (
-                  <TableRow key={a.id}>
+                  <TableRow key={a._id}>
                     <TableCell className="whitespace-nowrap">{a.date}</TableCell>
                     <TableCell>{a.amendmentType}</TableCell>
                     <TableCell className="text-right whitespace-nowrap">
@@ -368,11 +358,14 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteAmendment.mutate(a.id, {
-                          onSuccess: () => toast.success('土壤改良紀錄已刪除'),
-                          onError: () => toast.error('刪除土壤改良紀錄失敗'),
-                        })}
-                        disabled={deleteAmendment.isPending}
+                        onClick={async () => {
+                          try {
+                            await deleteAmendment({ id: a._id as any })
+                            toast.success('土壤改良紀錄已刪除')
+                          } catch {
+                            toast.error('刪除土壤改良紀錄失敗')
+                          }
+                        }}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -443,9 +436,9 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
             <Button
               onClick={handleSubmit}
-              disabled={!form.amendmentType || !form.quantity || createAmendment.isPending}
+              disabled={!form.amendmentType || !form.quantity || submitting}
             >
-              {createAmendment.isPending ? '新增中...' : '新增'}
+              {submitting ? '新增中...' : '新增'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -457,10 +450,11 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
 // --- Soil Notes Section ---
 
 function SoilNotesSection({ fieldId }: { fieldId: string }) {
-  const { data: notes = [] } = useSoilNotes(fieldId)
-  const createNote = useCreateSoilNote(fieldId)
-  const deleteNote = useDeleteSoilNote(fieldId)
+  const notes = useSoilNotes(fieldId as any) ?? []
+  const createNote = useCreateSoilNote()
+  const deleteNote = useDeleteSoilNote()
   const [open, setOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     ph: '',
@@ -477,8 +471,10 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
 
   async function handleSubmit() {
     if (!form.content) return
+    setSubmitting(true)
     try {
-      await createNote.mutateAsync({
+      await createNote({
+        fieldId: fieldId as any,
         date: form.date,
         ph: form.ph ? Number(form.ph) : undefined,
         content: form.content,
@@ -488,6 +484,8 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
       resetForm()
     } catch {
       toast.error('新增觀察筆記失敗')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -509,7 +507,7 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
         ) : (
           <div className="space-y-3">
             {notes.map((n) => (
-              <div key={n.id} className="flex items-start justify-between rounded-md border p-3">
+              <div key={n._id} className="flex items-start justify-between rounded-md border p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span>{n.date}</span>
@@ -520,11 +518,14 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteNote.mutate(n.id, {
-                    onSuccess: () => toast.success('觀察筆記已刪除'),
-                    onError: () => toast.error('刪除觀察筆記失敗'),
-                  })}
-                  disabled={deleteNote.isPending}
+                  onClick={async () => {
+                    try {
+                      await deleteNote({ id: n._id as any })
+                      toast.success('觀察筆記已刪除')
+                    } catch {
+                      toast.error('刪除觀察筆記失敗')
+                    }
+                  }}
                   className="ml-2 shrink-0"
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -576,9 +577,9 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
             <Button
               onClick={handleSubmit}
-              disabled={!form.content || createNote.isPending}
+              disabled={!form.content || submitting}
             >
-              {createNote.isPending ? '新增中...' : '新增'}
+              {submitting ? '新增中...' : '新增'}
             </Button>
           </DialogFooter>
         </DialogContent>

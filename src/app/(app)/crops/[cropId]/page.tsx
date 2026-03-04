@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useFarmId } from '@/hooks/use-farm-id'
@@ -36,11 +36,12 @@ export default function CropDetailPage({
 }) {
   const { cropId } = use(params)
   const farmId = useFarmId()
-  const { data: crop, isLoading } = useCropById(cropId)
-  const deleteCrop = useDeleteCrop(farmId ?? '')
+  const crop = useCropById(cropId as any)
+  const deleteCrop = useDeleteCrop()
   const router = useRouter()
+  const [deleting, setDeleting] = useState(false)
 
-  if (isLoading) {
+  if (crop === undefined) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-32" />
@@ -74,11 +75,15 @@ export default function CropDetailPage({
   const harvestMonths = crop.harvestMonths ?? []
   const pestControl = crop.pestControl ?? []
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm('確定要刪除此自訂作物嗎？')) return
-    deleteCrop.mutate(crop!.id, {
-      onSuccess: () => router.push('/crops'),
-    })
+    setDeleting(true)
+    try {
+      await deleteCrop({ cropId: crop!._id as any })
+      router.push('/crops')
+    } catch {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -124,7 +129,7 @@ export default function CropDetailPage({
             variant="destructive"
             size="sm"
             onClick={handleDelete}
-            disabled={deleteCrop.isPending}
+            disabled={deleting}
           >
             <Trash2 className="mr-1 size-4" />
             刪除

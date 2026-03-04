@@ -25,6 +25,7 @@ import {
   Wind,
 } from 'lucide-react'
 import { useFarmId } from '@/hooks/use-farm-id'
+import { useCreateWeatherLog } from '@/hooks/use-weather-logs'
 
 // ---------------------------------------------------------------------------
 // Types matching the weather API response
@@ -126,6 +127,7 @@ function alertSeverityColor(severity: string) {
 
 export default function WeatherPage() {
   const farmId = useFarmId()
+  const createWeatherLog = useCreateWeatherLog()
   const [data, setData] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -167,11 +169,9 @@ export default function WeatherPage() {
     setLogError(null)
     setLogSuccess(false)
     try {
-      const { createWeatherLog } = await import(
-        '@/server/actions/weather-logs'
-      )
       if (!farmId) return
-      await createWeatherLog(farmId, {
+      await createWeatherLog({
+        farmId: farmId as any,
         date: logDate,
         temperature: logTemp ? Number(logTemp) : undefined,
         rainfallMm: logRain ? Number(logRain) : undefined,

@@ -82,9 +82,9 @@ const ALL_TASK_TYPES = 'all'
 
 export default function CalendarPage() {
   const farmId = useFarmId()
-  const { data: tasks = [] } = useTasks(farmId)
-  const { data: crops = [] } = useCrops(farmId)
-  const { data: fields = [] } = useFields(farmId)
+  const tasks = useTasks(farmId) ?? []
+  const crops = useCrops(farmId) ?? []
+  const fields = useFields(farmId) ?? []
   const toggleTask = useToggleTask()
   const deleteTask = useDeleteTask()
 
@@ -179,13 +179,13 @@ export default function CalendarPage() {
 
   function getCropName(cropId: string | null) {
     if (!cropId) return null
-    const crop = crops.find((c) => c.id === cropId)
+    const crop = crops.find((c) => c._id === cropId)
     return crop ? `${crop.emoji ?? ''} ${crop.name}` : null
   }
 
   function getFieldName(fieldId: string | null) {
     if (!fieldId) return null
-    const field = fields.find((f) => f.id === fieldId)
+    const field = fields.find((f) => f._id === fieldId)
     return field?.name ?? null
   }
 
@@ -344,7 +344,7 @@ export default function CalendarPage() {
 
                 return (
                   <div
-                    key={task.id}
+                    key={task._id}
                     className={cn(
                       'flex items-start gap-3 rounded-lg border p-3 transition-colors',
                       task.completed && 'opacity-50',
@@ -353,10 +353,14 @@ export default function CalendarPage() {
                   >
                     {/* Toggle complete button */}
                     <button
-                      onClick={() => toggleTask.mutate(task.id, {
-                        onSuccess: () => toast.success(task.completed ? '任務已標記為未完成' : '任務已完成'),
-                        onError: () => toast.error('更新任務狀態失敗'),
-                      })}
+                      onClick={async () => {
+                        try {
+                          await toggleTask({ id: task._id as any })
+                          toast.success(task.completed ? '任務已標記為未完成' : '任務已完成')
+                        } catch {
+                          toast.error('更新任務狀態失敗')
+                        }
+                      }}
                       className={cn(
                         'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors',
                         task.completed
@@ -430,10 +434,14 @@ export default function CalendarPage() {
                       variant="ghost"
                       size="icon-xs"
                       className="shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteTask.mutate(task.id, {
-                        onSuccess: () => toast.success('任務已刪除'),
-                        onError: () => toast.error('刪除任務失敗'),
-                      })}
+                      onClick={async () => {
+                        try {
+                          await deleteTask({ id: task._id as any })
+                          toast.success('任務已刪除')
+                        } catch {
+                          toast.error('刪除任務失敗')
+                        }
+                      }}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
