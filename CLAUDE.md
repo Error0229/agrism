@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bun run build` — production build
 - `bun run lint` — ESLint
 - `bun run test:e2e` — Playwright E2E tests (uses port 3099 locally)
+- `bun run convex` — Convex dev server
 
 ## Architecture
 
@@ -42,22 +43,22 @@ Authenticated routes use the `(app)` route group with middleware redirect to `/a
 
 ### Data Layer
 
-- **Database**: Neon PostgreSQL via Drizzle ORM (`src/server/db/`)
-- **Auth**: Auth.js v5 (next-auth) with credentials provider, JWT strategy
-- **Server Actions**: `src/server/actions/` — all data mutations use `'use server'` actions with Zod validation
+- **Database**: Convex (real-time database) — schema in `convex/schema.ts`, backend functions in `convex/`
+- **Auth**: Clerk (`@clerk/nextjs`) with Convex integration
+- **Mutations**: Convex mutations in `convex/` — all data mutations use Convex validators
 
-Schema tables (`src/server/db/schema/`):
-- **auth**: `appUsers`, `farms`, `farmMembers`
+Convex tables (15 tables, defined in `convex/schema.ts`):
+- **auth**: `users`, `farms`, `farmMembers`
 - **crops**: `crops`, `cropTemplates`, `cropTemplateItems`
-- **fields**: `fields`, `fieldContexts`, `plantedCrops`, `cropPlacements`, `facilities`, `utilityNodes`, `utilityEdges`
+- **fields**: `fields` (with inlined `fieldContexts` and `cropPlacements`), `plantedCrops`, `facilities`, `utilityNodes`, `utilityEdges`
 - **tasks**: `tasks`
-- **records**: `harvestLogs`, `financeRecords`, `soilProfiles`, `soilAmendments`, `soilNotes`, `weatherLogs`
+- **records**: `harvestLogs`, `financeRecords`, `soilProfiles` (inlined), `soilAmendments`, `soilNotes`, `weatherLogs`
 
 ### State Management
 
-- **Server state**: TanStack Query v5 hooks in `src/hooks/` for all data fetching/mutations
+- **Server state**: Convex `useQuery`/`useMutation` hooks in `src/hooks/` (real-time, automatic reactivity)
 - **UI state**: Zustand store (`src/lib/store/field-editor-store.ts`) for the field editor (active tool, zoom, pan, grid, selection, undo/redo)
-- **Auth context**: `useFarmId()` hook extracts farmId from the NextAuth session JWT
+- **Auth context**: `useFarmId()` resolves farm via Convex query
 
 Key hooks: `useFarmId`, `useFields`, `useCrops`, `useTasks`, `useHarvestLogs`, `useFinanceRecords`, `useSoilProfile`, `useWeatherLogs`
 
@@ -85,11 +86,14 @@ Uses `@openrouter/ai-sdk-provider` with the Vercel AI SDK. System prompt in `src
 - Pages are server components by default; interactive components use `"use client"` directive
 - Field editor uses command pattern for undo/redo (`src/lib/store/editor-commands.ts`)
 - `cn()` utility (`src/lib/utils.ts`) combines clsx + tailwind-merge for conditional class names
-- Middleware (`middleware.ts`) redirects unauthenticated users to `/auth/login`
+- Middleware (`middleware.ts`) uses Clerk's `clerkMiddleware` to protect routes
+- Convex mutations use validators for input validation
 
 ### Environment Variables
 
 Required:
-- `DATABASE_URL` — Neon PostgreSQL connection string
-- `NEXTAUTH_SECRET` — Auth.js secret (falls back to dev secret locally)
+- `CONVEX_DEPLOYMENT` — Convex deployment identifier
+- `NEXT_PUBLIC_CONVEX_URL` — Convex deployment URL
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk publishable key
+- `CLERK_SECRET_KEY` — Clerk secret key
 - `OPENROUTER_API_KEY` — OpenRouter API key for AI features
