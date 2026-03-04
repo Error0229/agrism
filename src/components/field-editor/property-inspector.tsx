@@ -63,10 +63,9 @@ import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
 
-// Field data type derived from getFieldById()
-type FieldData = NonNullable<
-  Awaited<ReturnType<typeof import("@/server/actions/fields").getFieldById>>
->;
+// Field data type — resolved from Convex at runtime
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FieldData = any;
 
 interface PropertyInspectorProps {
   field?: FieldData | null;
@@ -847,7 +846,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
           <select
             value={facility.facilityType}
             onChange={(e) => {
-              updateFacility.mutate({
+              updateFacility({
                 id: facility.id,
                 fieldId: field.id,
                 data: { facilityType: e.target.value as FacilityType },
@@ -874,7 +873,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
                 if (facility.facilityType === "custom" && derived !== "custom") {
                   data.facilityType = derived as FacilityType;
                 }
-                updateFacility.mutate({
+                updateFacility({
                   id: facility.id,
                   fieldId: field.id,
                   data,
@@ -1003,7 +1002,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
           <select
             value={utilityNode.kind}
             onChange={(e) => {
-              updateNode.mutate({
+              updateNode({
                 id: utilityNode.id,
                 fieldId: field.id,
                 data: { kind: e.target.value as UtilityKind },
@@ -1022,7 +1021,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             value={utilityNode.nodeType ?? ""}
             onChange={(e) => {
               const val = e.target.value;
-              updateNode.mutate({
+              updateNode({
                 id: utilityNode.id,
                 fieldId: field.id,
                 data: { nodeType: val || null },
@@ -1046,7 +1045,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             onBlur={(e) => {
               const val = e.target.value.trim();
               if (val && val !== utilityNode.label) {
-                updateNode.mutate({
+                updateNode({
                   id: utilityNode.id,
                   fieldId: field.id,
                   data: { label: val },
@@ -1074,7 +1073,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
                   type="button"
                   className="text-destructive hover:text-destructive/80"
                   onClick={() => {
-                    deleteEdge.mutate({ id: ce.edgeId, fieldId: field.id });
+                    deleteEdge({ id: ce.edgeId, fieldId: field.id });
                   }}
                   title="刪除連線"
                 >
@@ -1104,7 +1103,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             size="sm"
             className="text-xs"
             onClick={() => {
-              deleteNode.mutate({ id: utilityNode.id, fieldId: field.id });
+              deleteNode({ id: utilityNode.id, fieldId: field.id });
               onDelete?.();
             }}
           >

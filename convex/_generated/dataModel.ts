@@ -7,5 +7,9 @@
  */
 
 import type { GenericDataModel } from "convex/server";
+import type { GenericId } from "convex/values";
 
 export type DataModel = GenericDataModel;
+export type Id<T extends string> = GenericId<T>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Doc<_T extends string> = any;

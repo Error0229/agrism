@@ -63,22 +63,22 @@ export default function AiAssistantPage() {
 
   const context = useMemo(() => {
     const cropMap = new Map(
-      (cropsData ?? []).map((c) => [c._id, c.name]),
+      (cropsData ?? []).map((c: { _id: string; name: string }) => [c._id, c.name]),
     )
 
-    const plantedInfo = (fieldsData ?? []).flatMap((field) =>
+    const plantedInfo = (fieldsData ?? []).flatMap((field: any) =>
       field.plantedCrops
-        .filter((pc) => pc.plantedCrop.status === 'growing')
-        .map((pc) => {
+        .filter((pc: any) => pc.plantedCrop.status === 'growing')
+        .map((pc: any) => {
           const cropName = (pc.plantedCrop.cropId ? cropMap.get(pc.plantedCrop.cropId) : null) ?? '未知作物'
           return `- ${cropName}（${field.name}），種植日期：${pc.plantedCrop.plantedDate}`
         }),
     )
 
     const pendingTasks = (tasksData ?? [])
-      .filter((t) => !t.completed)
+      .filter((t: any) => !t.completed)
       .slice(0, 10)
-      .map((t) => {
+      .map((t: any) => {
         const cropName = t.cropId ? cropMap.get(t.cropId) : null
         const prefix = cropName ? `${cropName} - ` : ''
         return `- ${prefix}${t.title}，預定：${t.dueDate}`

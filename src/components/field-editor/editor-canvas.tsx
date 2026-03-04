@@ -28,14 +28,13 @@ import type { PlannerGridSizeMeters } from "@/lib/utils/planner-grid-settings";
 import { UTILITY_NODE_TYPE_LABELS } from "@/lib/types/labels";
 
 // ---------------------------------------------------------------------------
-// Types — derived from getFieldById() return shape
+// Types — field data shape from Convex
 // ---------------------------------------------------------------------------
 
-type FieldData = NonNullable<
-  Awaited<ReturnType<typeof import("@/server/actions/fields").getFieldById>>
->;
-
-type PlacementRow = FieldData["placements"][number];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FieldData = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PlacementRow = any;
 
 // Merged shape for canvas rendering
 interface CanvasItem {
@@ -486,7 +485,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const utilityNodes = field.utilityNodes;
   const utilityEdges = field.utilityEdges;
   const utilityNodeById = useMemo(
-    () => new Map(utilityNodes.map((n) => [n.id, n])),
+    () => new Map<string, any>(utilityNodes.map((n: any) => [n.id, n])),
     [utilityNodes],
   );
 
@@ -967,9 +966,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
         // Eraser deletes the area entirely (hard delete, no undo)
         if (item.kind === "crop" && item.plantedCropId) {
-          deletePlantedCropWithPlacement.mutate(item.plantedCropId);
+          deletePlantedCropWithPlacement(item.plantedCropId);
         } else if (item.kind === "facility") {
-          deleteFacility.mutate({ id: item.id, fieldId: field.id });
+          deleteFacility({ id: item.id, fieldId: field.id });
         }
         return;
       }
@@ -1046,13 +1045,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             if (data.shapePoints) {
               placementData.shapePoints = data.shapePoints;
             }
-            await updatePlacement.mutateAsync({
+            await updatePlacement({
               placementId: id,
               fieldId: field.id,
               data: placementData,
             });
           } else if (target.kind === "facility") {
-            await updateFacility.mutateAsync({
+            await updateFacility({
               id,
               fieldId: field.id,
               data: { xM: data.xM, yM: data.yM },
@@ -1180,13 +1179,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           if (newShapePoints !== undefined) {
             updateData.shapePoints = newShapePoints;
           }
-          await updatePlacement.mutateAsync({
+          await updatePlacement({
             placementId: id,
             fieldId: field.id,
             data: updateData,
           });
         } else if (item.kind === "facility") {
-          await updateFacility.mutateAsync({
+          await updateFacility({
             id,
             fieldId: field.id,
             data,
@@ -1200,7 +1199,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     cmd.undo = async () => {
       await origUndo();
       if (item.kind === "crop" && oldShapePoints !== undefined) {
-        await updatePlacement.mutateAsync({
+        await updatePlacement({
           placementId: resizeState.itemId,
           fieldId: field.id,
           data: { shapePoints: oldShapePoints },
@@ -1227,7 +1226,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       const newXM = snapM(e.target.x() / PIXELS_PER_METER);
       const newYM = snapM(e.target.y() / PIXELS_PER_METER);
 
-      updateUtilityNode.mutate({
+      updateUtilityNode({
         id: nodeId,
         fieldId: field.id,
         data: { xM: newXM, yM: newYM },
@@ -1307,13 +1306,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       newBounds,
       async updateFn(id, data) {
         if (item.kind === "crop") {
-          await updatePlacement.mutateAsync({
+          await updatePlacement({
             placementId: id,
             fieldId: field.id,
             data: { ...data, shapePoints: newShapePoints },
           });
         } else if (item.kind === "facility") {
-          await updateFacility.mutateAsync({ id, fieldId: field.id, data });
+          await updateFacility({ id, fieldId: field.id, data });
         }
       },
     });
@@ -1323,7 +1322,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     cmd.undo = async () => {
       await origUndo();
       if (item.kind === "crop") {
-        await updatePlacement.mutateAsync({
+        await updatePlacement({
           placementId: vertexDragState.itemId,
           fieldId: field.id,
           data: { shapePoints: origShapePoints },
@@ -1704,7 +1703,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 onClick={(e) => {
                   e.cancelBubble = true;
                   if (activeTool === "eraser") {
-                    deleteUtilityNode.mutate({ id: node.id, fieldId: field.id });
+                    deleteUtilityNode({ id: node.id, fieldId: field.id });
                     return;
                   }
                   if (activeTool === "select") {

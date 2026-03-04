@@ -33,7 +33,7 @@ export const exportFarmData = query({
     ]);
 
     // Fetch child records for templates
-    const cropTemplateItems = [];
+    const cropTemplateItems: any[] = [];
     for (const template of cropTemplates) {
       const items = await ctx.db
         .query("cropTemplateItems")
@@ -43,12 +43,12 @@ export const exportFarmData = query({
     }
 
     // Fetch child records for fields
-    const plantedCrops = [];
-    const facilities = [];
-    const utilityNodes = [];
-    const utilityEdges = [];
-    const soilAmendments = [];
-    const soilNotes = [];
+    const plantedCrops: any[] = [];
+    const facilities: any[] = [];
+    const utilityNodes: any[] = [];
+    const utilityEdges: any[] = [];
+    const soilAmendments: any[] = [];
+    const soilNotes: any[] = [];
 
     for (const field of fields) {
       const [pcs, facs, nodes, edges, amendments, notes] = await Promise.all([

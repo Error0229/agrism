@@ -36,7 +36,7 @@ export function PlantCropDialog({
   onSelect,
   rectInfo,
 }: PlantCropDialogProps) {
-  const { data: crops } = useCrops(farmId);
+  const crops = useCrops(farmId as any);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {

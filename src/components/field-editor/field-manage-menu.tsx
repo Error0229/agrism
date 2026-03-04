@@ -50,8 +50,8 @@ export function FieldManageMenu({
   fieldHeightM,
 }: FieldManageMenuProps) {
   const router = useRouter();
-  const updateField = useUpdateField(farmId);
-  const deleteField = useDeleteField(farmId);
+  const updateField = useUpdateField();
+  const deleteField = useDeleteField();
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [resizeOpen, setResizeOpen] = useState(false);
@@ -61,31 +61,24 @@ export function FieldManageMenu({
   const [newWidth, setNewWidth] = useState(String(fieldWidthM));
   const [newHeight, setNewHeight] = useState(String(fieldHeightM));
 
-  const handleRename = useCallback(() => {
+  const handleRename = useCallback(async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    updateField.mutate(
-      { id: fieldId, data: { name: trimmed } },
-      { onSuccess: () => setRenameOpen(false) },
-    );
+    await updateField({ id: fieldId, data: { name: trimmed } });
+    setRenameOpen(false);
   }, [fieldId, newName, updateField]);
 
-  const handleResize = useCallback(() => {
+  const handleResize = useCallback(async () => {
     const w = parseFloat(newWidth);
     const h = parseFloat(newHeight);
     if (!w || w <= 0 || !h || h <= 0) return;
-    updateField.mutate(
-      { id: fieldId, data: { widthM: w, heightM: h } },
-      { onSuccess: () => setResizeOpen(false) },
-    );
+    await updateField({ id: fieldId, data: { widthM: w, heightM: h } });
+    setResizeOpen(false);
   }, [fieldId, newWidth, newHeight, updateField]);
 
-  const handleDelete = useCallback(() => {
-    deleteField.mutate(fieldId, {
-      onSuccess: () => {
-        router.push("/fields");
-      },
-    });
+  const handleDelete = useCallback(async () => {
+    await deleteField({ id: fieldId });
+    router.push("/fields");
   }, [fieldId, deleteField, router]);
 
   return (
@@ -153,7 +146,7 @@ export function FieldManageMenu({
             </Button>
             <Button
               onClick={handleRename}
-              disabled={!newName.trim() || updateField.isPending}
+              disabled={!newName.trim()}
             >
               儲存
             </Button>
@@ -202,8 +195,7 @@ export function FieldManageMenu({
                 !parseFloat(newWidth) ||
                 parseFloat(newWidth) <= 0 ||
                 !parseFloat(newHeight) ||
-                parseFloat(newHeight) <= 0 ||
-                updateField.isPending
+                parseFloat(newHeight) <= 0
               }
             >
               儲存
@@ -226,9 +218,8 @@ export function FieldManageMenu({
             <AlertDialogAction
               variant="destructive"
               onClick={handleDelete}
-              disabled={deleteField.isPending}
             >
-              {deleteField.isPending ? "刪除中..." : "刪除"}
+              刪除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

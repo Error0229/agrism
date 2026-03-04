@@ -62,8 +62,8 @@ export default function HarvestRecordsPage() {
     notes: '',
   })
 
-  const cropMap = new Map(crops.map((c) => [c._id, c.name]))
-  const fieldMap = new Map(fields.map((f) => [f._id, f.name]))
+  const cropMap = new Map<string, string>(crops.map((c: any) => [c._id, c.name]))
+  const fieldMap = new Map<string, string>(fields.map((f: any) => [f._id, f.name]))
 
   function resetForm() {
     setForm({
