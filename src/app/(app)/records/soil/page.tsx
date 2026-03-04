@@ -360,7 +360,7 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
                         size="sm"
                         onClick={async () => {
                           try {
-                            await deleteAmendment({ id: a._id as any })
+                            await deleteAmendment({ amendmentId: a._id })
                             toast.success('土壤改良紀錄已刪除')
                           } catch {
                             toast.error('刪除土壤改良紀錄失敗')
@@ -520,7 +520,7 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
                   size="sm"
                   onClick={async () => {
                     try {
-                      await deleteNote({ id: n._id as any })
+                      await deleteNote({ noteId: n._id })
                       toast.success('觀察筆記已刪除')
                     } catch {
                       toast.error('刪除觀察筆記失敗')

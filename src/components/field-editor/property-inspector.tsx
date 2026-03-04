@@ -847,9 +847,8 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
             value={facility.facilityType}
             onChange={(e) => {
               updateFacility({
-                id: facility.id,
-                fieldId: field.id,
-                data: { facilityType: e.target.value as FacilityType },
+                facilityId: facility.id as any,
+                facilityType: e.target.value as FacilityType,
               });
             }}
             className="h-7 w-full rounded border bg-background px-2 text-xs"
@@ -874,9 +873,8 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
                   data.facilityType = derived as FacilityType;
                 }
                 updateFacility({
-                  id: facility.id,
-                  fieldId: field.id,
-                  data,
+                  facilityId: facility.id as any,
+                  ...data,
                 });
               }
             }}
@@ -1003,9 +1001,8 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             value={utilityNode.kind}
             onChange={(e) => {
               updateNode({
-                id: utilityNode.id,
-                fieldId: field.id,
-                data: { kind: e.target.value as UtilityKind },
+                nodeId: utilityNode.id as any,
+                kind: e.target.value as UtilityKind,
               });
             }}
             className="h-7 w-full rounded border bg-background px-2 text-xs"
@@ -1022,9 +1019,8 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             onChange={(e) => {
               const val = e.target.value;
               updateNode({
-                id: utilityNode.id,
-                fieldId: field.id,
-                data: { nodeType: val || null },
+                nodeId: utilityNode.id as any,
+                nodeType: val || undefined,
               });
             }}
             className="h-7 w-full rounded border bg-background px-2 text-xs"
@@ -1046,9 +1042,8 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
               const val = e.target.value.trim();
               if (val && val !== utilityNode.label) {
                 updateNode({
-                  id: utilityNode.id,
-                  fieldId: field.id,
-                  data: { label: val },
+                  nodeId: utilityNode.id as any,
+                  label: val,
                 });
               }
             }}
@@ -1073,7 +1068,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
                   type="button"
                   className="text-destructive hover:text-destructive/80"
                   onClick={() => {
-                    deleteEdge({ id: ce.edgeId, fieldId: field.id });
+                    deleteEdge({ edgeId: ce.edgeId as any });
                   }}
                   title="刪除連線"
                 >
@@ -1103,7 +1098,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             size="sm"
             className="text-xs"
             onClick={() => {
-              deleteNode({ id: utilityNode.id, fieldId: field.id });
+              deleteNode({ nodeId: utilityNode.id as any });
               onDelete?.();
             }}
           >

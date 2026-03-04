@@ -193,7 +193,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (facility) {
         facilitySnapshots.set(id, {
           facilityType: facility.facilityType,
-          name: facility.name,
+          name: facility.name ?? "",
           xM: Number(facility.xM),
           yM: Number(facility.yM),
           widthM: Number(facility.widthM),

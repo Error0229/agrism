@@ -174,8 +174,8 @@ export default function HarvestRecordsPage() {
               {(logs ?? []).map((log) => (
                 <TableRow key={log._id}>
                   <TableCell className="whitespace-nowrap">{log.date}</TableCell>
-                  <TableCell>{cropMap.get(log.cropId) ?? '—'}</TableCell>
-                  <TableCell>{fieldMap.get(log.fieldId) ?? '—'}</TableCell>
+                  <TableCell>{(log.cropId && cropMap.get(log.cropId)) ?? '—'}</TableCell>
+                  <TableCell>{(log.fieldId && fieldMap.get(log.fieldId)) ?? '—'}</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {log.quantity} {log.unit}
                   </TableCell>
@@ -209,7 +209,7 @@ export default function HarvestRecordsPage() {
                       size="sm"
                       onClick={async () => {
                         try {
-                          await deleteLog({ id: log._id as any })
+                          await deleteLog({ harvestLogId: log._id })
                           toast.success('收成紀錄已刪除')
                         } catch {
                           toast.error('刪除收成紀錄失敗')

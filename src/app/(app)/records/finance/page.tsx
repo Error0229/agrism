@@ -250,7 +250,7 @@ export default function FinanceRecordsPage() {
                       size="sm"
                       onClick={async () => {
                         try {
-                          await deleteRecord({ id: r._id as any })
+                          await deleteRecord({ financeRecordId: r._id })
                           toast.success('財務紀錄已刪除')
                         } catch {
                           toast.error('刪除財務紀錄失敗')

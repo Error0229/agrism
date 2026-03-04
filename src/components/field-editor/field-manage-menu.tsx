@@ -64,7 +64,7 @@ export function FieldManageMenu({
   const handleRename = useCallback(async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    await updateField({ id: fieldId, data: { name: trimmed } });
+    await updateField({ fieldId: fieldId as any, name: trimmed });
     setRenameOpen(false);
   }, [fieldId, newName, updateField]);
 
@@ -72,12 +72,12 @@ export function FieldManageMenu({
     const w = parseFloat(newWidth);
     const h = parseFloat(newHeight);
     if (!w || w <= 0 || !h || h <= 0) return;
-    await updateField({ id: fieldId, data: { widthM: w, heightM: h } });
+    await updateField({ fieldId: fieldId as any, widthM: w, heightM: h });
     setResizeOpen(false);
   }, [fieldId, newWidth, newHeight, updateField]);
 
   const handleDelete = useCallback(async () => {
-    await deleteField({ id: fieldId });
+    await deleteField({ fieldId: fieldId as any });
     router.push("/fields");
   }, [fieldId, deleteField, router]);
 

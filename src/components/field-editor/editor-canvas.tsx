@@ -966,9 +966,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
         // Eraser deletes the area entirely (hard delete, no undo)
         if (item.kind === "crop" && item.plantedCropId) {
-          deletePlantedCropWithPlacement(item.plantedCropId);
+          deletePlantedCropWithPlacement({ plantedCropId: item.plantedCropId as any });
         } else if (item.kind === "facility") {
-          deleteFacility({ id: item.id, fieldId: field.id });
+          deleteFacility({ facilityId: item.id as any });
         }
         return;
       }
@@ -1046,15 +1046,15 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
               placementData.shapePoints = data.shapePoints;
             }
             await updatePlacement({
-              placementId: id,
-              fieldId: field.id,
-              data: placementData,
+              plantedCropId: id as any,
+              ...placementData,
+              shapePoints: placementData.shapePoints ?? undefined,
             });
           } else if (target.kind === "facility") {
             await updateFacility({
-              id,
-              fieldId: field.id,
-              data: { xM: data.xM, yM: data.yM },
+              facilityId: id as any,
+              xM: data.xM,
+              yM: data.yM,
             });
           }
         },
@@ -1180,15 +1180,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             updateData.shapePoints = newShapePoints;
           }
           await updatePlacement({
-            placementId: id,
-            fieldId: field.id,
-            data: updateData,
+            plantedCropId: id as any,
+            ...updateData,
+            shapePoints: updateData.shapePoints ?? undefined,
           });
         } else if (item.kind === "facility") {
           await updateFacility({
-            id,
-            fieldId: field.id,
-            data,
+            facilityId: id as any,
+            ...data,
           });
         }
       },
@@ -1200,9 +1199,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       await origUndo();
       if (item.kind === "crop" && oldShapePoints !== undefined) {
         await updatePlacement({
-          placementId: resizeState.itemId,
-          fieldId: field.id,
-          data: { shapePoints: oldShapePoints },
+          plantedCropId: resizeState.itemId as any,
+          shapePoints: oldShapePoints ?? undefined,
         });
       }
     };
@@ -1227,9 +1225,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       const newYM = snapM(e.target.y() / PIXELS_PER_METER);
 
       updateUtilityNode({
-        id: nodeId,
-        fieldId: field.id,
-        data: { xM: newXM, yM: newYM },
+        nodeId: nodeId as any,
+        xM: newXM,
+        yM: newYM,
       });
     },
     [snapM, field.id, updateUtilityNode],
@@ -1307,12 +1305,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       async updateFn(id, data) {
         if (item.kind === "crop") {
           await updatePlacement({
-            placementId: id,
-            fieldId: field.id,
-            data: { ...data, shapePoints: newShapePoints },
+            plantedCropId: id as any,
+            ...data,
+            shapePoints: newShapePoints,
           });
         } else if (item.kind === "facility") {
-          await updateFacility({ id, fieldId: field.id, data });
+          await updateFacility({ facilityId: id as any, ...data });
         }
       },
     });
@@ -1323,9 +1321,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       await origUndo();
       if (item.kind === "crop") {
         await updatePlacement({
-          placementId: vertexDragState.itemId,
-          fieldId: field.id,
-          data: { shapePoints: origShapePoints },
+          plantedCropId: vertexDragState.itemId as any,
+          shapePoints: origShapePoints,
         });
       }
     };
@@ -1703,7 +1700,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 onClick={(e) => {
                   e.cancelBubble = true;
                   if (activeTool === "eraser") {
-                    deleteUtilityNode({ id: node.id, fieldId: field.id });
+                    deleteUtilityNode({ nodeId: node.id as any });
                     return;
                   }
                   if (activeTool === "select") {

@@ -118,6 +118,7 @@ export default function CalendarPage() {
     const map = new Map<string, typeof tasks>()
     for (const task of tasks) {
       const key = task.dueDate
+      if (!key) continue
       const list = map.get(key)
       if (list) {
         list.push(task)
@@ -133,6 +134,7 @@ export default function CalendarPage() {
     const today = new Date()
     const set = new Set<string>()
     for (const task of tasks) {
+      if (!task.dueDate) continue
       if (!task.completed && isBefore(new Date(task.dueDate), today) && !isToday(new Date(task.dueDate))) {
         set.add(task.dueDate)
       }
@@ -163,7 +165,7 @@ export default function CalendarPage() {
     }
 
     // Sort by due date
-    list.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    list.sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
 
     return list
   }, [tasks, selectedDate, filterType, filterCompleted])
@@ -333,12 +335,13 @@ export default function CalendarPage() {
           ) : (
             <div className="space-y-2">
               {filteredTasks.map((task) => {
-                const cropName = getCropName(task.cropId)
-                const fieldName = getFieldName(task.fieldId)
+                const cropName = getCropName(task.cropId ?? null)
+                const fieldName = getFieldName(task.fieldId ?? null)
                 const taskType = task.type as TaskType
                 const taskDifficulty = task.difficulty as TaskDifficulty | null
                 const isOverdue =
                   !task.completed &&
+                  !!task.dueDate &&
                   isBefore(new Date(task.dueDate), new Date()) &&
                   !isToday(new Date(task.dueDate))
 
@@ -355,7 +358,7 @@ export default function CalendarPage() {
                     <button
                       onClick={async () => {
                         try {
-                          await toggleTask({ id: task._id as any })
+                          await toggleTask({ taskId: task._id })
                           toast.success(task.completed ? '任務已標記為未完成' : '任務已完成')
                         } catch {
                           toast.error('更新任務狀態失敗')
@@ -391,7 +394,7 @@ export default function CalendarPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span>{format(new Date(task.dueDate), 'M/d (EEE)', { locale: zhTW })}</span>
+                        {task.dueDate && <span>{format(new Date(task.dueDate), 'M/d (EEE)', { locale: zhTW })}</span>}
                         {cropName && <span>{cropName}</span>}
                         {fieldName && <span>{fieldName}</span>}
                         {task.effortMinutes && (
@@ -436,7 +439,7 @@ export default function CalendarPage() {
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={async () => {
                         try {
-                          await deleteTask({ id: task._id as any })
+                          await deleteTask({ taskId: task._id })
                           toast.success('任務已刪除')
                         } catch {
                           toast.error('刪除任務失敗')

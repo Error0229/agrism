@@ -128,7 +128,6 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-1.5">
               <UserButton
-                afterSignOutUrl="/sign-in"
                 appearance={{
                   elements: {
                     avatarBox: "size-6",

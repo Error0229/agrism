@@ -163,12 +163,13 @@ export default function DashboardPage() {
   const incompleteTasks = (allTasks ?? []).filter((t) => !t.completed)
 
   const overdueTasks = incompleteTasks.filter(
-    (t) => isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
+    (t) => t.dueDate && isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
   )
   const todayTasks = incompleteTasks.filter((t) =>
-    isToday(new Date(t.dueDate)),
+    t.dueDate && isToday(new Date(t.dueDate)),
   )
   const upcomingTasks = incompleteTasks.filter((t) => {
+    if (!t.dueDate) return false
     const d = new Date(t.dueDate)
     return !isToday(d) && !isBefore(d, today) && isBefore(d, addDays(threeDaysLater, 1))
   })
@@ -176,7 +177,7 @@ export default function DashboardPage() {
   // ---- Growing crops ----
   const growingEntries = (fieldsData ?? []).flatMap((field) =>
     field.plantedCrops
-      .filter((entry) => entry.plantedCrop.status === 'growing' && entry.crop != null)
+      .filter((entry) => entry.status === 'growing' && entry.crop != null)
       .map((entry) => ({
         ...entry,
         crop: entry.crop!,
@@ -187,7 +188,7 @@ export default function DashboardPage() {
   // ---- Handlers ----
   const handleToggle = async (taskId: string) => {
     try {
-      await toggleTask({ id: taskId as any })
+      await toggleTask({ taskId: taskId as any })
     } catch {
       // ignore
     }
@@ -318,17 +319,17 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               {growingEntries.map((entry) => {
-                const plantedDate = new Date(entry.plantedCrop.plantedDate)
+                const plantedDate = new Date(entry.plantedDate ?? Date.now())
                 const daysSincePlanted = differenceInDays(new Date(), plantedDate)
                 const growthDays =
-                  entry.plantedCrop.customGrowthDays ??
+                  entry.customGrowthDays ??
                   entry.crop.growthDays ??
                   90
                 const daysToHarvest = Math.max(0, growthDays - daysSincePlanted)
 
                 return (
                   <div
-                    key={entry.plantedCrop._id}
+                    key={entry._id}
                     className="rounded-lg border p-3 space-y-1"
                   >
                     <div className="flex items-center gap-2">
@@ -496,9 +497,9 @@ interface TaskRowProps {
     _id: string
     type: string
     title: string
-    dueDate: string
-    effortMinutes: number | null
-    difficulty: string | null
+    dueDate?: string
+    effortMinutes?: number | null
+    difficulty?: string | null
   }
   variant: 'overdue' | 'today' | 'upcoming'
   onToggle: (id: string) => void
@@ -537,12 +538,12 @@ function TaskRow({ task, variant, onToggle }: TaskRowProps) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{task.title}</p>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-          {variant === 'overdue' && (
+          {variant === 'overdue' && task.dueDate && (
             <span className="text-red-600">
               {format(new Date(task.dueDate), 'M/d')}
             </span>
           )}
-          {variant === 'upcoming' && (
+          {variant === 'upcoming' && task.dueDate && (
             <span>{format(new Date(task.dueDate), 'M/d EEEE', { locale: zhTW })}</span>
           )}
           {task.effortMinutes && (
