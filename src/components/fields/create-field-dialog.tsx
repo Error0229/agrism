@@ -42,9 +42,10 @@ import {
   SLOPE_LABELS,
   WIND_EXPOSURE_LABELS,
 } from '@/lib/types/labels'
+import type { Id } from '../../../convex/_generated/dataModel'
 
 interface CreateFieldDialogProps {
-  farmId: string | undefined
+  farmId: Id<"farms"> | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -54,7 +55,7 @@ export function CreateFieldDialog({
   open,
   onOpenChange,
 }: CreateFieldDialogProps) {
-  const createField = useCreateField(farmId ?? '')
+  const createField = useCreateField()
 
   const [name, setName] = useState('')
   const [widthM, setWidthM] = useState('')
@@ -65,6 +66,7 @@ export function CreateFieldDialog({
   const [drainage, setDrainage] = useState<string>('')
   const [slope, setSlope] = useState<string>('')
   const [windExposure, setWindExposure] = useState<string>('')
+  const [isPending, setIsPending] = useState(false)
 
   function resetForm() {
     setName('')
@@ -78,7 +80,7 @@ export function CreateFieldDialog({
     setWindExposure('')
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!farmId) {
       toast.error('無法取得農場資訊，請重新登入')
       return
@@ -94,35 +96,27 @@ export function CreateFieldDialog({
       return
     }
 
-    const hasContext = plotType || sunHours || drainage || slope || windExposure
-    createField.mutate(
-      {
+    setIsPending(true)
+    try {
+      await createField({
+        farmId,
         name,
         widthM: w,
         heightM: h,
-        context: hasContext
-          ? {
-              plotType: plotType ? (plotType as PlotTypeType) : undefined,
-              sunHours: sunHours ? (sunHours as SunHoursType) : undefined,
-              drainage: drainage ? (drainage as DrainageType) : undefined,
-              slope: slope ? (slope as SlopeType) : undefined,
-              windExposure: windExposure
-                ? (windExposure as WindExposureType)
-                : undefined,
-            }
-          : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success('田地已建立')
-          resetForm()
-          onOpenChange(false)
-        },
-        onError: () => {
-          toast.error('建立田地失敗')
-        },
-      },
-    )
+        plotType: plotType ? (plotType as PlotTypeType) : undefined,
+        sunHours: sunHours ? (sunHours as SunHoursType) : undefined,
+        drainage: drainage ? (drainage as DrainageType) : undefined,
+        slope: slope ? (slope as SlopeType) : undefined,
+        windExposure: windExposure ? (windExposure as WindExposureType) : undefined,
+      })
+      toast.success('田地已建立')
+      resetForm()
+      onOpenChange(false)
+    } catch {
+      toast.error('建立田地失敗')
+    } finally {
+      setIsPending(false)
+    }
   }
 
   const isValid =
@@ -293,10 +287,10 @@ export function CreateFieldDialog({
             {/* Submit */}
             <Button
               onClick={handleSubmit}
-              disabled={!isValid || createField.isPending}
+              disabled={!isValid || isPending}
               className="w-full"
             >
-              {createField.isPending && (
+              {isPending && (
                 <Loader2 className="mr-1 size-4 animate-spin" />
               )}
               建立田地
