@@ -31,14 +31,14 @@ interface ToolDef {
 }
 
 const TOOLS: ToolDef[] = [
-  { id: "select", label: "選取", shortcut: "V", icon: MousePointer },
-  { id: "draw_rect", label: "繪製區域", shortcut: "R", icon: Square },
-  { id: "draw_polygon", label: "多邊形區域", shortcut: "P", icon: Pentagon },
-  { id: "hand", label: "平移", shortcut: "H", icon: Hand },
-  { id: "eraser", label: "橡皮擦", shortcut: "E", icon: Eraser },
-  { id: "measure", label: "測量", shortcut: "M", icon: Ruler },
-  { id: "utility_node", label: "設施節點", shortcut: "U", icon: CircleDot },
-  { id: "utility_edge", label: "連接設施", shortcut: "C", icon: Cable },
+  { id: "select", label: "選取", shortcut: "V / 1", icon: MousePointer },
+  { id: "draw_rect", label: "繪製區域", shortcut: "R / 2", icon: Square },
+  { id: "draw_polygon", label: "多邊形區域", shortcut: "P / 3", icon: Pentagon },
+  { id: "hand", label: "平移", shortcut: "H / 4", icon: Hand },
+  { id: "eraser", label: "橡皮擦", shortcut: "E / 5", icon: Eraser },
+  { id: "measure", label: "測量", shortcut: "M / 6", icon: Ruler },
+  { id: "utility_node", label: "設施節點", shortcut: "U / 7", icon: CircleDot },
+  { id: "utility_edge", label: "連接設施", shortcut: "C / 8", icon: Cable },
 ];
 
 const SELECTION_TOOLS: EditorTool[] = ["select", "draw_rect", "draw_polygon"];

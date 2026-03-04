@@ -713,9 +713,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           yM: pos.yM,
         },
       });
-      setTool("select");
     },
-    [field, createUtilityNode, setTool],
+    [field, createUtilityNode],
   );
 
   // --- Utility edge connection ---
@@ -1222,6 +1221,24 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
                         標記收成
                       </button>
                     )}
+                  </>
+                )}
+
+                {/* Harvested crop: allow replanting */}
+                {contextMenu.itemKind === "crop" && !contextMenu.hasActiveCrop && contextMenu.status === "harvested" && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        handleContextAction("changeCrop", contextMenu.itemId);
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Replace className="size-3.5 text-muted-foreground" />
+                      更換作物
+                    </button>
                   </>
                 )}
 

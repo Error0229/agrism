@@ -16,6 +16,7 @@ import {
   useCreateFacility,
   useUpdateFacility,
   useUpdateUtilityNode,
+  useDeleteUtilityNode,
 } from "@/hooks/use-fields";
 import {
   createMoveCommand,
@@ -333,6 +334,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const restorePlantedCrop = useRestorePlantedCrop();
   const deletePlantedCropWithPlacement = useDeletePlantedCropWithPlacement();
   const deleteFacility = useDeleteFacility();
+  const deleteUtilityNode = useDeleteUtilityNode();
   const createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
@@ -1603,7 +1605,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                     width={wPx}
                     align="center"
                     text="\u5df2\u6536\u6210"
-                    fontSize={9}
+                    fontSize={11}
                     fill="#4b5563"
                     listening={false}
                   />
@@ -1686,6 +1688,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 onDragEnd={(e) => handleUtilityNodeDragEnd(node.id, e)}
                 onClick={(e) => {
                   e.cancelBubble = true;
+                  if (activeTool === "eraser") {
+                    deleteUtilityNode.mutate({ id: node.id, fieldId: field.id });
+                    return;
+                  }
                   if (activeTool === "select") {
                     if (e.evt.shiftKey) {
                       toggleSelect(node.id);
@@ -1735,24 +1741,30 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   fill={node.kind === "water" ? "#0369a1" : "#9a3412"}
                   listening={false}
                 />
-                {/* Node type label below circle */}
-                <Text
-                  x={-20}
-                  y={10}
-                  width={40}
-                  align="center"
-                  text={node.nodeType ? (UTILITY_NODE_TYPE_LABELS[node.nodeType] ?? node.nodeType) : (node.kind === "water" ? "水管" : "電線")}
-                  fontSize={8}
-                  fill="#6b7280"
-                  listening={false}
-                />
+                {/* Node type label below circle — skip if same as node.label */}
+                {(() => {
+                  const typeLabel = node.nodeType ? (UTILITY_NODE_TYPE_LABELS[node.nodeType] ?? node.nodeType) : (node.kind === "water" ? "水管" : "電線");
+                  if (node.label === typeLabel) return null;
+                  return (
+                    <Text
+                      x={-20}
+                      y={10}
+                      width={40}
+                      align="center"
+                      text={typeLabel}
+                      fontSize={8}
+                      fill="#6b7280"
+                      listening={false}
+                    />
+                  );
+                })()}
               </Group>
             );
           })}
         </Layer>
 
         {/* Layer 4: Overlays (selection handles, snap guides, draw preview, measure, calibration) */}
-        <Layer>
+        <Layer listening={false}>
           {/* Smart alignment guides */}
           {activeGuides.map((guide, i) => (
             <Line
