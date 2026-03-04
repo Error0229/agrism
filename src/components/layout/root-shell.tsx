@@ -31,7 +31,7 @@ function getPageTitle(pathname: string): string {
 
 export function RootShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isAuthRoute = pathname?.startsWith("/auth/") || pathname === "/auth";
+  const isAuthRoute = pathname?.startsWith("/auth/") || pathname === "/auth" || pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
 
   if (isAuthRoute) {
     return <>{children}</>;

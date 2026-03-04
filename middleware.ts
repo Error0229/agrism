@@ -1,27 +1,20 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET ?? 'dev-only-insecure-secret-change-me' })
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhook(.*)",
+]);
 
-  if (!token && req.nextUrl.pathname !== '/auth/login') {
-    const loginUrl = new URL('/auth/login', req.nextUrl.origin)
-    return NextResponse.redirect(loginUrl)
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
   }
-
-  return NextResponse.next()
-}
+});
 
 export const config = {
   matcher: [
-    '/',
-    '/calendar/:path*',
-    '/crops/:path*',
-    '/fields/:path*',
-    '/records/:path*',
-    '/weather/:path*',
-    '/ai/:path*',
-    '/settings/:path*',
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
   ],
-}
+};

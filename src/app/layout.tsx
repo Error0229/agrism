@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/providers";
-import { AppSessionProvider } from "@/components/auth/session-provider";
+import { ClerkProvider } from "@clerk/nextjs";
+import { zhTW } from "@clerk/localizations";
+import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { RootShell } from "@/components/layout/root-shell";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -27,15 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
-        <Providers>
-          <AppSessionProvider>
+    <ClerkProvider localization={zhTW}>
+      <html lang="zh-TW">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+          <ConvexClientProvider>
             <RootShell>{children}</RootShell>
-          </AppSessionProvider>
-        </Providers>
-        <Toaster />
-      </body>
-    </html>
+          </ConvexClientProvider>
+          <Toaster />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
