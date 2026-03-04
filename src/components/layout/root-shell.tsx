@@ -44,13 +44,13 @@ export function RootShell({ children }: { children: ReactNode }) {
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="min-w-0 overflow-hidden">
           <header className="flex h-12 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 !h-4" />
             <span className="text-sm text-muted-foreground">{pageTitle}</span>
           </header>
-          <main className={isFieldEditor ? "flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 md:p-6"}>{children}</main>
+          <main className={isFieldEditor ? "min-w-0 flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 md:p-6"}>{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
