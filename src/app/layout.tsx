@@ -28,15 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={zhTW}>
-      <html lang="zh-TW">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+    <html lang="zh-TW">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+        <ClerkProvider localization={zhTW}>
           <ConvexClientProvider>
             <RootShell>{children}</RootShell>
           </ConvexClientProvider>
-          <Toaster />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+        <Toaster />
+      </body>
+    </html>
   );
 }
