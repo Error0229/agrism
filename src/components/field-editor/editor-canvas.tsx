@@ -383,11 +383,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     }
   }, [activeTool]);
 
-  // Clear edge pending state when switching away from utility_edge
+  // Clear edge pending state when switching away from utility_edge.
+  // IMPORTANT: pendingEdgeFromNodeId must NOT be in the dependency array,
+  // otherwise the cleanup resets it immediately after every state change.
   useEffect(() => {
     if (activeTool === "utility_edge") {
       const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === "Escape" && pendingEdgeFromNodeId) {
+        if (e.key === "Escape") {
           setPendingEdgeFromNodeId(null);
           setEdgeCursorPos(null);
         }
@@ -399,7 +401,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         setEdgeCursorPos(null);
       };
     }
-  }, [activeTool, pendingEdgeFromNodeId]);
+  }, [activeTool]);
 
   // Resize container on mount / window resize
   useEffect(() => {
