@@ -1712,6 +1712,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   }
                 }}
               >
+                {/* Invisible hit area — larger clickable zone for utility_edge and other tools */}
+                <Circle
+                  x={0}
+                  y={0}
+                  radius={16}
+                  fill="transparent"
+                  listening={true}
+                />
                 {/* Highlight ring for edge source or selected node */}
                 {(isEdgeSource || isNodeSelected) && (
                   <Circle
@@ -1732,6 +1740,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   fill={node.kind === "water" ? "#0ea5e9" : "#fb923c"}
                   stroke="#1f2937"
                   strokeWidth={1}
+                  listening={true}
+                  hitStrokeWidth={12}
                 />
                 <Text
                   x={8}
