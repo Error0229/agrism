@@ -1,113 +1,41 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  getCrops,
-  getCropById,
-  createCustomCrop,
-  updateCustomCrop,
-  deleteCustomCrop,
-  getCropTemplates,
-  createCropTemplate,
-  applyCropTemplate,
-  deleteCropTemplate,
-} from '@/server/actions/crops'
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-export const cropKeys = {
-  all: ['crops'] as const,
-  list: (farmId: string) => [...cropKeys.all, 'list', farmId] as const,
-  detail: (id: string) => [...cropKeys.all, 'detail', id] as const,
-  templates: (farmId: string) =>
-    [...cropKeys.all, 'templates', farmId] as const,
+export function useCrops(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.crops.list, farmId ? { farmId } : "skip");
 }
 
-export function useCrops(farmId: string | undefined) {
-  return useQuery({
-    queryKey: cropKeys.list(farmId!),
-    queryFn: () => getCrops(farmId!),
-    enabled: !!farmId,
-  })
+export function useCropById(cropId: Id<"crops"> | undefined) {
+  return useQuery(api.crops.getById, cropId ? { cropId } : "skip");
 }
 
-export function useCropById(id: string | undefined) {
-  return useQuery({
-    queryKey: cropKeys.detail(id!),
-    queryFn: () => getCropById(id!),
-    enabled: !!id,
-  })
+export function useCreateCrop() {
+  return useMutation(api.crops.create);
 }
 
-export function useCreateCrop(farmId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Parameters<typeof createCustomCrop>[1]) =>
-      createCustomCrop(farmId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cropKeys.list(farmId) })
-    },
-  })
+export function useUpdateCrop() {
+  return useMutation(api.crops.update);
 }
 
-export function useUpdateCrop(farmId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string
-      data: Parameters<typeof updateCustomCrop>[1]
-    }) => updateCustomCrop(id, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: cropKeys.list(farmId) })
-      queryClient.invalidateQueries({
-        queryKey: cropKeys.detail(variables.id),
-      })
-    },
-  })
+export function useDeleteCrop() {
+  return useMutation(api.crops.remove);
 }
 
-export function useDeleteCrop(farmId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteCustomCrop(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cropKeys.list(farmId) })
-    },
-  })
+export function useCropTemplates(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.crops.listTemplates, farmId ? { farmId } : "skip");
 }
 
-export function useCropTemplates(farmId: string | undefined) {
-  return useQuery({
-    queryKey: cropKeys.templates(farmId!),
-    queryFn: () => getCropTemplates(farmId!),
-    enabled: !!farmId,
-  })
+export function useCreateCropTemplate() {
+  return useMutation(api.crops.createTemplate);
 }
 
-export function useCreateCropTemplate(farmId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Parameters<typeof createCropTemplate>[1]) =>
-      createCropTemplate(farmId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cropKeys.templates(farmId) })
-    },
-  })
+export function useApplyCropTemplate(templateId: Id<"cropTemplates"> | undefined) {
+  return useQuery(api.crops.applyTemplate, templateId ? { templateId } : "skip");
 }
 
-export function useApplyCropTemplate() {
-  return useMutation({
-    mutationFn: (templateId: string) => applyCropTemplate(templateId),
-  })
-}
-
-export function useDeleteCropTemplate(farmId: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteCropTemplate(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: cropKeys.templates(farmId) })
-    },
-  })
+export function useDeleteCropTemplate() {
+  return useMutation(api.crops.removeTemplate);
 }

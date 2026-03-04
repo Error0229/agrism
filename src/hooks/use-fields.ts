@@ -1,693 +1,107 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import {
-  getFields,
-  getFieldById,
-  createField,
-  updateField,
-  updateFieldMemo,
-  deleteField,
-  plantCrop,
-  createRegion,
-  assignCropToRegion,
-  harvestCrop,
-  removePlantedCrop,
-  restorePlantedCrop,
-  deletePlantedCropWithPlacement,
-  updateCropPlacement,
-  createFacility,
-  updateFacility,
-  deleteFacility,
-  createUtilityNode,
-  updateUtilityNode,
-  deleteUtilityNode,
-  createUtilityEdge,
-  deleteUtilityEdge,
-} from '@/server/actions/fields'
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-export const fieldKeys = {
-  all: ['fields'] as const,
-  list: (farmId: string) => [...fieldKeys.all, 'list', farmId] as const,
-  detail: (id: string) => [...fieldKeys.all, 'detail', id] as const,
+// --- Field Queries ---
+
+export function useFields(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.fields.list, farmId ? { farmId } : "skip");
 }
 
-// Type for the field detail query data
-type FieldDetail = Awaited<ReturnType<typeof getFieldById>>
-
-/** Cancel outgoing queries and snapshot the previous field detail data */
-async function snapshotField(qc: QueryClient, fieldId: string) {
-  await qc.cancelQueries({ queryKey: fieldKeys.detail(fieldId) })
-  const previous = qc.getQueryData<FieldDetail>(fieldKeys.detail(fieldId))
-  return previous
+export function useFieldById(fieldId: Id<"fields"> | undefined) {
+  return useQuery(api.fields.getById, fieldId ? { fieldId } : "skip");
 }
 
-/** Rollback on error */
-function rollbackField(qc: QueryClient, fieldId: string, previous: FieldDetail | undefined) {
-  if (previous !== undefined) {
-    qc.setQueryData(fieldKeys.detail(fieldId), previous)
-  }
+// --- Field CRUD ---
+
+export function useCreateField() {
+  return useMutation(api.fields.create);
 }
 
-export function useFields(farmId: string | undefined) {
-  return useQuery({
-    queryKey: fieldKeys.list(farmId!),
-    queryFn: () => getFields(farmId!),
-    enabled: !!farmId,
-  })
+export function useUpdateField() {
+  return useMutation(api.fields.update);
 }
 
-export function useFieldById(id: string | undefined) {
-  return useQuery({
-    queryKey: fieldKeys.detail(id!),
-    queryFn: () => getFieldById(id!),
-    enabled: !!id,
-  })
+export function useUpdateFieldMemo() {
+  return useMutation(api.fields.updateMemo);
 }
 
-export function useCreateField(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Parameters<typeof createField>[1]) =>
-      createField(farmId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
-    },
-  })
+export function useDeleteField() {
+  return useMutation(api.fields.remove);
 }
 
-export function useUpdateField(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateField>[1] }) =>
-      updateField(id, data),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.id) })
-    },
-  })
+// --- Planted Crops ---
+
+export function usePlantCrop() {
+  return useMutation(api.fields.plantCrop);
 }
 
-export function useDeleteField(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteField(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
-    },
-  })
+export function useCreateRegion() {
+  return useMutation(api.fields.createRegion);
 }
 
-export function usePlantCrop(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof plantCrop>[1] }) =>
-      plantCrop(fieldId, data),
-    async onMutate(variables) {
-      const { fieldId, data } = variables
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        const tempPlantedCropId = crypto.randomUUID()
-        const tempPlacementId = crypto.randomUUID()
-        return {
-          ...old,
-          plantedCrops: [
-            ...old.plantedCrops,
-            {
-              plantedCrop: {
-                id: tempPlantedCropId,
-                cropId: data.cropId,
-                fieldId,
-                plantedDate: new Date().toISOString().split('T')[0],
-                harvestedDate: null,
-                status: 'growing' as const,
-                customGrowthDays: null,
-                notes: null,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-              crop: null,
-            },
-          ],
-          placements: [
-            ...old.placements,
-            {
-              id: tempPlacementId,
-              plantedCropId: tempPlantedCropId,
-              fieldId,
-              xM: data.xM,
-              yM: data.yM,
-              widthM: data.widthM,
-              heightM: data.heightM,
-              shapePoints: data.shapePoints ?? null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-    },
-  })
+export function useAssignCropToRegion() {
+  return useMutation(api.fields.assignCropToRegion);
 }
 
-export function useHarvestCrop(fieldId?: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => harvestCrop(id),
-    async onMutate(plantedCropId) {
-      if (!fieldId) return
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          plantedCrops: old.plantedCrops.map((entry) =>
-            entry.plantedCrop.id === plantedCropId
-              ? {
-                  ...entry,
-                  plantedCrop: {
-                    ...entry.plantedCrop,
-                    status: 'harvested' as const,
-                    harvestedDate: new Date().toISOString().split('T')[0],
-                  },
-                }
-              : entry
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (fieldId) rollbackField(qc, fieldId, context?.previous)
-    },
-    onSettled: () => {
-      if (fieldId) {
-        qc.invalidateQueries({ queryKey: fieldKeys.detail(fieldId) })
-      }
-      qc.invalidateQueries({ queryKey: fieldKeys.all })
-    },
-  })
+export function useUpdatePlantedCrop() {
+  return useMutation(api.fields.updatePlantedCrop);
 }
 
-export function useRemovePlantedCrop(fieldId?: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => removePlantedCrop(id),
-    async onMutate(plantedCropId) {
-      if (!fieldId) return
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          plantedCrops: old.plantedCrops.map((entry) =>
-            entry.plantedCrop.id === plantedCropId
-              ? {
-                  ...entry,
-                  plantedCrop: { ...entry.plantedCrop, status: 'removed' as const },
-                }
-              : entry
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (fieldId) rollbackField(qc, fieldId, context?.previous)
-    },
-    onSettled: () => {
-      if (fieldId) {
-        qc.invalidateQueries({ queryKey: fieldKeys.detail(fieldId) })
-      }
-      qc.invalidateQueries({ queryKey: fieldKeys.all })
-    },
-  })
+export function useHarvestCrop() {
+  return useMutation(api.fields.harvestCrop);
 }
 
-export function useRestorePlantedCrop(fieldId?: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => restorePlantedCrop(id),
-    async onMutate(plantedCropId) {
-      if (!fieldId) return
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          plantedCrops: old.plantedCrops.map((entry) =>
-            entry.plantedCrop.id === plantedCropId
-              ? {
-                  ...entry,
-                  plantedCrop: { ...entry.plantedCrop, status: 'growing' as const },
-                }
-              : entry
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (fieldId) rollbackField(qc, fieldId, context?.previous)
-    },
-    onSettled: () => {
-      if (fieldId) {
-        qc.invalidateQueries({ queryKey: fieldKeys.detail(fieldId) })
-      }
-      qc.invalidateQueries({ queryKey: fieldKeys.all })
-    },
-  })
+export function useRemovePlantedCrop() {
+  return useMutation(api.fields.removePlantedCrop);
 }
 
-export function useDeletePlantedCropWithPlacement(fieldId?: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deletePlantedCropWithPlacement(id),
-    async onMutate(plantedCropId) {
-      if (!fieldId) return
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          plantedCrops: old.plantedCrops.filter(
-            (entry) => entry.plantedCrop.id !== plantedCropId
-          ),
-          placements: old.placements.filter(
-            (p) => p.plantedCropId !== plantedCropId
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (fieldId) rollbackField(qc, fieldId, context?.previous)
-    },
-    onSettled: () => {
-      if (fieldId) {
-        qc.invalidateQueries({ queryKey: fieldKeys.detail(fieldId) })
-      }
-      qc.invalidateQueries({ queryKey: fieldKeys.all })
-    },
-  })
+export function useRestorePlantedCrop() {
+  return useMutation(api.fields.restorePlantedCrop);
 }
 
-export function useCreateRegion(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof createRegion>[1] }) =>
-      createRegion(fieldId, data),
-    async onMutate(variables) {
-      const { fieldId, data } = variables
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        const tempPlantedCropId = crypto.randomUUID()
-        const tempPlacementId = crypto.randomUUID()
-        return {
-          ...old,
-          plantedCrops: [
-            ...old.plantedCrops,
-            {
-              plantedCrop: {
-                id: tempPlantedCropId,
-                cropId: data.cropId ?? null,
-                fieldId,
-                plantedDate: new Date().toISOString().split('T')[0],
-                harvestedDate: null,
-                status: 'growing' as const,
-                customGrowthDays: null,
-                notes: null,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-              crop: null,
-            },
-          ],
-          placements: [
-            ...old.placements,
-            {
-              id: tempPlacementId,
-              plantedCropId: tempPlantedCropId,
-              fieldId,
-              xM: data.xM,
-              yM: data.yM,
-              widthM: data.widthM,
-              heightM: data.heightM,
-              shapePoints: data.shapePoints ?? null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.list(farmId) })
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
-}
-
-export function useAssignCropToRegion(fieldId?: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ plantedCropId, cropId }: { plantedCropId: string; cropId: string }) =>
-      assignCropToRegion(plantedCropId, cropId),
-    async onMutate(variables) {
-      if (!fieldId) return
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          plantedCrops: old.plantedCrops.map((entry) =>
-            entry.plantedCrop.id === variables.plantedCropId
-              ? {
-                  ...entry,
-                  plantedCrop: { ...entry.plantedCrop, cropId: variables.cropId },
-                }
-              : entry
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, _vars, context) => {
-      if (fieldId) rollbackField(qc, fieldId, context?.previous)
-    },
-    onSettled: () => {
-      if (fieldId) {
-        qc.invalidateQueries({ queryKey: fieldKeys.detail(fieldId) })
-      }
-      qc.invalidateQueries({ queryKey: fieldKeys.all })
-    },
-  })
+export function useDeletePlantedCropWithPlacement() {
+  return useMutation(api.fields.deletePlantedCropWithPlacement);
 }
 
 export function useUpdateCropPlacement() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: {
-      placementId: string
-      fieldId: string
-      data: Parameters<typeof updateCropPlacement>[1]
-    }) => updateCropPlacement(args.placementId, args.data),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          placements: old.placements.map((p) =>
-            p.id === variables.placementId ? { ...p, ...variables.data } : p
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.updateCropPlacement);
 }
 
 // --- Facilities ---
 
 export function useCreateFacility() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof createFacility>[1] }) =>
-      createFacility(fieldId, data),
-    async onMutate(variables) {
-      const { fieldId, data } = variables
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          facilities: [
-            ...old.facilities,
-            {
-              id: crypto.randomUUID(),
-              fieldId,
-              facilityType: data.facilityType,
-              name: data.name,
-              xM: data.xM,
-              yM: data.yM,
-              widthM: data.widthM,
-              heightM: data.heightM,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.createFacility);
 }
 
 export function useUpdateFacility() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: {
-      id: string
-      fieldId: string
-      data: Parameters<typeof updateFacility>[1]
-    }) => updateFacility(args.id, args.data),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          facilities: old.facilities.map((f) =>
-            f.id === variables.id ? { ...f, ...variables.data } : f
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.updateFacility);
 }
 
 export function useDeleteFacility() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: { id: string; fieldId: string }) =>
-      deleteFacility(args.id),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          facilities: old.facilities.filter((f) => f.id !== variables.id),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.deleteFacility);
 }
 
 // --- Utility Nodes & Edges ---
 
 export function useCreateUtilityNode() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof createUtilityNode>[1] }) =>
-      createUtilityNode(fieldId, data),
-    async onMutate(variables) {
-      const { fieldId, data } = variables
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          utilityNodes: [
-            ...old.utilityNodes,
-            {
-              id: crypto.randomUUID(),
-              fieldId,
-              label: data.label,
-              kind: data.kind,
-              nodeType: data.nodeType ?? null,
-              xM: data.xM,
-              yM: data.yM,
-              createdAt: new Date(),
-            },
-          ],
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.createUtilityNode);
 }
 
 export function useUpdateUtilityNode() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: {
-      id: string
-      fieldId: string
-      data: Parameters<typeof updateUtilityNode>[1]
-    }) => updateUtilityNode(args.id, args.data),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          utilityNodes: old.utilityNodes.map((n) =>
-            n.id === variables.id ? { ...n, ...variables.data } : n
-          ),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.updateUtilityNode);
 }
 
 export function useDeleteUtilityNode() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: { id: string; fieldId: string }) =>
-      deleteUtilityNode(args.id),
-    onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.deleteUtilityNode);
 }
 
 export function useCreateUtilityEdge() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, data }: { fieldId: string; data: Parameters<typeof createUtilityEdge>[1] }) =>
-      createUtilityEdge(fieldId, data),
-    async onMutate(variables) {
-      const { fieldId, data } = variables
-      const previous = await snapshotField(qc, fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          utilityEdges: [
-            ...old.utilityEdges,
-            {
-              id: crypto.randomUUID(),
-              fieldId,
-              fromNodeId: data.fromNodeId,
-              toNodeId: data.toNodeId,
-              kind: data.kind,
-              createdAt: new Date(),
-            },
-          ],
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.createUtilityEdge);
 }
 
 export function useDeleteUtilityEdge() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (args: { id: string; fieldId: string }) =>
-      deleteUtilityEdge(args.id),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return {
-          ...old,
-          utilityEdges: old.utilityEdges.filter((e) => e.id !== variables.id),
-        }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
-}
-
-// --- Field Memo ---
-
-export function useUpdateFieldMemo() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ fieldId, memo }: { fieldId: string; memo: string }) =>
-      updateFieldMemo(fieldId, memo),
-    async onMutate(variables) {
-      const previous = await snapshotField(qc, variables.fieldId)
-      qc.setQueryData<FieldDetail>(fieldKeys.detail(variables.fieldId), (old) => {
-        if (!old) return old
-        return { ...old, memo: variables.memo }
-      })
-      return { previous }
-    },
-    onError: (_err, variables, context) => {
-      rollbackField(qc, variables.fieldId, context?.previous)
-    },
-    onSettled: (_data, _err, variables) => {
-      qc.invalidateQueries({ queryKey: fieldKeys.detail(variables.fieldId) })
-    },
-  })
+  return useMutation(api.fields.deleteUtilityEdge);
 }
