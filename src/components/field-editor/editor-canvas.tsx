@@ -348,7 +348,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [dragStartPositions, setDragStartPositions] = useState<Map<
     string,
-    { xM: number; yM: number }
+    { xM: number; yM: number; shapePoints?: { x: number; y: number }[] | null }
   > | null>(null);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
   const [resizePreview, setResizePreview] = useState<ResizePreview | null>(null);
@@ -675,7 +675,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
       // Utility edge tool: cancel pending connection on empty stage click
       if (activeTool === "utility_edge") {
-        if (pendingEdgeFromNodeId) {
+        // Only clear pending edge if clicking on empty stage, not on a node
+        const clickedOnStage = e.target === e.target.getStage();
+        if (pendingEdgeFromNodeId && clickedOnStage) {
           setPendingEdgeFromNodeId(null);
           setEdgeCursorPos(null);
         }
@@ -991,10 +993,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
   const handleItemDragStart = useCallback(() => {
     if (activeTool !== "select") return;
-    const positions = new Map<string, { xM: number; yM: number }>();
+    const positions = new Map<string, { xM: number; yM: number; shapePoints?: { x: number; y: number }[] | null }>();
     for (const id of selectedIds) {
       const item = itemById.get(id);
-      if (item) positions.set(id, { xM: item.xM, yM: item.yM });
+      if (item) positions.set(id, {
+        xM: item.xM,
+        yM: item.yM,
+        shapePoints: item.shapePoints ? item.shapePoints.map(p => ({ ...p })) : null,
+      });
     }
     setDragStartPositions(positions);
   }, [activeTool, selectedIds, itemById]);
@@ -1031,10 +1037,17 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           const target = itemById.get(id);
           if (!target) return;
           if (target.kind === "crop") {
+            const placementData: { xM: number; yM: number; shapePoints?: { x: number; y: number }[] | null } = {
+              xM: data.xM,
+              yM: data.yM,
+            };
+            if (data.shapePoints) {
+              placementData.shapePoints = data.shapePoints;
+            }
             await updatePlacement.mutateAsync({
               placementId: id,
               fieldId: field.id,
-              data: { xM: data.xM, yM: data.yM },
+              data: placementData,
             });
           } else if (target.kind === "facility") {
             await updateFacility.mutateAsync({

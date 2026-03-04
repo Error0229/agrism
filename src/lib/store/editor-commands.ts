@@ -17,9 +17,20 @@ export function createMoveCommand(params: {
   dy: number;
   updateFn: (
     id: string,
-    data: { xM: number; yM: number },
+    data: {
+      xM: number;
+      yM: number;
+      shapePoints?: { x: number; y: number }[] | null;
+    },
   ) => Promise<unknown>;
-  positions: Map<string, { xM: number; yM: number }>;
+  positions: Map<
+    string,
+    {
+      xM: number;
+      yM: number;
+      shapePoints?: { x: number; y: number }[] | null;
+    }
+  >;
 }): Command {
   const { ids, dx, dy, updateFn, positions } = params;
 
@@ -30,14 +41,33 @@ export function createMoveCommand(params: {
       for (const id of ids) {
         const orig = positions.get(id);
         if (!orig) continue;
-        await updateFn(id, { xM: orig.xM + dx, yM: orig.yM + dy });
+        const data: {
+          xM: number;
+          yM: number;
+          shapePoints?: { x: number; y: number }[] | null;
+        } = { xM: orig.xM + dx, yM: orig.yM + dy };
+        if (orig.shapePoints && orig.shapePoints.length > 0) {
+          data.shapePoints = orig.shapePoints.map((p) => ({
+            x: p.x + dx,
+            y: p.y + dy,
+          }));
+        }
+        await updateFn(id, data);
       }
     },
     async undo() {
       for (const id of ids) {
         const orig = positions.get(id);
         if (!orig) continue;
-        await updateFn(id, { xM: orig.xM, yM: orig.yM });
+        const data: {
+          xM: number;
+          yM: number;
+          shapePoints?: { x: number; y: number }[] | null;
+        } = { xM: orig.xM, yM: orig.yM };
+        if (orig.shapePoints && orig.shapePoints.length > 0) {
+          data.shapePoints = orig.shapePoints.map((p) => ({ ...p }));
+        }
+        await updateFn(id, data);
       }
     },
   };
