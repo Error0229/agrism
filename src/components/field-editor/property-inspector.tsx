@@ -146,8 +146,7 @@ export const PropertyInspector = React.memo(function PropertyInspector({
     if (!timelineMode || !timelineDate || !field) return null;
     let growingAtDate = 0;
     let harvestedAtDate = 0;
-    for (const row of field.plantedCrops) {
-      const pc = row.plantedCrop;
+    for (const pc of field.plantedCrops) {
       // Skip crops not yet planted at timeline date
       if (pc.plantedDate && pc.plantedDate > timelineDate) continue;
       // Count harvested
@@ -166,30 +165,24 @@ export const PropertyInspector = React.memo(function PropertyInspector({
     if (selectedIds.length !== 1 || !field) return null;
     const id = selectedIds[0];
 
-    // Check placements (crops)
-    const placement = field.placements.find((p) => p.id === id);
-    if (placement) {
-      const pcRow = field.plantedCrops.find(
-        (row) => row.plantedCrop.id === placement.plantedCropId,
-      );
-      if (pcRow) {
-        return {
-          kind: "crop" as const,
-          placement,
-          plantedCrop: pcRow.plantedCrop,
-          crop: pcRow.crop,
-        };
-      }
+    // Check planted crops (placements are inlined in Convex)
+    const pc = field.plantedCrops.find((p: any) => p._id === id);
+    if (pc) {
+      return {
+        kind: "crop" as const,
+        plantedCrop: pc,
+        crop: pc.crop,
+      };
     }
 
     // Check facilities
-    const facility = field.facilities.find((f) => f.id === id);
+    const facility = field.facilities.find((f: any) => f._id === id);
     if (facility) {
       return { kind: "facility" as const, facility };
     }
 
     // Check utility nodes
-    const utilityNode = field.utilityNodes.find((n) => n.id === id);
+    const utilityNode = field.utilityNodes.find((n: any) => n._id === id);
     if (utilityNode) {
       return { kind: "utility_node" as const, utilityNode };
     }
@@ -279,11 +272,11 @@ export const PropertyInspector = React.memo(function PropertyInspector({
               <CropSelectionSection
                 item={selectedItem}
                 onDelete={onDeleteSelected}
-                onDeleteArea={onDeleteArea ? () => onDeleteArea(selectedItem.plantedCrop.id) : undefined}
-                onRemovePlant={onRemovePlant && selectedItem.plantedCrop.cropId ? () => onRemovePlant(selectedItem.plantedCrop.id) : undefined}
+                onDeleteArea={onDeleteArea ? () => onDeleteArea(selectedItem.plantedCrop._id) : undefined}
+                onRemovePlant={onRemovePlant && selectedItem.plantedCrop.cropId ? () => onRemovePlant(selectedItem.plantedCrop._id) : undefined}
                 onDeselect={clearSelection}
-                onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop.id) : undefined}
-                onMarkHarvested={onMarkHarvested && selectedItem.plantedCrop.status === "growing" ? () => onMarkHarvested(selectedItem.plantedCrop.id) : undefined}
+                onChangeCrop={onChangeCrop ? () => onChangeCrop(selectedItem.plantedCrop._id) : undefined}
+                onMarkHarvested={onMarkHarvested && selectedItem.plantedCrop.status === "growing" ? () => onMarkHarvested(selectedItem.plantedCrop._id) : undefined}
                 onSplitHorizontal={onSplitHorizontal}
                 onSplitVertical={onSplitVertical}
               />
@@ -573,8 +566,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   onSplitVertical,
 }: {
   item: {
-    placement: FieldData["placements"][number];
-    plantedCrop: FieldData["plantedCrops"][number]["plantedCrop"];
+    plantedCrop: FieldData["plantedCrops"][number];
     crop: FieldData["plantedCrops"][number]["crop"];
   };
   onDelete?: () => void;
@@ -586,7 +578,8 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   onSplitHorizontal?: () => void;
   onSplitVertical?: () => void;
 }) {
-  const { placement, plantedCrop, crop } = item;
+  // In Convex, placement data (xM, yM, widthM, heightM) is inlined into plantedCrop
+  const { plantedCrop, crop } = item;
 
   const statusLabel =
     PLANTED_CROP_STATUS_LABELS[plantedCrop.status as PlantedCropStatus] ??
@@ -598,7 +591,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
 
   const growthDays = plantedCrop.customGrowthDays ?? crop?.growthDays;
 
-  const area = (Number(placement.widthM) * Number(placement.heightM)).toFixed(
+  const area = (Number(plantedCrop.widthM ?? 1) * Number(plantedCrop.heightM ?? 1)).toFixed(
     1,
   );
 
@@ -653,11 +646,11 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           </div>
           <PropRow
             label="X"
-            value={`${Number(placement.xM).toFixed(1)} m`}
+            value={`${Number(plantedCrop.xM).toFixed(1)} m`}
           />
           <PropRow
             label="Y"
-            value={`${Number(placement.yM).toFixed(1)} m`}
+            value={`${Number(plantedCrop.yM).toFixed(1)} m`}
           />
         </div>
         <div className="space-y-1">
@@ -667,11 +660,11 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           </div>
           <PropRow
             label="寬"
-            value={`${Number(placement.widthM).toFixed(1)} m`}
+            value={`${Number(plantedCrop.widthM ?? 1).toFixed(1)} m`}
           />
           <PropRow
             label="高"
-            value={`${Number(placement.heightM).toFixed(1)} m`}
+            value={`${Number(plantedCrop.heightM ?? 1).toFixed(1)} m`}
           />
           <PropRow label="面積" value={<>{area} m&sup2;</>} />
         </div>
@@ -847,7 +840,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
             value={facility.facilityType}
             onChange={(e) => {
               updateFacility({
-                facilityId: facility.id as any,
+                facilityId: facility._id as any,
                 facilityType: e.target.value as FacilityType,
               });
             }}
@@ -873,7 +866,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
                   data.facilityType = derived as FacilityType;
                 }
                 updateFacility({
-                  facilityId: facility.id as any,
+                  facilityId: facility._id as any,
                   ...data,
                 });
               }
@@ -960,16 +953,16 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
   const connectedEdges = useMemo(() => {
     const edges: { edgeId: string; nodeId: string; nodeLabel: string }[] = [];
     for (const edge of field.utilityEdges) {
-      if (edge.fromNodeId === utilityNode.id) {
-        const toNode = field.utilityNodes.find((n) => n.id === edge.toNodeId);
-        if (toNode) edges.push({ edgeId: edge.id, nodeId: toNode.id, nodeLabel: toNode.label });
-      } else if (edge.toNodeId === utilityNode.id) {
-        const fromNode = field.utilityNodes.find((n) => n.id === edge.fromNodeId);
-        if (fromNode) edges.push({ edgeId: edge.id, nodeId: fromNode.id, nodeLabel: fromNode.label });
+      if (edge.fromNodeId === utilityNode._id) {
+        const toNode = field.utilityNodes.find((n: any) => n._id === edge.toNodeId);
+        if (toNode) edges.push({ edgeId: edge._id, nodeId: toNode._id, nodeLabel: toNode.label });
+      } else if (edge.toNodeId === utilityNode._id) {
+        const fromNode = field.utilityNodes.find((n: any) => n._id === edge.fromNodeId);
+        if (fromNode) edges.push({ edgeId: edge._id, nodeId: fromNode._id, nodeLabel: fromNode.label });
       }
     }
     return edges;
-  }, [field.utilityEdges, field.utilityNodes, utilityNode.id]);
+  }, [field.utilityEdges, field.utilityNodes, utilityNode._id]);
 
   return (
     <>
@@ -1001,7 +994,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             value={utilityNode.kind}
             onChange={(e) => {
               updateNode({
-                nodeId: utilityNode.id as any,
+                nodeId: utilityNode._id as any,
                 kind: e.target.value as UtilityKind,
               });
             }}
@@ -1019,7 +1012,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             onChange={(e) => {
               const val = e.target.value;
               updateNode({
-                nodeId: utilityNode.id as any,
+                nodeId: utilityNode._id as any,
                 nodeType: val || undefined,
               });
             }}
@@ -1042,7 +1035,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
               const val = e.target.value.trim();
               if (val && val !== utilityNode.label) {
                 updateNode({
-                  nodeId: utilityNode.id as any,
+                  nodeId: utilityNode._id as any,
                   label: val,
                 });
               }
@@ -1098,7 +1091,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             size="sm"
             className="text-xs"
             onClick={() => {
-              deleteNode({ nodeId: utilityNode.id as any });
+              deleteNode({ nodeId: utilityNode._id as any });
               onDelete?.();
             }}
           >
