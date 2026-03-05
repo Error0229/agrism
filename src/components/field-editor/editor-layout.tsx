@@ -129,16 +129,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasContainerSize, setCanvasContainerSize] = useState({ width: 800, height: 600 });
 
-  // Draw rect completion state — stores the newly created region's planted crop ID
-  // so the user can optionally assign a crop to it
-  const [pendingRegionId, setPendingRegionId] = useState<string | null>(null);
-  const [pendingRectInfo, setPendingRectInfo] = useState<{
-    xM: number;
-    yM: number;
-    widthM: number;
-    heightM: number;
-  } | null>(null);
-
   // Crop reassignment state
   const [reassignPlantedCropId, setReassignPlantedCropId] = useState<string | null>(null);
 
@@ -247,6 +237,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (pc) {
         items.push({
           kind: "crop",
+        shapePoints: pc.shapePoints as { x: number; y: number }[] | null | undefined,
           xM: Number(pc.xM),
           yM: Number(pc.yM),
           widthM: Number(pc.widthM),
@@ -476,7 +467,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     async (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
       if (!field) return;
       const rectData = { ...rect };
-      let createdPlantedCropId: string | null = null;
 
       const cmd = createPlantCropCommand({
         async plantFn() {
@@ -487,7 +477,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             widthM: rectData.widthM,
             heightM: rectData.heightM,
           });
-          createdPlantedCropId = plantedCropId;
           return { plantedCropId };
         },
         async removeFn(plantedCropId) {
@@ -500,11 +489,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
       await executeCommand(cmd);
 
-      // Show optional crop assignment dialog
-      if (createdPlantedCropId) {
-        setPendingRegionId(createdPlantedCropId);
-        setPendingRectInfo(rect);
-      }
       setTool("select");
     },
     [field, createRegionMut, removePlantedCrop, restorePlantedCrop, setTool, executeCommand],
@@ -514,7 +498,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     async (data: { xM: number; yM: number; widthM: number; heightM: number; shapePoints: { x: number; y: number }[] }) => {
       if (!field) return;
       const polyData = { ...data };
-      let createdPlantedCropId: string | null = null;
 
       const cmd = createPlantCropCommand({
         async plantFn() {
@@ -526,7 +509,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             heightM: polyData.heightM,
             shapePoints: polyData.shapePoints,
           });
-          createdPlantedCropId = plantedCropId;
           return { plantedCropId };
         },
         async removeFn(plantedCropId) {
@@ -539,23 +521,9 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
       await executeCommand(cmd);
 
-      if (createdPlantedCropId) {
-        setPendingRegionId(createdPlantedCropId);
-        setPendingRectInfo({ xM: data.xM, yM: data.yM, widthM: data.widthM, heightM: data.heightM });
-      }
       setTool("select");
     },
     [field, createRegionMut, removePlantedCrop, restorePlantedCrop, setTool, executeCommand],
-  );
-
-  const handleAssignCrop = useCallback(
-    async (cropId: string) => {
-      if (!pendingRegionId) return;
-      await assignCropToRegion({ plantedCropId: pendingRegionId as Id<"plantedCrops">, cropId: cropId as Id<"crops"> });
-      setPendingRegionId(null);
-      setPendingRectInfo(null);
-    },
-    [pendingRegionId, assignCropToRegion],
   );
 
   const handleChangeCrop = useCallback(
@@ -852,7 +820,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // --- Minimap items ---
   const minimapItems = useMemo(() => {
     if (!field) return [];
-    const items: Array<{ xM: number; yM: number; widthM: number; heightM: number; color: string; kind: string }> = [];
+    const items: Array<{ xM: number; yM: number; widthM: number; heightM: number; color: string; kind: string; shapePoints?: { x: number; y: number }[] | null }> = [];
     for (const pc of field.plantedCrops) {
       items.push({
         xM: Number(pc.xM),
@@ -861,6 +829,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         heightM: Number(pc.heightM),
         color: pc.crop?.color ?? "#d1d5db",
         kind: "crop",
+        shapePoints: pc.shapePoints as { x: number; y: number }[] | null | undefined,
       });
     }
     for (const fac of field.facilities) {
@@ -1114,6 +1083,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             viewportWidth={canvasContainerSize.width}
             viewportHeight={canvasContainerSize.height}
             onNavigate={handleMinimapNavigate}
+            onPan={setPan}
           />
           {/* Floating button to reopen inspector on mobile when it's collapsed */}
           {isMobile && !inspectorOpen && (
@@ -1322,23 +1292,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           fieldHeightM={Number(field.heightM)}
         />
       </div>
-
-      {/* Crop assignment dialog (opens after draw_rect creates a region) */}
-      {farmId && (
-        <PlantCropDialog
-          farmId={farmId}
-          open={pendingRegionId !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              // User dismissed without selecting — region stays unassigned
-              setPendingRegionId(null);
-              setPendingRectInfo(null);
-            }
-          }}
-          onSelect={handleAssignCrop}
-          rectInfo={pendingRectInfo}
-        />
-      )}
 
       {/* Crop reassignment dialog */}
       {farmId && (
