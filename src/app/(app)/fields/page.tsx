@@ -82,7 +82,7 @@ export default function FieldsPage() {
 function FieldCard({ field }: { field: any }) {
   const areaM2 = field.widthM * field.heightM
   const growingCrops = (field.plantedCrops ?? []).filter(
-    (pc: any) => pc.plantedCrop.status === 'growing',
+    (pc: any) => pc.status === 'growing',
   )
   const facilityCount = (field.facilities ?? []).length
 
@@ -118,12 +118,12 @@ function FieldCard({ field }: { field: any }) {
             )}
           </div>
 
-          {field.context?.plotType && (
+          {field.plotType && (
             <Badge
               variant="outline"
               className="text-xs"
             >
-              {PLOT_TYPE_LABELS[field.context.plotType as PlotType]}
+              {PLOT_TYPE_LABELS[field.plotType as PlotType]}
             </Badge>
           )}
         </CardContent>
