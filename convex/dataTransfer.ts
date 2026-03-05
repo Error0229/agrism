@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./_helpers";
+import { requireFarmMembership } from "./_helpers";
 
 // ---------------------------------------------------------------------------
 // Export — full JSON
@@ -9,8 +9,7 @@ import { requireAuth } from "./_helpers";
 export const exportFarmData = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("未登入");
+    await requireFarmMembership(ctx, args.farmId);
 
     const farm = await ctx.db.get(args.farmId);
 
@@ -96,10 +95,17 @@ export const exportFarmData = query({
 export const importFarmData = mutation({
   args: {
     farmId: v.id("farms"),
-    data: v.any(),
+    data: v.object({
+      crops: v.optional(v.array(v.any())),
+      harvestLogs: v.optional(v.array(v.any())),
+      financeRecords: v.optional(v.array(v.any())),
+      soilAmendments: v.optional(v.array(v.any())),
+      soilNotes: v.optional(v.array(v.any())),
+      weatherLogs: v.optional(v.array(v.any())),
+    }),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, args.farmId);
     const { farmId, data } = args;
     const results: { imported: string[]; skipped: string[]; errors: string[] } = {
       imported: [],
