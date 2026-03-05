@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { zhTW } from "@clerk/localizations";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
+import { FarmProvider } from "@/components/farm-provider";
 import { RootShell } from "@/components/layout/root-shell";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -32,7 +33,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <ClerkProvider localization={zhTW}>
           <ConvexClientProvider>
-            <RootShell>{children}</RootShell>
+            <FarmProvider>
+              <RootShell>{children}</RootShell>
+            </FarmProvider>
           </ConvexClientProvider>
         </ClerkProvider>
         <Toaster />
