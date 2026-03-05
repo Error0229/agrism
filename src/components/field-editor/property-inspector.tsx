@@ -841,6 +841,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
             onChange={(e) => {
               updateFacility({
                 facilityId: facility._id as any,
+                fieldId: field._id,
                 facilityType: e.target.value as FacilityType,
               });
             }}
@@ -867,6 +868,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
                 }
                 updateFacility({
                   facilityId: facility._id as any,
+                  fieldId: field._id,
                   ...data,
                 });
               }
@@ -995,6 +997,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             onChange={(e) => {
               updateNode({
                 nodeId: utilityNode._id as any,
+                fieldId: field._id,
                 kind: e.target.value as UtilityKind,
               });
             }}
@@ -1013,6 +1016,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
               const val = e.target.value;
               updateNode({
                 nodeId: utilityNode._id as any,
+                fieldId: field._id,
                 nodeType: val || undefined,
               });
             }}
@@ -1036,6 +1040,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
               if (val && val !== utilityNode.label) {
                 updateNode({
                   nodeId: utilityNode._id as any,
+                  fieldId: field._id,
                   label: val,
                 });
               }

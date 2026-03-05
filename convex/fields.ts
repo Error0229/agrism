@@ -347,6 +347,7 @@ export const deletePlantedCropWithPlacement = mutation({
 export const updateCropPlacement = mutation({
   args: {
     plantedCropId: v.id("plantedCrops"),
+    fieldId: v.optional(v.id("fields")),
     xM: v.optional(v.number()),
     yM: v.optional(v.number()),
     widthM: v.optional(v.number()),
@@ -355,7 +356,7 @@ export const updateCropPlacement = mutation({
       v.array(v.object({ x: v.number(), y: v.number() }))
     ),
   },
-  handler: async (ctx, { plantedCropId, ...patch }) => {
+  handler: async (ctx, { plantedCropId, fieldId: _fieldId, ...patch }) => {
     await requireAuth(ctx);
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
@@ -399,6 +400,7 @@ export const createFacility = mutation({
 export const updateFacility = mutation({
   args: {
     facilityId: v.id("facilities"),
+    fieldId: v.optional(v.id("fields")),
     facilityType: v.optional(v.string()),
     name: v.optional(v.string()),
     xM: v.optional(v.number()),
@@ -406,7 +408,7 @@ export const updateFacility = mutation({
     widthM: v.optional(v.number()),
     heightM: v.optional(v.number()),
   },
-  handler: async (ctx, { facilityId, ...patch }) => {
+  handler: async (ctx, { facilityId, fieldId: _fieldId, ...patch }) => {
     await requireAuth(ctx);
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
@@ -456,13 +458,14 @@ export const createUtilityNode = mutation({
 export const updateUtilityNode = mutation({
   args: {
     nodeId: v.id("utilityNodes"),
+    fieldId: v.optional(v.id("fields")),
     label: v.optional(v.string()),
     kind: v.optional(v.union(v.literal("water"), v.literal("electric"))),
     nodeType: v.optional(v.string()),
     xM: v.optional(v.number()),
     yM: v.optional(v.number()),
   },
-  handler: async (ctx, { nodeId, ...patch }) => {
+  handler: async (ctx, { nodeId, fieldId: _fieldId, ...patch }) => {
     await requireAuth(ctx);
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {

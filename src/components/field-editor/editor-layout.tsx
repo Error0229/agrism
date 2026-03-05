@@ -434,12 +434,14 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         if (item.kind === 'crop') {
           updatePlacement({
             plantedCropId: item.id as Id<"plantedCrops">,
+            fieldId: field._id,
             xM: newX,
             yM: newY,
           });
         } else {
           updateFacilityMut({
             facilityId: item.id as Id<"facilities">,
+            fieldId: field._id,
             xM: newX,
             yM: newY,
           });

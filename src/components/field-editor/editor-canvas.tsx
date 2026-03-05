@@ -366,14 +366,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const [edgeCursorPos, setEdgeCursorPos] = useState<{ xM: number; yM: number } | null>(null);
   const [vertexDragState, setVertexDragState] = useState<VertexDragState | null>(null);
 
-  // Optimistic state: pending moves/resizes to overlay on Convex data until confirmed
-  const [pendingMoves, setPendingMoves] = useState<Map<string, { xM: number; yM: number; widthM?: number; heightM?: number; shapePoints?: { x: number; y: number }[] | null }>>(new Map());
   // Track dragging node positions for live edge rendering
   const [draggingNodePositions, setDraggingNodePositions] = useState<Map<string, { xM: number; yM: number }>>(new Map());
-  // Pending edge: show optimistic edge line until Convex data confirms
-  const [pendingEdge, setPendingEdge] = useState<{ fromNodeId: string; toNodeId: string; kind: string } | null>(null);
-  // Pending utility nodes: show optimistic nodes until Convex confirms
-  const [pendingNodes, setPendingNodes] = useState<Array<{ tempId: string; xM: number; yM: number; kind: string; label: string; nodeType: string }>>([]);
 
   // Context menu state removed — now delegated via onContextMenu prop
 
@@ -484,52 +478,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     () => new Map<string, any>(utilityNodes.map((n: any) => [n._id, n])),
     [utilityNodes],
   );
-
-  // Clear pending moves when Convex data matches (items have been updated)
-  useEffect(() => {
-    if (pendingMoves.size === 0) return;
-    setPendingMoves(prev => {
-      const next = new Map(prev);
-      let changed = false;
-      for (const [id, pending] of prev) {
-        const item = canvasItems.find(ci => ci.id === id);
-        if (!item) continue;
-        const xMatch = Math.abs(item.xM - pending.xM) < 0.01;
-        const yMatch = Math.abs(item.yM - pending.yM) < 0.01;
-        const wMatch = pending.widthM === undefined || Math.abs(item.widthM - pending.widthM) < 0.01;
-        const hMatch = pending.heightM === undefined || Math.abs(item.heightM - pending.heightM) < 0.01;
-        if (xMatch && yMatch && wMatch && hMatch) {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [canvasItems, pendingMoves]);
-
-  // Clear pending edge when Convex data includes the new edge
-  useEffect(() => {
-    if (!pendingEdge) return;
-    const exists = utilityEdges.some(
-      (e: any) => e.fromNodeId === pendingEdge.fromNodeId && e.toNodeId === pendingEdge.toNodeId
-    );
-    if (exists) setPendingEdge(null);
-  }, [utilityEdges, pendingEdge]);
-
-  // Clear pending nodes when Convex data includes them (matched by position)
-  useEffect(() => {
-    if (pendingNodes.length === 0) return;
-    setPendingNodes(prev => {
-      const next = prev.filter(pn => {
-        return !utilityNodes.some((n: any) =>
-          Math.abs(Number(n.xM) - pn.xM) < 0.01 &&
-          Math.abs(Number(n.yM) - pn.yM) < 0.01 &&
-          n.kind === pn.kind
-        );
-      });
-      return next.length === prev.length ? prev : next;
-    });
-  }, [utilityNodes, pendingNodes]);
 
   // Filter canvas items by layer visibility, harvested toggle, and timeline
   const visibleCanvasItems = useMemo(() => {
@@ -769,22 +717,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         if (pos && onPlaceUtilityNode) {
           const snappedX = snapM(pos.xM);
           const snappedY = snapM(pos.yM);
-          // Issue 3: Add pending node for optimistic rendering
-          const nodeType = useFieldEditor.getState().utilityNodeType;
-          const waterTypes = ["pump", "tank", "valve", "outlet", "junction"];
-          const kind = waterTypes.includes(nodeType) ? "water" : "electric";
-          const NODE_TYPE_LABELS: Record<string, string> = {
-            pump: '水泵', tank: '水塔', valve: '閥門', outlet: '出水口',
-            junction: '接頭', panel: '配電箱', switch: '開關',
-          };
-          setPendingNodes(prev => [...prev, {
-            tempId: `pending-${Date.now()}`,
-            xM: snappedX,
-            yM: snappedY,
-            kind,
-            label: NODE_TYPE_LABELS[nodeType] ?? "新節點",
-            nodeType,
-          }]);
           onPlaceUtilityNode({ xM: snappedX, yM: snappedY });
         }
         return;
@@ -1169,12 +1101,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             }
             await updatePlacement({
               plantedCropId: id as any,
+              fieldId: field._id,
               ...placementData,
               shapePoints: placementData.shapePoints ?? undefined,
             });
           } else if (target.kind === "facility") {
             await updateFacility({
               facilityId: id as any,
+              fieldId: field._id,
               xM: data.xM,
               yM: data.yM,
             });
@@ -1182,23 +1116,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         },
         positions: dragStartPositions,
       });
-
-      // Set pending moves for optimistic rendering
-      const newPending = new Map(pendingMoves);
-      for (const id of selectedIds) {
-        const orig = dragStartPositions.get(id);
-        if (orig) {
-          const pending: { xM: number; yM: number; shapePoints?: { x: number; y: number }[] | null } = {
-            xM: orig.xM + dxM,
-            yM: orig.yM + dyM,
-          };
-          if (orig.shapePoints && orig.shapePoints.length > 0) {
-            pending.shapePoints = orig.shapePoints.map(p => ({ x: p.x + dxM, y: p.y + dyM }));
-          }
-          newPending.set(id, pending);
-        }
-      }
-      setPendingMoves(newPending);
 
       executeCommand(cmd);
       setDragStartPositions(null);
@@ -1213,7 +1130,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       updatePlacement,
       updateFacility,
       executeCommand,
-      pendingMoves,
     ],
   );
 
@@ -1321,12 +1237,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           }
           await updatePlacement({
             plantedCropId: id as any,
+            fieldId: field._id,
             ...updateData,
             shapePoints: updateData.shapePoints ?? undefined,
           });
         } else if (item.kind === "facility") {
           await updateFacility({
             facilityId: id as any,
+            fieldId: field._id,
             ...data,
           });
         }
@@ -1340,23 +1258,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       if (item.kind === "crop" && oldShapePoints !== undefined) {
         await updatePlacement({
           plantedCropId: resizeState.itemId as any,
+          fieldId: field._id,
           shapePoints: oldShapePoints ?? undefined,
         });
       }
     };
-
-    // Keep the resize values in pendingMoves until Convex confirms
-    setPendingMoves(prev => {
-      const next = new Map(prev);
-      next.set(resizeState.itemId, {
-        xM: newX,
-        yM: newY,
-        widthM: newW,
-        heightM: newH,
-        shapePoints: newShapePoints,
-      });
-      return next;
-    });
 
     executeCommand(cmd);
     setResizeState(null);
@@ -1399,6 +1305,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
       updateUtilityNode({
         nodeId: nodeId as any,
+        fieldId: field._id,
         xM: newXM,
         yM: newYM,
       });
@@ -1479,11 +1386,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         if (item.kind === "crop") {
           await updatePlacement({
             plantedCropId: id as any,
+            fieldId: field._id,
             ...data,
             shapePoints: newShapePoints,
           });
         } else if (item.kind === "facility") {
-          await updateFacility({ facilityId: id as any, ...data });
+          await updateFacility({ facilityId: id as any, fieldId: field._id, ...data });
         }
       },
     });
@@ -1495,6 +1403,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       if (item.kind === "crop") {
         await updatePlacement({
           plantedCropId: vertexDragState.itemId as any,
+          fieldId: field._id,
           shapePoints: origShapePoints,
         });
       }
@@ -1664,13 +1573,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           {visibleCanvasItems.map((item) => {
             // Use resize preview dimensions if this item is being resized
             const rp = resizePreview?.id === item.id ? resizePreview : null;
-            // Merge pending optimistic state over Convex data
-            const pm = pendingMoves.get(item.id);
-            const renderXM = rp ? rp.xM : pm ? pm.xM : item.xM;
-            const renderYM = rp ? rp.yM : pm ? pm.yM : item.yM;
-            const renderWM = rp ? rp.widthM : pm?.widthM ?? item.widthM;
-            const renderHM = rp ? rp.heightM : pm?.heightM ?? item.heightM;
-            const renderShapePoints = rp?.shapePoints !== undefined ? rp.shapePoints : pm?.shapePoints !== undefined ? pm.shapePoints : item.shapePoints;
+            const renderXM = rp ? rp.xM : item.xM;
+            const renderYM = rp ? rp.yM : item.yM;
+            const renderWM = rp ? rp.widthM : item.widthM;
+            const renderHM = rp ? rp.heightM : item.heightM;
+            const renderShapePoints = rp?.shapePoints !== undefined ? rp.shapePoints : item.shapePoints;
 
             const xPx = renderXM * PIXELS_PER_METER;
             const yPx = renderYM * PIXELS_PER_METER;
@@ -1864,27 +1771,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             );
           })}
 
-          {/* Pending edge (optimistic) — shown until Convex confirms */}
-          {pendingEdge && (() => {
-            const from = utilityNodeById.get(pendingEdge.fromNodeId);
-            const to = utilityNodeById.get(pendingEdge.toNodeId);
-            if (!from || !to) return null;
-            return (
-              <Line
-                points={[
-                  Number(from.xM) * PIXELS_PER_METER,
-                  Number(from.yM) * PIXELS_PER_METER,
-                  Number(to.xM) * PIXELS_PER_METER,
-                  Number(to.yM) * PIXELS_PER_METER,
-                ]}
-                stroke={pendingEdge.kind === "water" ? "#0ea5e980" : "#f9731680"}
-                strokeWidth={3}
-                dash={[6, 4]}
-                listening={false}
-              />
-            );
-          })()}
-
           {/* Utility nodes (draggable) */}
           {visibleUtilityNodes.map((node) => {
             const isEdgeSource = pendingEdgeFromNodeId === node._id;
@@ -1916,14 +1802,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                       setPendingEdgeFromNodeId(node._id);
                     } else if (pendingEdgeFromNodeId !== node._id) {
                       // Issue 2: Set pending edge for optimistic rendering
-                      const fromNode = utilityNodeById.get(pendingEdgeFromNodeId);
-                      if (fromNode) {
-                        setPendingEdge({
-                          fromNodeId: pendingEdgeFromNodeId,
-                          toNodeId: node._id,
-                          kind: fromNode.kind,
-                        });
-                      }
                       onConnectUtilityNodes?.(pendingEdgeFromNodeId, node._id);
                       setPendingEdgeFromNodeId(null);
                       setEdgeCursorPos(null);
@@ -1992,32 +1870,6 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             );
           })}
 
-          {/* Pending utility nodes (optimistic) — shown with lower opacity until Convex confirms */}
-          {pendingNodes.map((pn) => (
-            <Group
-              key={pn.tempId}
-              x={pn.xM * PIXELS_PER_METER}
-              y={pn.yM * PIXELS_PER_METER}
-              opacity={0.5}
-              listening={false}
-            >
-              <Circle
-                x={0}
-                y={0}
-                radius={7}
-                fill={pn.kind === "water" ? "#0ea5e9" : "#fb923c"}
-                stroke="#1f2937"
-                strokeWidth={1}
-              />
-              <Text
-                x={8}
-                y={-6}
-                text={pn.label}
-                fontSize={10}
-                fill={pn.kind === "water" ? "#0369a1" : "#9a3412"}
-              />
-            </Group>
-          ))}
         </Layer>
 
         {/* Layer 4: Overlays (selection handles, snap guides, draw preview, measure, calibration) */}
