@@ -54,12 +54,14 @@ function formatNT(amount: number) {
 
 export default function FinanceRecordsPage() {
   const farmId = useFarmId()
-  const { data: records = [], isLoading } = useFinanceRecords(farmId)
-  const { data: summary } = useFinanceSummary(farmId)
-  const createRecord = useCreateFinanceRecord(farmId ?? '')
-  const deleteRecord = useDeleteFinanceRecord(farmId ?? '')
+  const records = useFinanceRecords(farmId)
+  const summary = useFinanceSummary(farmId)
+  const createRecord = useCreateFinanceRecord()
+  const deleteRecord = useDeleteFinanceRecord()
+  const isLoading = records === undefined
 
   const [open, setOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     type: 'income' as string,
     category: '',
@@ -79,9 +81,11 @@ export default function FinanceRecordsPage() {
   }
 
   async function handleSubmit() {
-    if (!form.category || !form.amount || !form.description) return
+    if (!form.category || !form.amount || !form.description || !farmId) return
+    setSubmitting(true)
     try {
-      await createRecord.mutateAsync({
+      await createRecord({
+        farmId: farmId as any,
         type: form.type as FinanceType,
         category: form.category,
         amount: Number(form.amount),
@@ -93,6 +97,8 @@ export default function FinanceRecordsPage() {
       resetForm()
     } catch {
       toast.error('新增財務紀錄失敗')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -205,7 +211,7 @@ export default function FinanceRecordsPage() {
             </TableBody>
           </Table>
         </div>
-      ) : records.length === 0 ? (
+      ) : (records ?? []).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Wallet className="mb-4 h-12 w-12 text-muted-foreground/50" />
           <p className="text-muted-foreground">尚無財務紀錄</p>
@@ -225,8 +231,8 @@ export default function FinanceRecordsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {records.map((r) => (
-                <TableRow key={r.id}>
+              {(records ?? []).map((r) => (
+                <TableRow key={r._id}>
                   <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                   <TableCell>
                     <Badge variant={r.type === 'income' ? 'default' : 'destructive'}>
@@ -242,11 +248,14 @@ export default function FinanceRecordsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteRecord.mutate(r.id, {
-                        onSuccess: () => toast.success('財務紀錄已刪除'),
-                        onError: () => toast.error('刪除財務紀錄失敗'),
-                      })}
-                      disabled={deleteRecord.isPending}
+                      onClick={async () => {
+                        try {
+                          await deleteRecord({ financeRecordId: r._id })
+                          toast.success('財務紀錄已刪除')
+                        } catch {
+                          toast.error('刪除財務紀錄失敗')
+                        }
+                      }}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -319,9 +328,9 @@ export default function FinanceRecordsPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
             <Button
               onClick={handleSubmit}
-              disabled={!form.category || !form.amount || !form.description || createRecord.isPending}
+              disabled={!form.category || !form.amount || !form.description || submitting}
             >
-              {createRecord.isPending ? '新增中...' : '新增'}
+              {submitting ? '新增中...' : '新增'}
             </Button>
           </DialogFooter>
         </DialogContent>

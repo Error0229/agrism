@@ -21,19 +21,18 @@ import {
 import type { TaskType, TaskDifficulty } from '@/lib/types/enums'
 import {
   CheckCircle2,
-  Cloud,
-  CloudRain,
   Loader2,
   Map,
   CalendarDays,
   Sprout,
-  Sun,
   Thermometer,
   AlertTriangle,
   ArrowRight,
   Clock,
+  Cloud,
   Wind,
 } from 'lucide-react'
+import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import {
   isToday,
   isBefore,
@@ -70,33 +69,18 @@ interface WeatherData {
   alerts: WeatherAlert[]
 }
 
-function weatherCodeLabel(code: number): string {
-  if (code === 0) return '晴天'
-  if (code <= 3) return '多雲'
-  if (code <= 49) return '霧'
-  if (code <= 59) return '毛毛雨'
-  if (code <= 69) return '下雨'
-  if (code <= 79) return '下雪'
-  if (code <= 84) return '陣雨'
-  if (code <= 94) return '雷雨'
-  return '暴風雨'
-}
-
-function weatherCodeIcon(code: number) {
-  if (code === 0) return <Sun className="size-5 text-yellow-500" />
-  if (code <= 3) return <Cloud className="size-5 text-gray-400" />
-  return <CloudRain className="size-5 text-blue-400" />
-}
-
 // ---------------------------------------------------------------------------
 // Main page component
 // ---------------------------------------------------------------------------
 
 export default function DashboardPage() {
-  const { farmId, sessionStatus } = useFarmIdWithStatus()
-  const { data: allTasks, isLoading: tasksLoading } = useTasks(farmId)
-  const { data: fieldsData, isLoading: fieldsLoading } = useFields(farmId)
+  const { farmId, isLoading: farmLoading } = useFarmIdWithStatus()
+  const allTasks = useTasks(farmId)
+  const fieldsData = useFields(farmId)
   const toggleTask = useToggleTask()
+
+  const tasksLoading = allTasks === undefined
+  const fieldsLoading = fieldsData === undefined
 
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(true)
@@ -110,7 +94,7 @@ export default function DashboardPage() {
   }, [])
 
   // Show loading skeleton only while session is loading
-  if (sessionStatus === 'loading') {
+  if (farmLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -160,12 +144,13 @@ export default function DashboardPage() {
   const incompleteTasks = (allTasks ?? []).filter((t) => !t.completed)
 
   const overdueTasks = incompleteTasks.filter(
-    (t) => isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
+    (t) => t.dueDate && isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
   )
   const todayTasks = incompleteTasks.filter((t) =>
-    isToday(new Date(t.dueDate)),
+    t.dueDate && isToday(new Date(t.dueDate)),
   )
   const upcomingTasks = incompleteTasks.filter((t) => {
+    if (!t.dueDate) return false
     const d = new Date(t.dueDate)
     return !isToday(d) && !isBefore(d, today) && isBefore(d, addDays(threeDaysLater, 1))
   })
@@ -173,7 +158,7 @@ export default function DashboardPage() {
   // ---- Growing crops ----
   const growingEntries = (fieldsData ?? []).flatMap((field) =>
     field.plantedCrops
-      .filter((entry) => entry.plantedCrop.status === 'growing' && entry.crop != null)
+      .filter((entry) => entry.status === 'growing' && entry.crop != null)
       .map((entry) => ({
         ...entry,
         crop: entry.crop!,
@@ -182,8 +167,12 @@ export default function DashboardPage() {
   )
 
   // ---- Handlers ----
-  const handleToggle = (taskId: string) => {
-    toggleTask.mutate(taskId)
+  const handleToggle = async (taskId: string) => {
+    try {
+      await toggleTask({ taskId: taskId as any })
+    } catch {
+      // ignore
+    }
   }
 
   return (
@@ -231,7 +220,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {overdueTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="overdue"
                         onToggle={handleToggle}
@@ -250,7 +239,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {todayTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="today"
                         onToggle={handleToggle}
@@ -269,7 +258,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {upcomingTasks.map((task) => (
                       <TaskRow
-                        key={task.id}
+                        key={task._id}
                         task={task}
                         variant="upcoming"
                         onToggle={handleToggle}
@@ -311,17 +300,17 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               {growingEntries.map((entry) => {
-                const plantedDate = new Date(entry.plantedCrop.plantedDate)
+                const plantedDate = new Date(entry.plantedDate ?? "2000-01-01")
                 const daysSincePlanted = differenceInDays(new Date(), plantedDate)
                 const growthDays =
-                  entry.plantedCrop.customGrowthDays ??
+                  entry.customGrowthDays ??
                   entry.crop.growthDays ??
                   90
                 const daysToHarvest = Math.max(0, growthDays - daysSincePlanted)
 
                 return (
                   <div
-                    key={entry.plantedCrop.id}
+                    key={entry._id}
                     className="rounded-lg border p-3 space-y-1"
                   >
                     <div className="flex items-center gap-2">
@@ -486,12 +475,12 @@ export default function DashboardPage() {
 
 interface TaskRowProps {
   task: {
-    id: string
+    _id: string
     type: string
     title: string
-    dueDate: string
-    effortMinutes: number | null
-    difficulty: string | null
+    dueDate?: string
+    effortMinutes?: number | null
+    difficulty?: string | null
   }
   variant: 'overdue' | 'today' | 'upcoming'
   onToggle: (id: string) => void
@@ -521,7 +510,7 @@ function TaskRow({ task, variant, onToggle }: TaskRowProps) {
       className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${borderColor}`}
     >
       <button
-        onClick={() => onToggle(task.id)}
+        onClick={() => onToggle(task._id)}
         className={`flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${checkColor}`}
         aria-label="完成任務"
       >
@@ -530,12 +519,12 @@ function TaskRow({ task, variant, onToggle }: TaskRowProps) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{task.title}</p>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-          {variant === 'overdue' && (
+          {variant === 'overdue' && task.dueDate && (
             <span className="text-red-600">
               {format(new Date(task.dueDate), 'M/d')}
             </span>
           )}
-          {variant === 'upcoming' && (
+          {variant === 'upcoming' && task.dueDate && (
             <span>{format(new Date(task.dueDate), 'M/d EEEE', { locale: zhTW })}</span>
           )}
           {task.effortMinutes && (

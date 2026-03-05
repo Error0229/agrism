@@ -1,54 +1,21 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  getFinanceRecords,
-  createFinanceRecord,
-  deleteFinanceRecord,
-  getFinanceSummary,
-} from '@/server/actions/finance'
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-export const financeKeys = {
-  all: ['financeRecords'] as const,
-  list: (farmId: string) => [...financeKeys.all, 'list', farmId] as const,
-  summary: (farmId: string) => [...financeKeys.all, 'summary', farmId] as const,
+export function useFinanceRecords(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.finance.list, farmId ? { farmId } : "skip");
 }
 
-export function useFinanceRecords(farmId: string | undefined) {
-  return useQuery({
-    queryKey: financeKeys.list(farmId!),
-    queryFn: () => getFinanceRecords(farmId!),
-    enabled: !!farmId,
-  })
+export function useFinanceSummary(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.finance.getSummary, farmId ? { farmId } : "skip");
 }
 
-export function useFinanceSummary(farmId: string | undefined) {
-  return useQuery({
-    queryKey: financeKeys.summary(farmId!),
-    queryFn: () => getFinanceSummary(farmId!),
-    enabled: !!farmId,
-  })
+export function useCreateFinanceRecord() {
+  return useMutation(api.finance.create);
 }
 
-export function useCreateFinanceRecord(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Parameters<typeof createFinanceRecord>[1]) =>
-      createFinanceRecord(farmId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.list(farmId) })
-      qc.invalidateQueries({ queryKey: financeKeys.summary(farmId) })
-    },
-  })
-}
-
-export function useDeleteFinanceRecord(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteFinanceRecord(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.list(farmId) })
-      qc.invalidateQueries({ queryKey: financeKeys.summary(farmId) })
-    },
-  })
+export function useDeleteFinanceRecord() {
+  return useMutation(api.finance.remove);
 }

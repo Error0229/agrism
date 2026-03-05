@@ -36,7 +36,7 @@ export function PlantCropDialog({
   onSelect,
   rectInfo,
 }: PlantCropDialogProps) {
-  const { data: crops } = useCrops(farmId);
+  const crops = useCrops(farmId as any);
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -75,9 +75,9 @@ export function PlantCropDialog({
         <div className="max-h-[50vh] space-y-1 overflow-y-auto">
           {filtered.map((crop) => (
             <button
-              key={crop.id}
+              key={crop._id}
               type="button"
-              onClick={() => onSelect(crop.id)}
+              onClick={() => onSelect(crop._id)}
               className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent"
             >
               <span className="text-lg">{crop.emoji}</span>

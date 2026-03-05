@@ -349,7 +349,7 @@ export const useFieldEditor = create<FieldEditorState>((set, get) => ({
   setBackgroundImage(fieldId, dataUrl) {
     set((state) => {
       if (!dataUrl) {
-        const { [fieldId]: _, ...rest } = state.backgroundImages;
+        const { [fieldId]: _unused, ...rest } = state.backgroundImages;
         return { backgroundImages: rest };
       }
       return {

@@ -20,7 +20,6 @@ import {
 } from "@/hooks/use-fields";
 import {
   createMoveCommand,
-  createDeleteCommand,
   createResizeCommand,
 } from "@/lib/store/editor-commands";
 import { buildPlannerGridLines, snapToGrid } from "@/lib/utils/planner-grid";
@@ -28,18 +27,15 @@ import type { PlannerGridSizeMeters } from "@/lib/utils/planner-grid-settings";
 import { UTILITY_NODE_TYPE_LABELS } from "@/lib/types/labels";
 
 // ---------------------------------------------------------------------------
-// Types — derived from getFieldById() return shape
+// Types — field data shape from Convex
 // ---------------------------------------------------------------------------
 
-type FieldData = NonNullable<
-  Awaited<ReturnType<typeof import("@/server/actions/fields").getFieldById>>
->;
-
-type PlacementRow = FieldData["placements"][number];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FieldData = any;
 
 // Merged shape for canvas rendering
 interface CanvasItem {
-  id: string; // placement id for crops, facility id for facilities
+  id: string; // plantedCrop _id for crops, facility _id for facilities
   kind: "crop" | "facility";
   xM: number;
   yM: number;
@@ -294,7 +290,7 @@ interface EditorCanvasProps {
   }) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction, onContextMenu }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction: _onContextAction, onContextMenu }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -330,12 +326,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
-  const removePlantedCrop = useRemovePlantedCrop();
-  const restorePlantedCrop = useRestorePlantedCrop();
+  const _removePlantedCrop = useRemovePlantedCrop();
+  const _restorePlantedCrop = useRestorePlantedCrop();
   const deletePlantedCropWithPlacement = useDeletePlantedCropWithPlacement();
   const deleteFacility = useDeleteFacility();
   const deleteUtilityNode = useDeleteUtilityNode();
-  const createFacility = useCreateFacility();
+  const _createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
 
@@ -368,6 +364,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const [pendingEdgeFromNodeId, setPendingEdgeFromNodeId] = useState<string | null>(null);
   const [edgeCursorPos, setEdgeCursorPos] = useState<{ xM: number; yM: number } | null>(null);
   const [vertexDragState, setVertexDragState] = useState<VertexDragState | null>(null);
+
+  // Track dragging node positions for live edge rendering
+  const [draggingNodePositions, setDraggingNodePositions] = useState<Map<string, { xM: number; yM: number }>>(new Map());
 
   // Context menu state removed — now delegated via onContextMenu prop
 
@@ -425,47 +424,36 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const canvasWidth = fieldWidthM * PIXELS_PER_METER;
   const canvasHeight = fieldHeightM * PIXELS_PER_METER;
 
-  // Build a placement lookup for crops
-  const placementByPlantedCropId = useMemo(() => {
-    const map = new Map<string, PlacementRow>();
-    for (const p of field.placements) {
-      map.set(p.plantedCropId, p);
-    }
-    return map;
-  }, [field.placements]);
-
   // Build canvas items (crops + facilities merged into one list)
+  // In Convex, placement data (xM, yM, widthM, heightM, shapePoints) is inlined into plantedCrops
   const canvasItems = useMemo<CanvasItem[]>(() => {
     const items: CanvasItem[] = [];
 
-    for (const row of field.plantedCrops) {
-      const placement = placementByPlantedCropId.get(row.plantedCrop.id);
-      if (!placement) continue;
-
-      // Handle unassigned regions (crop is null from leftJoin)
-      const crop = row.crop;
+    for (const pc of field.plantedCrops) {
+      // Handle unassigned regions (crop is null)
+      const crop = pc.crop;
       items.push({
-        id: placement.id,
+        id: pc._id,
         kind: "crop",
-        xM: Number(placement.xM),
-        yM: Number(placement.yM),
-        widthM: Number(placement.widthM),
-        heightM: Number(placement.heightM),
+        xM: Number(pc.xM),
+        yM: Number(pc.yM),
+        widthM: Number(pc.widthM ?? 1),
+        heightM: Number(pc.heightM ?? 1),
         label: crop ? `${crop.emoji} ${crop.name}` : "未指定作物",
         emoji: crop?.emoji ?? "",
         color: crop?.color ?? "#d1d5db",
-        status: row.plantedCrop.status,
-        cropId: crop?.id,
-        plantedCropId: row.plantedCrop.id,
-        plantedDate: row.plantedCrop.plantedDate,
-        harvestedDate: row.plantedCrop.harvestedDate,
-        shapePoints: placement.shapePoints as { x: number; y: number }[] | null,
+        status: pc.status,
+        cropId: crop?._id,
+        plantedCropId: pc._id,
+        plantedDate: pc.plantedDate,
+        harvestedDate: pc.harvestedDate,
+        shapePoints: pc.shapePoints as { x: number; y: number }[] | null,
       });
     }
 
     for (const fac of field.facilities) {
       items.push({
-        id: fac.id,
+        id: fac._id,
         kind: "facility",
         xM: Number(fac.xM),
         yM: Number(fac.yM),
@@ -480,13 +468,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     }
 
     return items;
-  }, [field.plantedCrops, field.facilities, placementByPlantedCropId]);
+  }, [field.plantedCrops, field.facilities]);
 
   // Utility nodes / edges
   const utilityNodes = field.utilityNodes;
   const utilityEdges = field.utilityEdges;
   const utilityNodeById = useMemo(
-    () => new Map(utilityNodes.map((n) => [n.id, n])),
+    () => new Map<string, any>(utilityNodes.map((n: any) => [n._id, n])),
     [utilityNodes],
   );
 
@@ -525,19 +513,75 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const overlaps = useMemo(() => {
     const cropItems = visibleCanvasItems.filter((item) => item.kind === "crop");
     const result: { xPx: number; yPx: number; item1Name: string; item2Name: string }[] = [];
+
+    // Helper: get polygon vertices for an item (rect → 4 corners, polygon → shapePoints)
+    function getPolygon(item: CanvasItem): { x: number; y: number }[] {
+      if (item.shapePoints && item.shapePoints.length >= 3) return item.shapePoints;
+      return [
+        { x: item.xM, y: item.yM },
+        { x: item.xM + item.widthM, y: item.yM },
+        { x: item.xM + item.widthM, y: item.yM + item.heightM },
+        { x: item.xM, y: item.yM + item.heightM },
+      ];
+    }
+
+    // SAT helper: get perpendicular axes from polygon edges
+    function getAxes(poly: { x: number; y: number }[]): { x: number; y: number }[] {
+      const axes: { x: number; y: number }[] = [];
+      for (let i = 0; i < poly.length; i++) {
+        const p1 = poly[i];
+        const p2 = poly[(i + 1) % poly.length];
+        const edgeX = p2.x - p1.x;
+        const edgeY = p2.y - p1.y;
+        const len = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
+        if (len > 0) axes.push({ x: -edgeY / len, y: edgeX / len });
+      }
+      return axes;
+    }
+
+    // SAT helper: project polygon onto axis, return min/max
+    function projectPoly(poly: { x: number; y: number }[], axis: { x: number; y: number }): { min: number; max: number } {
+      let min = Infinity, max = -Infinity;
+      for (const p of poly) {
+        const dot = p.x * axis.x + p.y * axis.y;
+        if (dot < min) min = dot;
+        if (dot > max) max = dot;
+      }
+      return { min, max };
+    }
+
+    function polygonsOverlap(poly1: { x: number; y: number }[], poly2: { x: number; y: number }[]): boolean {
+      const axes = [...getAxes(poly1), ...getAxes(poly2)];
+      for (const axis of axes) {
+        const proj1 = projectPoly(poly1, axis);
+        const proj2 = projectPoly(poly2, axis);
+        if (proj1.max <= proj2.min || proj2.max <= proj1.min) return false;
+      }
+      return true;
+    }
+
     for (let i = 0; i < cropItems.length; i++) {
       for (let j = i + 1; j < cropItems.length; j++) {
         const a = cropItems[i];
         const b = cropItems[j];
-        // Check rectangle intersection
-        const intersects = !(
+
+        // Quick AABB reject first
+        const aabbIntersects = !(
           a.xM + a.widthM <= b.xM ||
           b.xM + b.widthM <= a.xM ||
           a.yM + a.heightM <= b.yM ||
           b.yM + b.heightM <= a.yM
         );
+        if (!aabbIntersects) continue;
+
+        // If both are rectangles (no shapePoints), AABB is sufficient
+        const aHasPoly = a.shapePoints && a.shapePoints.length >= 3;
+        const bHasPoly = b.shapePoints && b.shapePoints.length >= 3;
+        const intersects = (aHasPoly || bHasPoly)
+          ? polygonsOverlap(getPolygon(a), getPolygon(b))
+          : true; // AABB already confirmed
+
         if (intersects) {
-          // Midpoint between the two items' centers
           const aCx = a.xM + a.widthM / 2;
           const aCy = a.yM + a.heightM / 2;
           const bCx = b.xM + b.widthM / 2;
@@ -670,7 +714,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       if (activeTool === "utility_node" && e.target === e.target.getStage()) {
         const pos = getPointerMeters();
         if (pos && onPlaceUtilityNode) {
-          onPlaceUtilityNode({ xM: snapM(pos.xM), yM: snapM(pos.yM) });
+          const snappedX = snapM(pos.xM);
+          const snappedY = snapM(pos.yM);
+          onPlaceUtilityNode({ xM: snappedX, yM: snappedY });
         }
         return;
       }
@@ -967,9 +1013,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
         // Eraser deletes the area entirely (hard delete, no undo)
         if (item.kind === "crop" && item.plantedCropId) {
-          deletePlantedCropWithPlacement.mutate(item.plantedCropId);
+          deletePlantedCropWithPlacement({ plantedCropId: item.plantedCropId as any });
         } else if (item.kind === "facility") {
-          deleteFacility.mutate({ id: item.id, fieldId: field.id });
+          deleteFacility({ facilityId: item.id as any });
         }
         return;
       }
@@ -989,14 +1035,20 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       itemById,
       deletePlantedCropWithPlacement,
       deleteFacility,
-      field.id,
+      field._id,
     ],
   );
 
-  const handleItemDragStart = useCallback(() => {
+  const handleItemDragStart = useCallback((itemId: string) => {
     if (activeTool !== "select") return;
+    // Issue 8: Switch selection to dragged item immediately if not already selected
+    let effectiveIds = selectedIds;
+    if (!selectedIds.includes(itemId)) {
+      select(itemId);
+      effectiveIds = [itemId];
+    }
     const positions = new Map<string, { xM: number; yM: number; shapePoints?: { x: number; y: number }[] | null }>();
-    for (const id of selectedIds) {
+    for (const id of effectiveIds) {
       const item = itemById.get(id);
       if (item) positions.set(id, {
         xM: item.xM,
@@ -1005,7 +1057,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       });
     }
     setDragStartPositions(positions);
-  }, [activeTool, selectedIds, itemById]);
+  }, [activeTool, selectedIds, itemById, select]);
 
   const handleItemDragEnd = useCallback(
     (itemId: string, e: KonvaEventObject<DragEvent>) => {
@@ -1046,16 +1098,18 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             if (data.shapePoints) {
               placementData.shapePoints = data.shapePoints;
             }
-            await updatePlacement.mutateAsync({
-              placementId: id,
-              fieldId: field.id,
-              data: placementData,
+            await updatePlacement({
+              plantedCropId: id as any,
+              fieldId: field._id,
+              ...placementData,
+              shapePoints: placementData.shapePoints ?? undefined,
             });
           } else if (target.kind === "facility") {
-            await updateFacility.mutateAsync({
-              id,
-              fieldId: field.id,
-              data: { xM: data.xM, yM: data.yM },
+            await updateFacility({
+              facilityId: id as any,
+              fieldId: field._id,
+              xM: data.xM,
+              yM: data.yM,
             });
           }
         },
@@ -1071,7 +1125,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       selectedIds,
       itemById,
       snapM,
-      field.id,
+      field._id,
       updatePlacement,
       updateFacility,
       executeCommand,
@@ -1180,16 +1234,17 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           if (newShapePoints !== undefined) {
             updateData.shapePoints = newShapePoints;
           }
-          await updatePlacement.mutateAsync({
-            placementId: id,
-            fieldId: field.id,
-            data: updateData,
+          await updatePlacement({
+            plantedCropId: id as any,
+            fieldId: field._id,
+            ...updateData,
+            shapePoints: updateData.shapePoints ?? undefined,
           });
         } else if (item.kind === "facility") {
-          await updateFacility.mutateAsync({
-            id,
-            fieldId: field.id,
-            data,
+          await updateFacility({
+            facilityId: id as any,
+            fieldId: field._id,
+            ...data,
           });
         }
       },
@@ -1200,10 +1255,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     cmd.undo = async () => {
       await origUndo();
       if (item.kind === "crop" && oldShapePoints !== undefined) {
-        await updatePlacement.mutateAsync({
-          placementId: resizeState.itemId,
-          fieldId: field.id,
-          data: { shapePoints: oldShapePoints },
+        await updatePlacement({
+          plantedCropId: resizeState.itemId as any,
+          fieldId: field._id,
+          shapePoints: oldShapePoints ?? undefined,
         });
       }
     };
@@ -1215,25 +1270,46 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     resizeState,
     itemById,
     snapM,
-    field.id,
+    field._id,
     updatePlacement,
     updateFacility,
     executeCommand,
   ]);
 
   // --- Utility node drag ---
+  const handleUtilityNodeDragMove = useCallback(
+    (nodeId: string, e: KonvaEventObject<DragEvent>) => {
+      const xM = e.target.x() / PIXELS_PER_METER;
+      const yM = e.target.y() / PIXELS_PER_METER;
+      setDraggingNodePositions(prev => {
+        const next = new Map(prev);
+        next.set(nodeId, { xM, yM });
+        return next;
+      });
+    },
+    [],
+  );
+
   const handleUtilityNodeDragEnd = useCallback(
     (nodeId: string, e: KonvaEventObject<DragEvent>) => {
       const newXM = snapM(e.target.x() / PIXELS_PER_METER);
       const newYM = snapM(e.target.y() / PIXELS_PER_METER);
 
-      updateUtilityNode.mutate({
-        id: nodeId,
-        fieldId: field.id,
-        data: { xM: newXM, yM: newYM },
+      // Clear dragging position
+      setDraggingNodePositions(prev => {
+        const next = new Map(prev);
+        next.delete(nodeId);
+        return next;
+      });
+
+      updateUtilityNode({
+        nodeId: nodeId as any,
+        fieldId: field._id,
+        xM: newXM,
+        yM: newYM,
       });
     },
-    [snapM, field.id, updateUtilityNode],
+    [snapM, field._id, updateUtilityNode],
   );
 
   // Whether stage is draggable (hand tool or space-bar override)
@@ -1307,13 +1383,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       newBounds,
       async updateFn(id, data) {
         if (item.kind === "crop") {
-          await updatePlacement.mutateAsync({
-            placementId: id,
-            fieldId: field.id,
-            data: { ...data, shapePoints: newShapePoints },
+          await updatePlacement({
+            plantedCropId: id as any,
+            fieldId: field._id,
+            ...data,
+            shapePoints: newShapePoints,
           });
         } else if (item.kind === "facility") {
-          await updateFacility.mutateAsync({ id, fieldId: field.id, data });
+          await updateFacility({ facilityId: id as any, fieldId: field._id, ...data });
         }
       },
     });
@@ -1323,10 +1400,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     cmd.undo = async () => {
       await origUndo();
       if (item.kind === "crop") {
-        await updatePlacement.mutateAsync({
-          placementId: vertexDragState.itemId,
-          fieldId: field.id,
-          data: { shapePoints: origShapePoints },
+        await updatePlacement({
+          plantedCropId: vertexDragState.itemId as any,
+          fieldId: field._id,
+          shapePoints: origShapePoints,
         });
       }
     };
@@ -1334,7 +1411,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     executeCommand(cmd);
     setVertexDragState(null);
     setResizePreview(null);
-  }, [vertexDragState, resizePreview, itemById, field.id, updatePlacement, updateFacility, executeCommand]);
+  }, [vertexDragState, resizePreview, itemById, field._id, updatePlacement, updateFacility, executeCommand]);
 
   const handleStageMouseUpCombined = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
@@ -1535,7 +1612,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 x={xPx}
                 y={yPx}
                 draggable={isDraggable}
-                onDragStart={handleItemDragStart}
+                onDragStart={() => handleItemDragStart(item.id)}
                 onDragMove={snapEnabled ? handleItemDragMove : undefined}
                 onDragEnd={(e) => handleItemDragEnd(item.id, e)}
                 onClick={(e) => handleItemClick(item.id, e)}
@@ -1673,14 +1750,17 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             const from = utilityNodeById.get(edge.fromNodeId);
             const to = utilityNodeById.get(edge.toNodeId);
             if (!from || !to) return null;
+            // Issue 4: Use dragging positions if node is being dragged
+            const fromPos = draggingNodePositions.get(edge.fromNodeId) ?? { xM: Number(from.xM), yM: Number(from.yM) };
+            const toPos = draggingNodePositions.get(edge.toNodeId) ?? { xM: Number(to.xM), yM: Number(to.yM) };
             return (
               <Line
-                key={edge.id}
+                key={edge._id}
                 points={[
-                  Number(from.xM) * PIXELS_PER_METER,
-                  Number(from.yM) * PIXELS_PER_METER,
-                  Number(to.xM) * PIXELS_PER_METER,
-                  Number(to.yM) * PIXELS_PER_METER,
+                  fromPos.xM * PIXELS_PER_METER,
+                  fromPos.yM * PIXELS_PER_METER,
+                  toPos.xM * PIXELS_PER_METER,
+                  toPos.yM * PIXELS_PER_METER,
                 ]}
                 stroke={edge.kind === "water" ? "#0ea5e9" : "#f97316"}
                 strokeWidth={3}
@@ -1692,34 +1772,36 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
           {/* Utility nodes (draggable) */}
           {visibleUtilityNodes.map((node) => {
-            const isEdgeSource = pendingEdgeFromNodeId === node.id;
-            const isNodeSelected = selectedSet.has(node.id);
+            const isEdgeSource = pendingEdgeFromNodeId === node._id;
+            const isNodeSelected = selectedSet.has(node._id);
             return (
               <Group
-                key={node.id}
+                key={node._id}
                 x={Number(node.xM) * PIXELS_PER_METER}
                 y={Number(node.yM) * PIXELS_PER_METER}
                 draggable={activeTool === "select"}
-                onDragEnd={(e) => handleUtilityNodeDragEnd(node.id, e)}
+                onDragMove={(e) => handleUtilityNodeDragMove(node._id, e)}
+                onDragEnd={(e) => handleUtilityNodeDragEnd(node._id, e)}
                 onClick={(e) => {
                   e.cancelBubble = true;
                   if (activeTool === "eraser") {
-                    deleteUtilityNode.mutate({ id: node.id, fieldId: field.id });
+                    deleteUtilityNode({ nodeId: node._id as any });
                     return;
                   }
                   if (activeTool === "select") {
                     if (e.evt.shiftKey) {
-                      toggleSelect(node.id);
+                      toggleSelect(node._id);
                     } else {
-                      select(node.id);
+                      select(node._id);
                     }
                     return;
                   }
                   if (activeTool === "utility_edge") {
                     if (!pendingEdgeFromNodeId) {
-                      setPendingEdgeFromNodeId(node.id);
-                    } else if (pendingEdgeFromNodeId !== node.id) {
-                      onConnectUtilityNodes?.(pendingEdgeFromNodeId, node.id);
+                      setPendingEdgeFromNodeId(node._id);
+                    } else if (pendingEdgeFromNodeId !== node._id) {
+                      // Issue 2: Set pending edge for optimistic rendering
+                      onConnectUtilityNodes?.(pendingEdgeFromNodeId, node._id);
                       setPendingEdgeFromNodeId(null);
                       setEdgeCursorPos(null);
                     }
@@ -1786,6 +1868,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
               </Group>
             );
           })}
+
         </Layer>
 
         {/* Layer 4: Overlays (selection handles, snap guides, draw preview, measure, calibration) */}

@@ -1,64 +1,34 @@
-// v2 domain types inferred from Drizzle schema.
-// These are the canonical types for server/client data exchange.
+// Domain types inferred from Convex schema.
+// Use Doc<"tableName"> directly in most cases.
+// These aliases are provided for convenience.
 
-import type {
-  cropPlacements,
-  cropTemplateItems,
-  cropTemplates,
-  crops,
-  facilities,
-  fieldContexts,
-  fields,
-  financeRecords,
-  harvestLogs,
-  plantedCrops,
-  soilAmendments,
-  soilNotes,
-  soilProfiles,
-  tasks,
-  utilityEdges,
-  utilityNodes,
-  weatherLogs,
-} from '@/server/db/schema'
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
 
 // --- Crop domain ---
-export type Crop = typeof crops.$inferSelect
-export type NewCrop = typeof crops.$inferInsert
-export type CropTemplate = typeof cropTemplates.$inferSelect
-export type NewCropTemplate = typeof cropTemplates.$inferInsert
-export type CropTemplateItem = typeof cropTemplateItems.$inferSelect
-export type NewCropTemplateItem = typeof cropTemplateItems.$inferInsert
+export type Crop = Doc<"crops">;
+export type CropTemplate = Doc<"cropTemplates">;
+export type CropTemplateItem = Doc<"cropTemplateItems">;
 
 // --- Field domain ---
-export type Field = typeof fields.$inferSelect
-export type NewField = typeof fields.$inferInsert
-export type FieldContext = typeof fieldContexts.$inferSelect
-export type NewFieldContext = typeof fieldContexts.$inferInsert
-export type PlantedCrop = typeof plantedCrops.$inferSelect
-export type NewPlantedCrop = typeof plantedCrops.$inferInsert
-export type CropPlacement = typeof cropPlacements.$inferSelect
-export type NewCropPlacement = typeof cropPlacements.$inferInsert
-export type Facility = typeof facilities.$inferSelect
-export type NewFacility = typeof facilities.$inferInsert
-export type UtilityNode = typeof utilityNodes.$inferSelect
-export type NewUtilityNode = typeof utilityNodes.$inferInsert
-export type UtilityEdge = typeof utilityEdges.$inferSelect
-export type NewUtilityEdge = typeof utilityEdges.$inferInsert
+export type Field = Doc<"fields">;
+export type PlantedCrop = Doc<"plantedCrops">;
+export type Facility = Doc<"facilities">;
+export type UtilityNode = Doc<"utilityNodes">;
+export type UtilityEdge = Doc<"utilityEdges">;
 
 // --- Task domain ---
-export type Task = typeof tasks.$inferSelect
-export type NewTask = typeof tasks.$inferInsert
+export type Task = Doc<"tasks">;
 
 // --- Records domain ---
-export type HarvestLog = typeof harvestLogs.$inferSelect
-export type NewHarvestLog = typeof harvestLogs.$inferInsert
-export type FinanceRecord = typeof financeRecords.$inferSelect
-export type NewFinanceRecord = typeof financeRecords.$inferInsert
-export type SoilProfile = typeof soilProfiles.$inferSelect
-export type NewSoilProfile = typeof soilProfiles.$inferInsert
-export type SoilAmendment = typeof soilAmendments.$inferSelect
-export type NewSoilAmendment = typeof soilAmendments.$inferInsert
-export type SoilNote = typeof soilNotes.$inferSelect
-export type NewSoilNote = typeof soilNotes.$inferInsert
-export type WeatherLog = typeof weatherLogs.$inferSelect
-export type NewWeatherLog = typeof weatherLogs.$inferInsert
+export type HarvestLog = Doc<"harvestLogs">;
+export type FinanceRecord = Doc<"financeRecords">;
+export type SoilAmendment = Doc<"soilAmendments">;
+export type SoilNote = Doc<"soilNotes">;
+export type WeatherLog = Doc<"weatherLogs">;
+
+// --- ID types ---
+export type FarmId = Id<"farms">;
+export type CropId = Id<"crops">;
+export type FieldId = Id<"fields">;
+export type PlantedCropId = Id<"plantedCrops">;
+export type TaskId = Id<"tasks">;

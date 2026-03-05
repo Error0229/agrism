@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useSession } from 'next-auth/react'
+import { useUser } from '@clerk/nextjs'
 import { useFarmId } from '@/hooks/use-farm-id'
+import { useExportFarmData, useImportFarmData } from '@/hooks/use-data-transfer'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -11,19 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import {
-  exportFarmData,
-  exportHarvestLogsCsv,
-  exportFinanceRecordsCsv,
-  exportTasksCsv,
-  importFarmData,
-} from '@/server/actions/data-transfer'
 import {
   Download,
   Upload,
   FileJson,
-  FileSpreadsheet,
   User,
   AlertCircle,
   CheckCircle2,
@@ -44,8 +36,11 @@ function todayStamp() {
 }
 
 export default function SettingsPage() {
-  const { data: session } = useSession()
-  const farmId = useFarmId() ?? ''
+  const { user } = useUser()
+  const farmId = useFarmId()
+
+  const exportData = useExportFarmData(farmId)
+  const importFarmData = useImportFarmData()
 
   const [exporting, setExporting] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -59,45 +54,11 @@ export default function SettingsPage() {
   // --- Export handlers ---
 
   async function handleExportJson() {
-    if (!farmId) return
+    if (!farmId || !exportData) return
     setExporting('json')
     try {
-      const data = await exportFarmData(farmId)
-      const json = JSON.stringify(data, null, 2)
+      const json = JSON.stringify(exportData, null, 2)
       downloadFile(json, `farm-data-${todayStamp()}.json`, 'application/json')
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  async function handleExportHarvestCsv() {
-    if (!farmId) return
-    setExporting('harvest')
-    try {
-      const csv = await exportHarvestLogsCsv(farmId)
-      downloadFile(csv, `harvest-logs-${todayStamp()}.csv`, 'text/csv')
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  async function handleExportFinanceCsv() {
-    if (!farmId) return
-    setExporting('finance')
-    try {
-      const csv = await exportFinanceRecordsCsv(farmId)
-      downloadFile(csv, `finance-records-${todayStamp()}.csv`, 'text/csv')
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  async function handleExportTasksCsv() {
-    if (!farmId) return
-    setExporting('tasks')
-    try {
-      const csv = await exportTasksCsv(farmId)
-      downloadFile(csv, `tasks-${todayStamp()}.csv`, 'text/csv')
     } finally {
       setExporting(null)
     }
@@ -115,7 +76,7 @@ export default function SettingsPage() {
     try {
       const text = await file.text()
       const json = JSON.parse(text)
-      const result = await importFarmData(farmId, json)
+      const result = await importFarmData({ farmId, data: json })
       setImportResult(result)
     } catch (err) {
       setImportResult({
@@ -150,9 +111,9 @@ export default function SettingsPage() {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
             <span className="text-muted-foreground">電子信箱</span>
-            <span>{session?.user?.email ?? '—'}</span>
+            <span>{user?.emailAddresses?.[0]?.emailAddress ?? '—'}</span>
             <span className="text-muted-foreground">使用者名稱</span>
-            <span>{session?.user?.name ?? '—'}</span>
+            <span>{user?.fullName ?? user?.firstName ?? '—'}</span>
             <span className="text-muted-foreground">農場 ID</span>
             <span className="font-mono text-xs">
               {farmId || '尚未設定'}
@@ -169,7 +130,7 @@ export default function SettingsPage() {
             資料匯出
           </CardTitle>
           <CardDescription>
-            匯出完整農場資料為 JSON 或個別紀錄為 CSV
+            匯出完整農場資料為 JSON
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -177,51 +138,13 @@ export default function SettingsPage() {
             <h4 className="mb-2 text-sm font-medium">完整備份</h4>
             <Button
               onClick={handleExportJson}
-              disabled={!farmId || exporting === 'json'}
+              disabled={!farmId || !exportData || exporting === 'json'}
               variant="outline"
               className="gap-2"
             >
               <FileJson className="h-4 w-4" />
               {exporting === 'json' ? '匯出中...' : '匯出完整 JSON'}
             </Button>
-          </div>
-
-          <Separator />
-
-          <div>
-            <h4 className="mb-2 text-sm font-medium">個別 CSV 匯出</h4>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleExportHarvestCsv}
-                disabled={!farmId || exporting === 'harvest'}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                {exporting === 'harvest' ? '匯出中...' : '匯出 Harvest CSV'}
-              </Button>
-              <Button
-                onClick={handleExportFinanceCsv}
-                disabled={!farmId || exporting === 'finance'}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                {exporting === 'finance' ? '匯出中...' : '匯出 Finance CSV'}
-              </Button>
-              <Button
-                onClick={handleExportTasksCsv}
-                disabled={!farmId || exporting === 'tasks'}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                {exporting === 'tasks' ? '匯出中...' : '匯出 Tasks CSV'}
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>

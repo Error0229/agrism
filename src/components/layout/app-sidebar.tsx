@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { UserButton } from "@clerk/nextjs";
 import {
   Home,
   Map,
@@ -14,7 +14,6 @@ import {
   CloudSun,
   Bot,
   Settings,
-  LogOut,
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,7 +53,6 @@ function isActive(pathname: string, href: string) {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
 
   return (
     <Sidebar>
@@ -128,12 +126,16 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <button type="button" onClick={() => signOut({ callbackUrl: "/auth/login" })} aria-label="登出帳號">
-                <LogOut className="size-4" />
-                <span>登出{session?.user?.email ? ` (${session.user.email})` : ""}</span>
-              </button>
-            </SidebarMenuButton>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "size-6",
+                  },
+                }}
+              />
+              <span className="text-sm text-muted-foreground">帳號管理</span>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

@@ -41,13 +41,15 @@ import { toast } from 'sonner'
 
 export default function HarvestRecordsPage() {
   const farmId = useFarmId()
-  const { data: logs = [], isLoading } = useHarvestLogs(farmId)
-  const { data: crops = [] } = useCrops(farmId)
-  const { data: fields = [] } = useFields(farmId)
-  const createLog = useCreateHarvestLog(farmId ?? '')
-  const deleteLog = useDeleteHarvestLog(farmId ?? '')
+  const logs = useHarvestLogs(farmId)
+  const crops = useCrops(farmId) ?? []
+  const fields = useFields(farmId) ?? []
+  const createLog = useCreateHarvestLog()
+  const deleteLog = useDeleteHarvestLog()
+  const isLoading = logs === undefined
 
   const [open, setOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     cropId: '',
     fieldId: '',
@@ -60,8 +62,8 @@ export default function HarvestRecordsPage() {
     notes: '',
   })
 
-  const cropMap = new Map(crops.map((c) => [c.id, c.name]))
-  const fieldMap = new Map(fields.map((f) => [f.id, f.name]))
+  const cropMap = new Map<string, string>(crops.map((c: any) => [c._id, c.name]))
+  const fieldMap = new Map<string, string>(fields.map((f: any) => [f._id, f.name]))
 
   function resetForm() {
     setForm({
@@ -78,11 +80,13 @@ export default function HarvestRecordsPage() {
   }
 
   async function handleSubmit() {
-    if (!form.cropId || !form.fieldId || !form.quantity) return
+    if (!form.cropId || !form.fieldId || !form.quantity || !farmId) return
+    setSubmitting(true)
     try {
-      await createLog.mutateAsync({
-        cropId: form.cropId,
-        fieldId: form.fieldId,
+      await createLog({
+        farmId: farmId as any,
+        cropId: form.cropId as any,
+        fieldId: form.fieldId as any,
         date: form.date,
         quantity: Number(form.quantity),
         unit: form.unit,
@@ -96,6 +100,8 @@ export default function HarvestRecordsPage() {
       resetForm()
     } catch {
       toast.error('新增收成紀錄失敗')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -142,7 +148,7 @@ export default function HarvestRecordsPage() {
             </TableBody>
           </Table>
         </div>
-      ) : logs.length === 0 ? (
+      ) : (logs ?? []).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Wheat className="mb-4 h-12 w-12 text-muted-foreground/50" />
           <p className="text-muted-foreground">尚無收成紀錄</p>
@@ -165,11 +171,11 @@ export default function HarvestRecordsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((log) => (
-                <TableRow key={log.id}>
+              {(logs ?? []).map((log) => (
+                <TableRow key={log._id}>
                   <TableCell className="whitespace-nowrap">{log.date}</TableCell>
-                  <TableCell>{cropMap.get(log.cropId) ?? '—'}</TableCell>
-                  <TableCell>{fieldMap.get(log.fieldId) ?? '—'}</TableCell>
+                  <TableCell>{(log.cropId && cropMap.get(log.cropId)) ?? '—'}</TableCell>
+                  <TableCell>{(log.fieldId && fieldMap.get(log.fieldId)) ?? '—'}</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {log.quantity} {log.unit}
                   </TableCell>
@@ -201,11 +207,14 @@ export default function HarvestRecordsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteLog.mutate(log.id, {
-                        onSuccess: () => toast.success('收成紀錄已刪除'),
-                        onError: () => toast.error('刪除收成紀錄失敗'),
-                      })}
-                      disabled={deleteLog.isPending}
+                      onClick={async () => {
+                        try {
+                          await deleteLog({ harvestLogId: log._id })
+                          toast.success('收成紀錄已刪除')
+                        } catch {
+                          toast.error('刪除收成紀錄失敗')
+                        }
+                      }}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -232,7 +241,7 @@ export default function HarvestRecordsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {crops.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -245,7 +254,7 @@ export default function HarvestRecordsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {fields.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    <SelectItem key={f._id} value={f._id}>{f.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -332,9 +341,9 @@ export default function HarvestRecordsPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>取消</Button>
             <Button
               onClick={handleSubmit}
-              disabled={!form.cropId || !form.fieldId || !form.quantity || createLog.isPending}
+              disabled={!form.cropId || !form.fieldId || !form.quantity || submitting}
             >
-              {createLog.isPending ? '新增中...' : '新增'}
+              {submitting ? '新增中...' : '新增'}
             </Button>
           </DialogFooter>
         </DialogContent>

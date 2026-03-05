@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/providers";
-import { AppSessionProvider } from "@/components/auth/session-provider";
+import { ClerkProvider } from "@clerk/nextjs";
+import { zhTW } from "@clerk/localizations";
+import { ConvexClientProvider } from "@/components/convex-client-provider";
+import { FarmProvider } from "@/components/farm-provider";
 import { RootShell } from "@/components/layout/root-shell";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -29,11 +31,13 @@ export default function RootLayout({
   return (
     <html lang="zh-TW">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
-        <Providers>
-          <AppSessionProvider>
-            <RootShell>{children}</RootShell>
-          </AppSessionProvider>
-        </Providers>
+        <ClerkProvider localization={zhTW}>
+          <ConvexClientProvider>
+            <FarmProvider>
+              <RootShell>{children}</RootShell>
+            </FarmProvider>
+          </ConvexClientProvider>
+        </ClerkProvider>
         <Toaster />
       </body>
     </html>

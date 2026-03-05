@@ -13,15 +13,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Plus, Sprout } from 'lucide-react'
 import { CropCategory } from '@/lib/types/enums'
 import { CROP_CATEGORY_LABELS } from '@/lib/types/labels'
-import type { Crop } from '@/lib/types/domain'
 import { AddCropDialog } from '@/components/crops/add-crop-dialog'
 
 const ALL_CATEGORIES = Object.values(CropCategory) as string[]
 
 export default function CropsPage() {
-  const { farmId, sessionStatus } = useFarmIdWithStatus()
-  const { data: crops, isLoading: queryLoading } = useCrops(farmId)
-  const isLoading = sessionStatus === 'loading' || queryLoading
+  const { farmId, isLoading: farmLoading } = useFarmIdWithStatus()
+  const crops = useCrops(farmId)
+  const isLoading = farmLoading || crops === undefined
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -103,7 +102,7 @@ export default function CropsPage() {
       {!isLoading && filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((crop) => (
-            <CropCard key={crop.id} crop={crop} />
+            <CropCard key={crop._id} crop={crop} />
           ))}
         </div>
       )}
@@ -118,11 +117,11 @@ export default function CropsPage() {
   )
 }
 
-function CropCard({ crop }: { crop: Crop }) {
+function CropCard({ crop }: { crop: { _id: string; name: string; emoji?: string | null; category: string; isDefault?: boolean; growthDays?: number | null; plantingMonths?: number[] | null } }) {
   const plantingMonths = crop.plantingMonths ?? []
 
   return (
-    <Link href={`/crops/${crop.id}`}>
+    <Link href={`/crops/${crop._id}`}>
       <Card className="h-full cursor-pointer transition-shadow hover:shadow-md">
         <CardContent className="pt-6">
           <div className="mb-3 text-center">
@@ -131,7 +130,7 @@ function CropCard({ crop }: { crop: Crop }) {
           <h3 className="mb-2 text-center font-semibold">{crop.name}</h3>
           <div className="mb-2 flex flex-wrap justify-center gap-1">
             <Badge variant="secondary" className="text-xs">
-              {CROP_CATEGORY_LABELS[crop.category]}
+              {CROP_CATEGORY_LABELS[crop.category as CropCategory]}
             </Badge>
             {crop.isDefault ? (
               <Badge variant="outline" className="text-xs">

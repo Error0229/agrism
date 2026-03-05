@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
-import { auth } from "@/server/auth";
+import { auth } from "@clerk/nextjs/server";
 import { systemPrompt } from "@/lib/ai/system-prompt";
 
 const openrouter = createOpenRouter({
@@ -9,8 +9,8 @@ const openrouter = createOpenRouter({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
+  const { userId } = await auth();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

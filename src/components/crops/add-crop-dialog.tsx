@@ -31,15 +31,16 @@ import type {
   WaterLevel as WaterLevelType,
   SunlightLevel as SunlightLevelType,
 } from '@/lib/types/enums'
+import type { Id } from '../../../convex/_generated/dataModel'
 
 interface AddCropDialogProps {
-  farmId: string | undefined
+  farmId: Id<"farms"> | undefined
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps) {
-  const createCrop = useCreateCrop(farmId ?? '')
+  const createCrop = useCreateCrop()
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🌱')
@@ -49,6 +50,7 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
   const [harvestMonths, setHarvestMonths] = useState<number[]>([])
   const [water, setWater] = useState<string>('')
   const [sunlight, setSunlight] = useState<string>('')
+  const [isPending, setIsPending] = useState(false)
 
   function resetForm() {
     setName('')
@@ -73,14 +75,17 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
     )
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!farmId) {
       toast.error('無法取得農場資訊，請重新登入')
       return
     }
     if (!name || !category) return
-    createCrop.mutate(
-      {
+
+    setIsPending(true)
+    try {
+      await createCrop({
+        farmId,
         name,
         emoji: emoji || undefined,
         category: category as CropCategoryType,
@@ -89,18 +94,15 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
         harvestMonths: harvestMonths.length > 0 ? harvestMonths : undefined,
         water: water ? (water as WaterLevelType) : undefined,
         sunlight: sunlight ? (sunlight as SunlightLevelType) : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success('自訂作物已建立')
-          resetForm()
-          onOpenChange(false)
-        },
-        onError: () => {
-          toast.error('建立作物失敗')
-        },
-      }
-    )
+      })
+      toast.success('自訂作物已建立')
+      resetForm()
+      onOpenChange(false)
+    } catch {
+      toast.error('建立作物失敗')
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -225,10 +227,10 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
             {/* Submit */}
             <Button
               onClick={handleSubmit}
-              disabled={!name || !category || createCrop.isPending}
+              disabled={!name || !category || isPending}
               className="w-full"
             >
-              {createCrop.isPending && (
+              {isPending && (
                 <Loader2 className="mr-1 size-4 animate-spin" />
               )}
               儲存自訂作物

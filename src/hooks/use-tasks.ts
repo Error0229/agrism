@@ -1,69 +1,37 @@
-'use client'
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  getTasks,
-  createTask,
-  updateTask,
-  deleteTask,
-  toggleTaskComplete,
-} from '@/server/actions/tasks'
-
-export const taskKeys = {
-  all: ['tasks'] as const,
-  list: (farmId: string, filters?: Record<string, unknown>) =>
-    [...taskKeys.all, 'list', farmId, filters ?? {}] as const,
-}
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 export function useTasks(
-  farmId: string | undefined,
-  filters?: Parameters<typeof getTasks>[1],
+  farmId: Id<"farms"> | undefined,
+  filters?: {
+    fieldId?: Id<"fields">;
+    cropId?: Id<"crops">;
+    completed?: boolean;
+    dateFrom?: string;
+    dateTo?: string;
+  },
 ) {
-  return useQuery({
-    queryKey: taskKeys.list(farmId!, filters as Record<string, unknown>),
-    queryFn: () => getTasks(farmId!, filters),
-    enabled: !!farmId,
-  })
+  return useQuery(
+    api.tasks.list,
+    farmId ? { farmId, ...filters } : "skip",
+  );
 }
 
-export function useCreateTask(farmId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: Parameters<typeof createTask>[1]) =>
-      createTask(farmId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-    },
-  })
+export function useCreateTask() {
+  return useMutation(api.tasks.create);
 }
 
 export function useUpdateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateTask>[1] }) =>
-      updateTask(id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-    },
-  })
-}
-
-export function useToggleTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => toggleTaskComplete(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-    },
-  })
+  return useMutation(api.tasks.update);
 }
 
 export function useDeleteTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => deleteTask(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
-    },
-  })
+  return useMutation(api.tasks.remove);
+}
+
+export function useToggleTask() {
+  return useMutation(api.tasks.toggleComplete);
 }

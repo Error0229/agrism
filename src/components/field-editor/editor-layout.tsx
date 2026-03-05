@@ -51,6 +51,8 @@ import { PlantCropDialog } from "./plant-crop-dialog";
 import { FieldManageMenu } from "./field-manage-menu";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 
+import type { Id } from "../../../convex/_generated/dataModel";
+
 interface EditorLayoutProps {
   fieldId: string;
 }
@@ -58,7 +60,8 @@ interface EditorLayoutProps {
 export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const farmId = useFarmId();
   const isMobile = useIsMobile();
-  const { data: field, isLoading } = useFieldById(fieldId);
+  const field = useFieldById(fieldId as Id<"fields">);
+  const isLoading = field === undefined;
   const setActiveField = useFieldEditor((s) => s.setActiveField);
   const setTool = useFieldEditor((s) => s.setTool);
   const undo = useFieldEditor((s) => s.undo);
@@ -90,7 +93,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
 
-  const createRegionMut = useCreateRegion(farmId ?? "");
+  const createRegionMut = useCreateRegion();
   const assignCropToRegion = useAssignCropToRegion();
   const harvestCropMut = useHarvestCrop();
   const removePlantedCrop = useRemovePlantedCrop();
@@ -125,16 +128,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // Canvas container ref + size for minimap viewport calculation
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasContainerSize, setCanvasContainerSize] = useState({ width: 800, height: 600 });
-
-  // Draw rect completion state — stores the newly created region's planted crop ID
-  // so the user can optionally assign a crop to it
-  const [pendingRegionId, setPendingRegionId] = useState<string | null>(null);
-  const [pendingRectInfo, setPendingRectInfo] = useState<{
-    xM: number;
-    yM: number;
-    widthM: number;
-    heightM: number;
-  } | null>(null);
 
   // Crop reassignment state
   const [reassignPlantedCropId, setReassignPlantedCropId] = useState<string | null>(null);
@@ -177,20 +170,20 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       widthM: number;
       heightM: number;
     }>();
-    // Map placement IDs to their plantedCropIds for crops
-    const placementToPlantedCropId = new Map<string, string>();
+    // Map plantedCrop IDs for crops (in Convex, placements are inlined into plantedCrops)
+    const cropIds = new Set<string>();
 
     for (const id of selectedIds) {
-      const placement = field.placements.find((p) => p.id === id);
-      if (placement) {
-        placementToPlantedCropId.set(id, placement.plantedCropId);
+      const pc = field.plantedCrops.find((p) => p._id === id);
+      if (pc) {
+        cropIds.add(id);
         continue;
       }
-      const facility = field.facilities.find((f) => f.id === id);
+      const facility = field.facilities.find((f) => f._id === id);
       if (facility) {
         facilitySnapshots.set(id, {
           facilityType: facility.facilityType,
-          name: facility.name,
+          name: facility.name ?? "",
           xM: Number(facility.xM),
           yM: Number(facility.yM),
           widthM: Number(facility.widthM),
@@ -202,26 +195,24 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     const cmd = createDeleteCommand({
       ids: [...selectedIds],
       async deleteFn(id) {
-        const plantedCropId = placementToPlantedCropId.get(id);
-        if (plantedCropId) {
-          await removePlantedCrop.mutateAsync(plantedCropId);
+        if (cropIds.has(id)) {
+          await removePlantedCrop({ plantedCropId: id as Id<"plantedCrops"> });
           return;
         }
         if (facilitySnapshots.has(id)) {
-          await deleteFacility.mutateAsync({ id, fieldId: field.id });
+          await deleteFacility({ facilityId: id as Id<"facilities"> });
         }
       },
       async restoreFn(id) {
-        const plantedCropId = placementToPlantedCropId.get(id);
-        if (plantedCropId) {
-          await restorePlantedCrop.mutateAsync(plantedCropId);
+        if (cropIds.has(id)) {
+          await restorePlantedCrop({ plantedCropId: id as Id<"plantedCrops"> });
           return;
         }
         const snapshot = facilitySnapshots.get(id);
         if (snapshot) {
-          await createFacility.mutateAsync({
-            fieldId: field.id,
-            data: snapshot as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+          await createFacility({
+            fieldId: field._id,
+            ...snapshot,
           });
         }
       },
@@ -232,8 +223,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleSelectAll = useCallback(() => {
     if (!field) return;
     const allIds: string[] = [
-      ...field.placements.map((p) => p.id),
-      ...field.facilities.map((f) => f.id),
+      ...field.plantedCrops.map((p) => p._id),
+      ...field.facilities.map((f) => f._id),
     ];
     selectMultiple(allIds);
   }, [field, selectMultiple]);
@@ -242,23 +233,20 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     if (selectedIds.length === 0 || !field) return;
     const items: ClipboardItem[] = [];
     for (const id of selectedIds) {
-      const placement = field.placements.find((p) => p.id === id);
-      if (placement) {
-        const row = field.plantedCrops.find(
-          (pc) => pc.plantedCrop.id === placement.plantedCropId,
-        );
+      const pc = field.plantedCrops.find((p) => p._id === id);
+      if (pc) {
         items.push({
           kind: "crop",
-          xM: Number(placement.xM),
-          yM: Number(placement.yM),
-          widthM: Number(placement.widthM),
-          heightM: Number(placement.heightM),
-          cropId: row?.crop?.id,
-          name: row?.crop?.name,
+          xM: Number(pc.xM),
+          yM: Number(pc.yM),
+          widthM: Number(pc.widthM),
+          heightM: Number(pc.heightM),
+          cropId: pc.crop?._id,
+          name: pc.crop?.name,
         });
         continue;
       }
-      const facility = field.facilities.find((f) => f.id === id);
+      const facility = field.facilities.find((f) => f._id === id);
       if (facility) {
         items.push({
           kind: "facility",
@@ -275,99 +263,91 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   }, [selectedIds, field, setClipboard]);
 
   const handlePaste = useCallback(async () => {
-    if (clipboard.length === 0 || !farmId) return;
+    if (clipboard.length === 0 || !farmId || !field) return;
     const OFFSET_M = 1;
     for (const item of clipboard) {
       if (item.kind === "crop") {
-        const result = await createRegionMut.mutateAsync({
-          fieldId,
-          data: {
-            xM: item.xM + OFFSET_M,
-            yM: item.yM + OFFSET_M,
-            widthM: item.widthM,
-            heightM: item.heightM,
-          },
+        const plantedCropId = await createRegionMut({
+          fieldId: field._id,
+          xM: item.xM + OFFSET_M,
+          yM: item.yM + OFFSET_M,
+          widthM: item.widthM,
+          heightM: item.heightM,
         });
         if (item.cropId) {
-          await assignCropToRegion.mutateAsync({
-            plantedCropId: result.plantedCrop.id,
-            cropId: item.cropId,
+          await assignCropToRegion({
+            plantedCropId,
+            cropId: item.cropId as Id<"crops">,
           });
         }
       } else if (item.kind === "facility") {
         const name = item.name ?? "設施";
-        await createFacility.mutateAsync({
-          fieldId,
-          data: {
-            facilityType: item.facilityType ?? deriveFacilityType(name),
-            name,
-            xM: item.xM + OFFSET_M,
-            yM: item.yM + OFFSET_M,
-            widthM: item.widthM,
-            heightM: item.heightM,
-          } as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+        await createFacility({
+          fieldId: field._id,
+          facilityType: item.facilityType ?? deriveFacilityType(name),
+          name,
+          xM: item.xM + OFFSET_M,
+          yM: item.yM + OFFSET_M,
+          widthM: item.widthM,
+          heightM: item.heightM,
         });
       }
     }
-  }, [clipboard, farmId, fieldId, createRegionMut, assignCropToRegion, createFacility]);
+  }, [clipboard, farmId, field, createRegionMut, assignCropToRegion, createFacility]);
 
   const handleDuplicate = useCallback(async () => {
     handleCopy();
     // Need to paste from what we just copied — but clipboard is async
     // Copy sets clipboard synchronously via zustand, so we can read it next tick
     const items = useFieldEditor.getState().clipboard;
-    if (items.length === 0 || !farmId) return;
+    if (items.length === 0 || !farmId || !field) return;
     const OFFSET_M = 1;
     for (const item of items) {
       if (item.kind === "crop") {
-        const result = await createRegionMut.mutateAsync({
-          fieldId,
-          data: {
-            xM: item.xM + OFFSET_M,
-            yM: item.yM + OFFSET_M,
-            widthM: item.widthM,
-            heightM: item.heightM,
-          },
+        const plantedCropId = await createRegionMut({
+          fieldId: field._id,
+          xM: item.xM + OFFSET_M,
+          yM: item.yM + OFFSET_M,
+          widthM: item.widthM,
+          heightM: item.heightM,
         });
         if (item.cropId) {
-          await assignCropToRegion.mutateAsync({
-            plantedCropId: result.plantedCrop.id,
-            cropId: item.cropId,
+          await assignCropToRegion({
+            plantedCropId,
+            cropId: item.cropId as Id<"crops">,
           });
         }
       } else if (item.kind === "facility") {
         const dupName = item.name ?? "設施";
-        await createFacility.mutateAsync({
-          fieldId,
-          data: {
-            facilityType: item.facilityType ?? deriveFacilityType(dupName),
-            name: dupName,
-            xM: item.xM + OFFSET_M,
-            yM: item.yM + OFFSET_M,
-            widthM: item.widthM,
-            heightM: item.heightM,
-          } as Parameters<typeof createFacility.mutateAsync>[0]["data"],
+        await createFacility({
+          fieldId: field._id,
+          facilityType: item.facilityType ?? deriveFacilityType(dupName),
+          name: dupName,
+          xM: item.xM + OFFSET_M,
+          yM: item.yM + OFFSET_M,
+          widthM: item.widthM,
+          heightM: item.heightM,
         });
       }
     }
-  }, [handleCopy, farmId, fieldId, createRegionMut, assignCropToRegion, createFacility]);
+  }, [handleCopy, farmId, field, createRegionMut, assignCropToRegion, createFacility]);
 
   // --- Zoom to selection (Ctrl+2) ---
   const handleZoomToSelection = useCallback(() => {
     if (selectedIds.length === 0 || !field) return;
     const bounds: { xM: number; yM: number; widthM: number; heightM: number }[] = [];
     for (const id of selectedIds) {
-      const placement = field.placements.find((p) => p.id === id);
-      if (placement) {
+      const pc = field.plantedCrops.find((p) => p._id === id);
+      if (pc) {
         bounds.push({
-          xM: Number(placement.xM),
-          yM: Number(placement.yM),
-          widthM: Number(placement.widthM),
-          heightM: Number(placement.heightM),
+          xM: Number(pc.xM),
+          yM: Number(pc.yM),
+          widthM: Number(pc.widthM),
+          heightM: Number(pc.heightM),
         });
         continue;
       }
-      const facility = field.facilities.find((f) => f.id === id);
+      const facility = field.facilities.find((f) => f._id === id);
       if (facility) {
         bounds.push({
           xM: Number(facility.xM),
@@ -383,28 +363,26 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   }, [selectedIds, field, zoomToSelection, canvasContainerSize]);
 
   // --- Multi-select alignment ---
-  // TODO: wrap alignment mutations in an undo command for future undo support
   const handleAlign = useCallback(
     (type: AlignType) => {
       if (selectedIds.length < 2 || !field) return;
 
       // Gather bounds for all selected items
-      const items: { id: string; kind: 'crop' | 'facility'; xM: number; yM: number; widthM: number; heightM: number; plantedCropId?: string }[] = [];
+      const items: { id: string; kind: 'crop' | 'facility'; xM: number; yM: number; widthM: number; heightM: number }[] = [];
       for (const id of selectedIds) {
-        const placement = field.placements.find((p) => p.id === id);
-        if (placement) {
+        const pc = field.plantedCrops.find((p) => p._id === id);
+        if (pc) {
           items.push({
             id,
             kind: 'crop',
-            xM: Number(placement.xM),
-            yM: Number(placement.yM),
-            widthM: Number(placement.widthM),
-            heightM: Number(placement.heightM),
-            plantedCropId: placement.plantedCropId,
+            xM: Number(pc.xM),
+            yM: Number(pc.yM),
+            widthM: Number(pc.widthM),
+            heightM: Number(pc.heightM),
           });
           continue;
         }
-        const facility = field.facilities.find((f) => f.id === id);
+        const facility = field.facilities.find((f) => f._id === id);
         if (facility) {
           items.push({
             id,
@@ -454,16 +432,18 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         if (newX === item.xM && newY === item.yM) continue;
 
         if (item.kind === 'crop') {
-          updatePlacement.mutate({
-            placementId: item.id,
-            fieldId: field.id,
-            data: { xM: newX, yM: newY },
+          updatePlacement({
+            plantedCropId: item.id as Id<"plantedCrops">,
+            fieldId: field._id,
+            xM: newX,
+            yM: newY,
           });
         } else {
-          updateFacilityMut.mutate({
-            id: item.id,
-            fieldId: field.id,
-            data: { xM: newX, yM: newY },
+          updateFacilityMut({
+            facilityId: item.id as Id<"facilities">,
+            fieldId: field._id,
+            xM: newX,
+            yM: newY,
           });
         }
       }
@@ -486,90 +466,65 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
   const handleDrawRectComplete = useCallback(
     async (rect: { xM: number; yM: number; widthM: number; heightM: number }) => {
+      if (!field) return;
       const rectData = { ...rect };
-      let createdPlantedCropId: string | null = null;
 
       const cmd = createPlantCropCommand({
         async plantFn() {
-          const result = await createRegionMut.mutateAsync({
-            fieldId,
-            data: {
-              xM: rectData.xM,
-              yM: rectData.yM,
-              widthM: rectData.widthM,
-              heightM: rectData.heightM,
-            },
+          const plantedCropId = await createRegionMut({
+            fieldId: field._id,
+            xM: rectData.xM,
+            yM: rectData.yM,
+            widthM: rectData.widthM,
+            heightM: rectData.heightM,
           });
-          createdPlantedCropId = result.plantedCrop.id;
-          return { plantedCropId: result.plantedCrop.id };
+          return { plantedCropId };
         },
         async removeFn(plantedCropId) {
-          await removePlantedCrop.mutateAsync(plantedCropId);
+          await removePlantedCrop({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
         },
         async restoreFn(plantedCropId) {
-          await restorePlantedCrop.mutateAsync(plantedCropId);
+          await restorePlantedCrop({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
         },
       });
 
       await executeCommand(cmd);
 
-      // Show optional crop assignment dialog
-      if (createdPlantedCropId) {
-        setPendingRegionId(createdPlantedCropId);
-        setPendingRectInfo(rect);
-      }
       setTool("select");
     },
-    [createRegionMut, removePlantedCrop, restorePlantedCrop, fieldId, setTool, executeCommand],
+    [field, createRegionMut, removePlantedCrop, restorePlantedCrop, setTool, executeCommand],
   );
 
   const handleDrawPolygonComplete = useCallback(
     async (data: { xM: number; yM: number; widthM: number; heightM: number; shapePoints: { x: number; y: number }[] }) => {
+      if (!field) return;
       const polyData = { ...data };
-      let createdPlantedCropId: string | null = null;
 
       const cmd = createPlantCropCommand({
         async plantFn() {
-          const result = await createRegionMut.mutateAsync({
-            fieldId,
-            data: {
-              xM: polyData.xM,
-              yM: polyData.yM,
-              widthM: polyData.widthM,
-              heightM: polyData.heightM,
-              shapePoints: polyData.shapePoints,
-            },
+          const plantedCropId = await createRegionMut({
+            fieldId: field._id,
+            xM: polyData.xM,
+            yM: polyData.yM,
+            widthM: polyData.widthM,
+            heightM: polyData.heightM,
+            shapePoints: polyData.shapePoints,
           });
-          createdPlantedCropId = result.plantedCrop.id;
-          return { plantedCropId: result.plantedCrop.id };
+          return { plantedCropId };
         },
         async removeFn(plantedCropId) {
-          await removePlantedCrop.mutateAsync(plantedCropId);
+          await removePlantedCrop({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
         },
         async restoreFn(plantedCropId) {
-          await restorePlantedCrop.mutateAsync(plantedCropId);
+          await restorePlantedCrop({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
         },
       });
 
       await executeCommand(cmd);
 
-      if (createdPlantedCropId) {
-        setPendingRegionId(createdPlantedCropId);
-        setPendingRectInfo({ xM: data.xM, yM: data.yM, widthM: data.widthM, heightM: data.heightM });
-      }
       setTool("select");
     },
-    [createRegionMut, removePlantedCrop, restorePlantedCrop, fieldId, setTool, executeCommand],
-  );
-
-  const handleAssignCrop = useCallback(
-    async (cropId: string) => {
-      if (!pendingRegionId) return;
-      await assignCropToRegion.mutateAsync({ plantedCropId: pendingRegionId, cropId });
-      setPendingRegionId(null);
-      setPendingRectInfo(null);
-    },
-    [pendingRegionId, assignCropToRegion],
+    [field, createRegionMut, removePlantedCrop, restorePlantedCrop, setTool, executeCommand],
   );
 
   const handleChangeCrop = useCallback(
@@ -582,63 +537,57 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleReassignCrop = useCallback(
     async (cropId: string) => {
       if (!reassignPlantedCropId) return;
-      await assignCropToRegion.mutateAsync({ plantedCropId: reassignPlantedCropId, cropId });
+      await assignCropToRegion({ plantedCropId: reassignPlantedCropId as Id<"plantedCrops">, cropId: cropId as Id<"crops"> });
       setReassignPlantedCropId(null);
     },
     [reassignPlantedCropId, assignCropToRegion],
   );
 
   // --- Zone split ---
-  // NOTE: Split is not fully undo-able. The original region deletion can be undone,
-  // but the two newly created regions will persist. A full undo would require a
-  // composite command that tracks all three operations together.
   const handleSplit = useCallback(
     async (direction: "horizontal" | "vertical") => {
       if (selectedIds.length !== 1 || !field || !farmId) return;
       const id = selectedIds[0];
-      const placement = field.placements.find((p) => p.id === id);
-      if (!placement) return;
+      const pc = field.plantedCrops.find((p) => p._id === id);
+      if (!pc) return;
 
-      const pcRow = field.plantedCrops.find(
-        (row) => row.plantedCrop.id === placement.plantedCropId,
-      );
-      const cropId = pcRow?.plantedCrop.cropId ?? undefined;
+      const cropId = pc.cropId ?? undefined;
 
-      const xM = Number(placement.xM);
-      const yM = Number(placement.yM);
-      const widthM = Number(placement.widthM);
-      const heightM = Number(placement.heightM);
+      const xM = Number(pc.xM);
+      const yM = Number(pc.yM);
+      const widthM = Number(pc.widthM);
+      const heightM = Number(pc.heightM);
 
       // Remove the original region
-      await removePlantedCrop.mutateAsync(placement.plantedCropId);
+      await removePlantedCrop({ plantedCropId: pc._id });
 
-      // Create two new regions (createRegion handles cropId assignment internally)
+      // Create two new regions
       if (direction === "horizontal") {
         const halfH = heightM / 2;
-        await createRegionMut.mutateAsync({
-          fieldId,
-          data: { xM, yM, widthM, heightM: halfH, cropId },
+        await createRegionMut({
+          fieldId: field._id,
+          xM, yM, widthM, heightM: halfH, cropId,
         });
-        await createRegionMut.mutateAsync({
-          fieldId,
-          data: { xM, yM: yM + halfH, widthM, heightM: halfH, cropId },
+        await createRegionMut({
+          fieldId: field._id,
+          xM, yM: yM + halfH, widthM, heightM: halfH, cropId,
         });
       } else {
         const halfW = widthM / 2;
-        await createRegionMut.mutateAsync({
-          fieldId,
-          data: { xM, yM, widthM: halfW, heightM, cropId },
+        await createRegionMut({
+          fieldId: field._id,
+          xM, yM, widthM: halfW, heightM, cropId,
         });
-        await createRegionMut.mutateAsync({
-          fieldId,
-          data: { xM: xM + halfW, yM, widthM: halfW, heightM, cropId },
+        await createRegionMut({
+          fieldId: field._id,
+          xM: xM + halfW, yM, widthM: halfW, heightM, cropId,
         });
       }
 
       // Clear selection since the original item is gone
       useFieldEditor.getState().clearSelection();
     },
-    [selectedIds, field, farmId, fieldId, removePlantedCrop, createRegionMut],
+    [selectedIds, field, farmId, removePlantedCrop, createRegionMut],
   );
 
   const handleSplitHorizontal = useCallback(() => handleSplit("horizontal"), [handleSplit]);
@@ -648,17 +597,17 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleMergeZones = useCallback(async () => {
     if (selectedIds.length !== 2 || !field || !farmId) return;
 
-    // Find both selected items from placements
-    const items: { xM: number; yM: number; widthM: number; heightM: number; plantedCropId: string }[] = [];
+    // Find both selected items from plantedCrops
+    const items: { xM: number; yM: number; widthM: number; heightM: number; _id: Id<"plantedCrops"> }[] = [];
     for (const id of selectedIds) {
-      const placement = field.placements.find((p) => p.id === id);
-      if (placement) {
+      const pc = field.plantedCrops.find((p) => p._id === id);
+      if (pc) {
         items.push({
-          xM: Number(placement.xM),
-          yM: Number(placement.yM),
-          widthM: Number(placement.widthM),
-          heightM: Number(placement.heightM),
-          plantedCropId: placement.plantedCropId,
+          xM: Number(pc.xM),
+          yM: Number(pc.yM),
+          widthM: Number(pc.widthM),
+          heightM: Number(pc.heightM),
+          _id: pc._id,
         });
       }
     }
@@ -671,23 +620,21 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
     const maxY = Math.max(items[0].yM + items[0].heightM, items[1].yM + items[1].heightM);
 
     // Delete both original regions
-    await removePlantedCrop.mutateAsync(items[0].plantedCropId);
-    await removePlantedCrop.mutateAsync(items[1].plantedCropId);
+    await removePlantedCrop({ plantedCropId: items[0]._id });
+    await removePlantedCrop({ plantedCropId: items[1]._id });
 
     // Create one new merged region (unassigned)
-    await createRegionMut.mutateAsync({
-      fieldId,
-      data: {
-        xM: minX,
-        yM: minY,
-        widthM: maxX - minX,
-        heightM: maxY - minY,
-      },
+    await createRegionMut({
+      fieldId: field._id,
+      xM: minX,
+      yM: minY,
+      widthM: maxX - minX,
+      heightM: maxY - minY,
     });
 
     // Clear selection
     useFieldEditor.getState().clearSelection();
-  }, [selectedIds, field, farmId, fieldId, removePlantedCrop, createRegionMut]);
+  }, [selectedIds, field, farmId, removePlantedCrop, createRegionMut]);
 
   // --- Utility node placement ---
   const handlePlaceUtilityNode = useCallback(
@@ -696,22 +643,20 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       const nodeType = useFieldEditor.getState().utilityNodeType;
       // Derive kind from node type
       const waterTypes = ["pump", "tank", "valve", "outlet", "junction"];
-      const kind = waterTypes.includes(nodeType) ? "water" : "electric";
+      const kind = waterTypes.includes(nodeType) ? "water" as const : "electric" as const;
       // Use the node type label as default label
       const NODE_TYPE_LABELS: Record<string, string> = {
         pump: '水泵', tank: '水塔', valve: '閥門', outlet: '出水口',
         junction: '接頭', panel: '配電箱', switch: '開關',
       };
       const label = NODE_TYPE_LABELS[nodeType] ?? "新節點";
-      await createUtilityNode.mutateAsync({
-        fieldId: field.id,
-        data: {
-          kind,
-          nodeType,
-          label,
-          xM: pos.xM,
-          yM: pos.yM,
-        },
+      await createUtilityNode({
+        fieldId: field._id,
+        kind,
+        nodeType,
+        label,
+        xM: pos.xM,
+        yM: pos.yM,
       });
     },
     [field, createUtilityNode],
@@ -721,8 +666,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleConnectUtilityNodes = useCallback(
     async (fromNodeId: string, toNodeId: string) => {
       if (!field) return;
-      const fromNode = field.utilityNodes.find((n) => n.id === fromNodeId);
-      const toNode = field.utilityNodes.find((n) => n.id === toNodeId);
+      const fromNode = field.utilityNodes.find((n) => n._id === fromNodeId);
+      const toNode = field.utilityNodes.find((n) => n._id === toNodeId);
       if (!fromNode || !toNode) return;
 
       if (fromNode.kind !== toNode.kind) {
@@ -731,11 +676,12 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       }
 
       try {
-        await createUtilityEdge.mutateAsync({
-          fieldId: field.id,
-          data: { fromNodeId, toNodeId, kind: fromNode.kind },
+        await createUtilityEdge({
+          fieldId: field._id,
+          fromNodeId: fromNodeId as Id<"utilityNodes">,
+          toNodeId: toNodeId as Id<"utilityNodes">,
+          kind: fromNode.kind,
         });
-        toast.success('設施連接已建立');
       } catch {
         toast.error('建立連接失敗，請重試');
       }
@@ -746,7 +692,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // --- Quick-add (double-click on empty canvas) ---
   const handleQuickAdd = useCallback(
     async (pos: { xM: number; yM: number }) => {
-      if (!farmId) return;
+      if (!farmId || !field) return;
       const DEFAULT_SIZE = 2;
       const rect = {
         xM: pos.xM - DEFAULT_SIZE / 2,
@@ -754,20 +700,19 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         widthM: DEFAULT_SIZE,
         heightM: DEFAULT_SIZE,
       };
-      const result = await createRegionMut.mutateAsync({
-        fieldId,
-        data: rect,
+      await createRegionMut({
+        fieldId: field._id,
+        ...rect,
       });
-      setPendingRegionId(result.plantedCrop.id);
-      setPendingRectInfo(rect);
+      // Region created — no auto-dialog
     },
-    [farmId, fieldId, createRegionMut],
+    [farmId, field, createRegionMut],
   );
 
   // --- Mark as harvested ---
   const handleMarkHarvested = useCallback(
     (plantedCropId: string) => {
-      harvestCropMut.mutate(plantedCropId);
+      harvestCropMut({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
     },
     [harvestCropMut],
   );
@@ -775,7 +720,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // --- Delete area (remove both placement and planted_crop) ---
   const handleDeleteArea = useCallback(
     (plantedCropId: string) => {
-      deletePlantedCropWithPlacement.mutate(plantedCropId);
+      deletePlantedCropWithPlacement({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
       useFieldEditor.getState().clearSelection();
     },
     [deletePlantedCropWithPlacement],
@@ -784,7 +729,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // --- Remove plant (unassign crop from region, keep region) ---
   const handleRemovePlant = useCallback(
     (plantedCropId: string) => {
-      removePlantedCrop.mutate(plantedCropId);
+      removePlantedCrop({ plantedCropId: plantedCropId as Id<"plantedCrops"> });
     },
     [removePlantedCrop],
   );
@@ -804,30 +749,30 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           setTimeout(() => handleDuplicate(), 0);
           break;
         case "changeCrop": {
-          const item = field?.placements.find((p) => p.id === itemId);
-          if (item) {
-            handleChangeCrop(item.plantedCropId);
+          const pc = field?.plantedCrops.find((p) => p._id === itemId);
+          if (pc) {
+            handleChangeCrop(pc._id);
           }
           break;
         }
         case "removePlant": {
-          const item = field?.placements.find((p) => p.id === itemId);
-          if (item) {
-            handleRemovePlant(item.plantedCropId);
+          const pc = field?.plantedCrops.find((p) => p._id === itemId);
+          if (pc) {
+            handleRemovePlant(pc._id);
           }
           break;
         }
         case "markHarvested": {
-          const item = field?.placements.find((p) => p.id === itemId);
-          if (item) {
-            handleMarkHarvested(item.plantedCropId);
+          const pc = field?.plantedCrops.find((p) => p._id === itemId);
+          if (pc) {
+            handleMarkHarvested(pc._id);
           }
           break;
         }
         case "deleteArea": {
-          const item = field?.placements.find((p) => p.id === itemId);
-          if (item) {
-            handleDeleteArea(item.plantedCropId);
+          const pc = field?.plantedCrops.find((p) => p._id === itemId);
+          if (pc) {
+            handleDeleteArea(pc._id);
           }
           break;
         }
@@ -849,7 +794,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const handleMemoChange = useCallback(
     (memo: string) => {
       if (!field) return;
-      updateFieldMemo.mutate({ fieldId: field.id, memo });
+      updateFieldMemo({ fieldId: field._id, memo });
     },
     [field, updateFieldMemo],
   );
@@ -874,17 +819,16 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   // --- Minimap items ---
   const minimapItems = useMemo(() => {
     if (!field) return [];
-    const items: Array<{ xM: number; yM: number; widthM: number; heightM: number; color: string; kind: string }> = [];
-    for (const row of field.plantedCrops) {
-      const placement = field.placements.find((p) => p.plantedCropId === row.plantedCrop.id);
-      if (!placement) continue;
+    const items: Array<{ xM: number; yM: number; widthM: number; heightM: number; color: string; kind: string; shapePoints?: { x: number; y: number }[] | null }> = [];
+    for (const pc of field.plantedCrops) {
       items.push({
-        xM: Number(placement.xM),
-        yM: Number(placement.yM),
-        widthM: Number(placement.widthM),
-        heightM: Number(placement.heightM),
-        color: row.crop?.color ?? "#d1d5db",
+        xM: Number(pc.xM),
+        yM: Number(pc.yM),
+        widthM: Number(pc.widthM),
+        heightM: Number(pc.heightM),
+        color: pc.crop?.color ?? "#d1d5db",
         kind: "crop",
+        shapePoints: pc.shapePoints as { x: number; y: number }[] | null | undefined,
       });
     }
     for (const fac of field.facilities) {
@@ -950,10 +894,10 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   }
 
   const growingCount = field.plantedCrops.filter(
-    (pc) => pc.plantedCrop.status === "growing",
+    (pc) => pc.status === "growing",
   ).length;
   const harvestedCount = field.plantedCrops.filter(
-    (pc) => pc.plantedCrop.status === "harvested",
+    (pc) => pc.status === "harvested",
   ).length;
   const facilityCount = field.facilities.length;
 
@@ -971,7 +915,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
         {farmId && (
           <FieldManageMenu
-            fieldId={field.id}
+            fieldId={field._id}
             farmId={farmId}
             fieldName={field.name}
             fieldWidthM={Number(field.widthM)}
@@ -1138,6 +1082,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
             viewportWidth={canvasContainerSize.width}
             viewportHeight={canvasContainerSize.height}
             onNavigate={handleMinimapNavigate}
+            onPan={setPan}
           />
           {/* Floating button to reopen inspector on mobile when it's collapsed */}
           {isMobile && !inspectorOpen && (
@@ -1299,8 +1244,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           />
         )}
 
-        {/* Mobile inspector (bottom sheet — must be conditionally rendered, not CSS-hidden,
-             because Sheet portals render at document body level and ignore parent display:none) */}
+        {/* Mobile inspector (bottom sheet) */}
         {isMobile && (
           <>
             <Sheet open={inspectorOpen} onOpenChange={(open) => { if (!open && inspectorOpen) toggleInspector(); }}>
@@ -1347,23 +1291,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           fieldHeightM={Number(field.heightM)}
         />
       </div>
-
-      {/* Crop assignment dialog (opens after draw_rect creates a region) */}
-      {farmId && (
-        <PlantCropDialog
-          farmId={farmId}
-          open={pendingRegionId !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              // User dismissed without selecting — region stays unassigned
-              setPendingRegionId(null);
-              setPendingRectInfo(null);
-            }
-          }}
-          onSelect={handleAssignCrop}
-          rectInfo={pendingRectInfo}
-        />
-      )}
 
       {/* Crop reassignment dialog */}
       {farmId && (

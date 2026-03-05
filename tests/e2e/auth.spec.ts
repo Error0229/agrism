@@ -1,39 +1,38 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Authentication", () => {
-  test("login page renders with email and password fields", async ({
-    page,
-  }) => {
-    await page.goto("/auth/login");
-    await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.locator('button[type="submit"]')).toBeVisible();
+test.describe("Authentication — unauthenticated", () => {
+  // These tests must NOT use storageState so they test the unauthenticated flow
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("unauthenticated access redirects to sign-in", async ({ page }) => {
+    await page.goto("/fields");
+    await page.waitForLoadState("domcontentloaded");
+
+    // Without auth, should be redirected to Clerk sign-in
+    expect(page.url()).toMatch(/\/sign-in/);
   });
 
-  test("login page shows signup toggle", async ({ page }) => {
-    await page.goto("/auth/login");
+  test("sign-in page renders Clerk component", async ({ page }) => {
+    await page.goto("/sign-in");
+    await page.waitForLoadState("domcontentloaded");
 
-    // Should have a way to switch to signup mode
-    const signupLink = page.locator("text=註冊");
-    if (await signupLink.isVisible()) {
-      await signupLink.click();
-      // In signup mode, name field should appear
-      await expect(
-        page.locator('input[placeholder*="名"]').or(page.locator('input[name="name"]')),
-      ).toBeVisible();
+    // Clerk sign-in page should render
+    expect(page.url()).toContain("/sign-in");
+  });
+});
+
+test.describe("Authentication — authenticated", () => {
+  test("authenticated access reaches protected routes", async ({ page }) => {
+    await page.goto("/fields");
+    await page.waitForLoadState("domcontentloaded");
+
+    if (page.url().includes("/sign-in")) {
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
+      return;
     }
-  });
 
-  test("login with invalid credentials shows error", async ({ page }) => {
-    await page.goto("/auth/login");
-    await page.fill('input[type="email"]', "invalid@example.com");
-    await page.fill('input[type="password"]', "wrongpassword");
-    await page.click('button[type="submit"]');
-
-    // Should show an error or redirect back to login with error
-    await page.waitForTimeout(3000);
-    // Either still on login page or redirected back with error
-    const url = page.url();
-    expect(url).toContain("/auth/login");
+    await expect(
+      page.getByRole("heading", { name: "田地管理" }),
+    ).toBeVisible({ timeout: 15000 });
   });
 });

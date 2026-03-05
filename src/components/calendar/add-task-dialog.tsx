@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -35,14 +36,16 @@ import { TASK_TYPE_LABELS, TASK_DIFFICULTY_LABELS } from '@/lib/types/labels'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
+import type { Id } from '../../../convex/_generated/dataModel'
+
 const TASK_TYPE_VALUES = Object.values(TaskType) as TaskType[]
 const TASK_DIFFICULTY_VALUES = Object.values(TaskDifficulty) as TaskDifficulty[]
 
 export function AddTaskDialog() {
   const farmId = useFarmId()
-  const createTask = useCreateTask(farmId ?? '')
-  const { data: crops } = useCrops(farmId)
-  const { data: fields } = useFields(farmId)
+  const createTask = useCreateTask()
+  const crops = useCrops(farmId)
+  const fields = useFields(farmId)
 
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<string>('')
@@ -54,6 +57,7 @@ export function AddTaskDialog() {
   const [difficulty, setDifficulty] = useState<string>('')
   const [toolsInput, setToolsInput] = useState('')
   const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
 
   function resetForm() {
     setType('')
@@ -66,7 +70,7 @@ export function AddTaskDialog() {
     setToolsInput('')
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!type || !title || !dueDate || !farmId) return
 
     const tools = toolsInput
@@ -74,28 +78,27 @@ export function AddTaskDialog() {
       .map((t) => t.trim())
       .filter(Boolean)
 
-    createTask.mutate(
-      {
+    setIsPending(true)
+    try {
+      await createTask({
+        farmId,
         type: type as TaskType,
         title,
-        cropId: cropId || null,
-        fieldId: fieldId || null,
+        cropId: (cropId || undefined) as Id<"crops"> | undefined,
+        fieldId: (fieldId || undefined) as Id<"fields"> | undefined,
         dueDate: format(dueDate, 'yyyy-MM-dd'),
-        effortMinutes: effortMinutes ? parseInt(effortMinutes, 10) : null,
-        difficulty: (difficulty as TaskDifficulty) || null,
-        requiredTools: tools.length > 0 ? tools : null,
-      },
-      {
-        onSuccess: () => {
-          toast.success('任務已新增')
-          setOpen(false)
-          resetForm()
-        },
-        onError: () => {
-          toast.error('新增任務失敗')
-        },
-      },
-    )
+        effortMinutes: effortMinutes ? parseInt(effortMinutes, 10) : undefined,
+        difficulty: (difficulty as TaskDifficulty) || undefined,
+        requiredTools: tools.length > 0 ? tools : undefined,
+      })
+      toast.success('任務已新增')
+      setOpen(false)
+      resetForm()
+    } catch {
+      toast.error('新增任務失敗')
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -109,6 +112,7 @@ export function AddTaskDialog() {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>新增任務</DialogTitle>
+          <DialogDescription>為田區作物建立新的農務任務。</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
@@ -144,7 +148,7 @@ export function AddTaskDialog() {
               </SelectTrigger>
               <SelectContent>
                 {crops?.map((crop) => (
-                  <SelectItem key={crop.id} value={crop.id}>
+                  <SelectItem key={crop._id} value={crop._id}>
                     {crop.emoji} {crop.name}
                   </SelectItem>
                 ))}
@@ -160,7 +164,7 @@ export function AddTaskDialog() {
               </SelectTrigger>
               <SelectContent>
                 {fields?.map((field) => (
-                  <SelectItem key={field.id} value={field.id}>
+                  <SelectItem key={field._id} value={field._id}>
                     {field.name}
                   </SelectItem>
                 ))}
@@ -239,10 +243,10 @@ export function AddTaskDialog() {
         <DialogFooter>
           <Button
             onClick={handleSubmit}
-            disabled={!type || !title || !dueDate || createTask.isPending}
+            disabled={!type || !title || !dueDate || isPending}
             className="w-full"
           >
-            {createTask.isPending ? '新增中...' : '新增'}
+            {isPending ? '新增中...' : '新增'}
           </Button>
         </DialogFooter>
       </DialogContent>
