@@ -1,11 +1,13 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireFarmMembership } from "./_helpers";
 
 // === Crops ===
 
 export const list = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
     return ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
@@ -16,7 +18,10 @@ export const list = query({
 export const getById = query({
   args: { cropId: v.id("crops") },
   handler: async (ctx, { cropId }) => {
-    return ctx.db.get(cropId);
+    const crop = await ctx.db.get(cropId);
+    if (!crop) return null;
+    await requireFarmMembership(ctx, crop.farmId);
+    return crop;
   },
 });
 
@@ -48,6 +53,7 @@ export const create = mutation({
     hualienNotes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireFarmMembership(ctx, args.farmId);
     const id = await ctx.db.insert("crops", {
       ...args,
       isDefault: false,
@@ -86,6 +92,7 @@ export const update = mutation({
   handler: async (ctx, { cropId, ...fields }) => {
     const crop = await ctx.db.get(cropId);
     if (!crop || crop.isDefault) return null;
+    await requireFarmMembership(ctx, crop.farmId);
 
     // Only patch provided fields
     const updates: Record<string, unknown> = {};
@@ -105,6 +112,7 @@ export const remove = mutation({
   handler: async (ctx, { cropId }) => {
     const crop = await ctx.db.get(cropId);
     if (!crop || crop.isDefault) return;
+    await requireFarmMembership(ctx, crop.farmId);
     await ctx.db.delete(cropId);
   },
 });
@@ -114,6 +122,7 @@ export const remove = mutation({
 export const seedDefaults = mutation({
   args: { farmId: v.id("farms") },
   handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
     // Check if defaults already exist
     const existing = await ctx.db
       .query("crops")
@@ -129,11 +138,30 @@ export const seedDefaults = mutation({
   },
 });
 
+/** Internal version callable from other mutations via scheduler */
+export const seedDefaultsInternal = internalMutation({
+  args: { farmId: v.id("farms") },
+  handler: async (ctx, { farmId }) => {
+    const existing = await ctx.db
+      .query("crops")
+      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .filter((q) => q.eq(q.field("isDefault"), true))
+      .first();
+
+    if (existing) return;
+
+    for (const crop of DEFAULT_CROPS) {
+      await ctx.db.insert("crops", { ...crop, farmId });
+    }
+  },
+});
+
 // === Crop Templates ===
 
 export const listTemplates = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
     return ctx.db
       .query("cropTemplates")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
@@ -148,6 +176,7 @@ export const createTemplate = mutation({
     cropIds: v.array(v.id("crops")),
   },
   handler: async (ctx, { farmId, name, cropIds }) => {
+    await requireFarmMembership(ctx, farmId);
     const templateId = await ctx.db.insert("cropTemplates", {
       farmId,
       name,
@@ -168,6 +197,10 @@ export const createTemplate = mutation({
 export const applyTemplate = query({
   args: { templateId: v.id("cropTemplates") },
   handler: async (ctx, { templateId }) => {
+    const template = await ctx.db.get(templateId);
+    if (!template) return [];
+    await requireFarmMembership(ctx, template.farmId);
+
     const items = await ctx.db
       .query("cropTemplateItems")
       .withIndex("by_templateId", (q) => q.eq("templateId", templateId))
@@ -185,6 +218,10 @@ export const applyTemplate = query({
 export const removeTemplate = mutation({
   args: { templateId: v.id("cropTemplates") },
   handler: async (ctx, { templateId }) => {
+    const template = await ctx.db.get(templateId);
+    if (!template) return;
+    await requireFarmMembership(ctx, template.farmId);
+
     // Delete items first
     const items = await ctx.db
       .query("cropTemplateItems")
