@@ -2,9 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { useQuery, useMutation } from 'convex/react'
-import { api } from '../../../../convex/_generated/api'
 import { useFarmId } from '@/hooks/use-farm-id'
+import { useExportFarmData, useImportFarmData } from '@/hooks/use-data-transfer'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -40,11 +39,8 @@ export default function SettingsPage() {
   const { user } = useUser()
   const farmId = useFarmId()
 
-  const exportData = useQuery(
-    api.dataTransfer.exportFarmData,
-    farmId ? { farmId } : 'skip',
-  )
-  const importFarmData = useMutation(api.dataTransfer.importFarmData)
+  const exportData = useExportFarmData(farmId)
+  const importFarmData = useImportFarmData()
 
   const [exporting, setExporting] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)

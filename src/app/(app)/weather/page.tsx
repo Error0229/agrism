@@ -15,15 +15,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
   AlertTriangle,
-  Cloud,
   CloudRain,
   Droplets,
   Loader2,
   RefreshCw,
-  Sun,
   Thermometer,
   Wind,
 } from 'lucide-react'
+import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import { useFarmId } from '@/hooks/use-farm-id'
 import { useCreateWeatherLog } from '@/hooks/use-weather-logs'
 
@@ -77,29 +76,6 @@ interface WeatherData {
   daily: WeatherDaily
   alerts: WeatherAlert[]
   meta: WeatherMeta
-}
-
-// ---------------------------------------------------------------------------
-// Weather code → label mapping
-// ---------------------------------------------------------------------------
-
-function weatherCodeLabel(code: number): string {
-  if (code === 0) return '晴天'
-  if (code <= 3) return '多雲'
-  if (code <= 49) return '霧'
-  if (code <= 59) return '毛毛雨'
-  if (code <= 69) return '下雨'
-  if (code <= 79) return '下雪'
-  if (code <= 84) return '陣雨'
-  if (code <= 94) return '雷雨'
-  return '暴風雨'
-}
-
-function weatherCodeIcon(code: number) {
-  if (code === 0) return <Sun className="size-5" />
-  if (code <= 3) return <Cloud className="size-5" />
-  if (code <= 69) return <CloudRain className="size-5" />
-  return <CloudRain className="size-5" />
 }
 
 function uvLabel(uv: number): string {

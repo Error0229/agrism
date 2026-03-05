@@ -13,6 +13,8 @@ import { PLOT_TYPE_LABELS } from '@/lib/types/labels'
 import type { PlotType } from '@/lib/types/enums'
 import { CreateFieldDialog } from '@/components/fields/create-field-dialog'
 
+type FieldListItem = NonNullable<ReturnType<typeof useFields>>[number]
+
 export default function FieldsPage() {
   const farmId = useFarmId()
   const fields = useFields(farmId)
@@ -79,10 +81,10 @@ export default function FieldsPage() {
   )
 }
 
-function FieldCard({ field }: { field: any }) {
+function FieldCard({ field }: { field: FieldListItem }) {
   const areaM2 = field.widthM * field.heightM
   const growingCrops = (field.plantedCrops ?? []).filter(
-    (pc: any) => pc.status === 'growing',
+    (pc) => pc.status === 'growing',
   )
   const facilityCount = (field.facilities ?? []).length
 
