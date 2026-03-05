@@ -237,7 +237,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (pc) {
         items.push({
           kind: "crop",
-        shapePoints: pc.shapePoints as { x: number; y: number }[] | null | undefined,
           xM: Number(pc.xM),
           yM: Number(pc.yM),
           widthM: Number(pc.widthM),
