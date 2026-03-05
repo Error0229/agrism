@@ -1,6 +1,14 @@
 import { query, mutation } from "./_generated/server";
+import { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./_helpers";
+import { Id } from "./_generated/dataModel";
+import { requireAuth, requireFarmMembership } from "./_helpers";
+
+async function resolveFieldFarmId(ctx: QueryCtx | MutationCtx, fieldId: Id<"fields">) {
+  const field = await ctx.db.get(fieldId);
+  if (!field) throw new Error("田區不存在");
+  return field.farmId;
+}
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -9,6 +17,7 @@ import { requireAuth } from "./_helpers";
 export const list = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
     const rows = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
@@ -61,6 +70,7 @@ export const getById = query({
   handler: async (ctx, { fieldId }) => {
     const field = await ctx.db.get(fieldId);
     if (!field) return null;
+    await requireFarmMembership(ctx, field.farmId);
 
     const [plantedCrops, facilities, utilityNodes, utilityEdges] =
       await Promise.all([
@@ -116,7 +126,7 @@ export const create = mutation({
     windExposure: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, args.farmId);
     const fieldId = await ctx.db.insert("fields", {
       farmId: args.farmId,
       name: args.name,
@@ -145,7 +155,7 @@ export const update = mutation({
     windExposure: v.optional(v.string()),
   },
   handler: async (ctx, { fieldId, ...patch }) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, fieldId));
     // Filter out undefined values
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
@@ -163,7 +173,7 @@ export const updateMemo = mutation({
     memo: v.string(),
   },
   handler: async (ctx, { fieldId, memo }) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, fieldId));
     await ctx.db.patch(fieldId, { memo });
   },
 });
@@ -171,7 +181,7 @@ export const updateMemo = mutation({
 export const remove = mutation({
   args: { fieldId: v.id("fields") },
   handler: async (ctx, { fieldId }) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, fieldId));
 
     // CASCADE DELETE in dependency order
     // 1. utility edges
@@ -233,7 +243,7 @@ export const plantCrop = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
     const plantedCropId = await ctx.db.insert("plantedCrops", {
       cropId: args.cropId,
       fieldId: args.fieldId,
@@ -263,7 +273,7 @@ export const createRegion = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
     const plantedCropId = await ctx.db.insert("plantedCrops", {
       cropId: args.cropId,
       fieldId: args.fieldId,
@@ -285,7 +295,9 @@ export const assignCropToRegion = mutation({
     cropId: v.id("crops"),
   },
   handler: async (ctx, { plantedCropId, cropId }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.patch(plantedCropId, { cropId });
   },
 });
@@ -297,7 +309,9 @@ export const updatePlantedCrop = mutation({
     customGrowthDays: v.optional(v.number()),
   },
   handler: async (ctx, { plantedCropId, ...patch }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
       if (val !== undefined) updates[key] = val;
@@ -311,7 +325,9 @@ export const updatePlantedCrop = mutation({
 export const harvestCrop = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, { plantedCropId }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.patch(plantedCropId, {
       status: "harvested",
       harvestedDate: new Date().toISOString().split("T")[0],
@@ -322,7 +338,9 @@ export const harvestCrop = mutation({
 export const removePlantedCrop = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, { plantedCropId }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.patch(plantedCropId, { status: "removed" });
   },
 });
@@ -330,7 +348,9 @@ export const removePlantedCrop = mutation({
 export const restorePlantedCrop = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, { plantedCropId }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.patch(plantedCropId, { status: "growing" });
   },
 });
@@ -338,8 +358,9 @@ export const restorePlantedCrop = mutation({
 export const deletePlantedCropWithPlacement = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, { plantedCropId }) => {
-    await requireAuth(ctx);
-    // Placements are inlined, so just delete the document
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.delete(plantedCropId);
   },
 });
@@ -357,7 +378,9 @@ export const updateCropPlacement = mutation({
     ),
   },
   handler: async (ctx, { plantedCropId, fieldId: _fieldId, ...patch }) => {
-    await requireAuth(ctx);
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
       if (val !== undefined) updates[key] = val;
@@ -383,7 +406,7 @@ export const createFacility = mutation({
     heightM: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
     const facilityId = await ctx.db.insert("facilities", {
       fieldId: args.fieldId,
       facilityType: args.facilityType,
@@ -409,7 +432,9 @@ export const updateFacility = mutation({
     heightM: v.optional(v.number()),
   },
   handler: async (ctx, { facilityId, fieldId: _fieldId, ...patch }) => {
-    await requireAuth(ctx);
+    const facility = await ctx.db.get(facilityId);
+    if (!facility) throw new Error("找不到設施");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, facility.fieldId));
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
       if (val !== undefined) updates[key] = val;
@@ -423,7 +448,9 @@ export const updateFacility = mutation({
 export const deleteFacility = mutation({
   args: { facilityId: v.id("facilities") },
   handler: async (ctx, { facilityId }) => {
-    await requireAuth(ctx);
+    const facility = await ctx.db.get(facilityId);
+    if (!facility) throw new Error("找不到設施");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, facility.fieldId));
     await ctx.db.delete(facilityId);
   },
 });
@@ -442,7 +469,7 @@ export const createUtilityNode = mutation({
     yM: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
     const nodeId = await ctx.db.insert("utilityNodes", {
       fieldId: args.fieldId,
       label: args.label,
@@ -466,7 +493,9 @@ export const updateUtilityNode = mutation({
     yM: v.optional(v.number()),
   },
   handler: async (ctx, { nodeId, fieldId: _fieldId, ...patch }) => {
-    await requireAuth(ctx);
+    const node = await ctx.db.get(nodeId);
+    if (!node) throw new Error("找不到節點");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, node.fieldId));
     const updates: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(patch)) {
       if (val !== undefined) updates[key] = val;
@@ -480,7 +509,9 @@ export const updateUtilityNode = mutation({
 export const deleteUtilityNode = mutation({
   args: { nodeId: v.id("utilityNodes") },
   handler: async (ctx, { nodeId }) => {
-    await requireAuth(ctx);
+    const node = await ctx.db.get(nodeId);
+    if (!node) throw new Error("找不到節點");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, node.fieldId));
 
     // Delete edges referencing this node (from or to)
     const fromEdges = await ctx.db
@@ -516,7 +547,7 @@ export const createUtilityEdge = mutation({
     kind: v.union(v.literal("water"), v.literal("electric")),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
     const edgeId = await ctx.db.insert("utilityEdges", {
       fieldId: args.fieldId,
       fromNodeId: args.fromNodeId,
@@ -530,7 +561,9 @@ export const createUtilityEdge = mutation({
 export const deleteUtilityEdge = mutation({
   args: { edgeId: v.id("utilityEdges") },
   handler: async (ctx, { edgeId }) => {
-    await requireAuth(ctx);
+    const edge = await ctx.db.get(edgeId);
+    if (!edge) throw new Error("找不到管線");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, edge.fieldId));
     await ctx.db.delete(edgeId);
   },
 });
