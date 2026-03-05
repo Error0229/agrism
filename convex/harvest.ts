@@ -1,12 +1,11 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./_helpers";
+import { requireFarmMembership } from "./_helpers";
 
 export const list = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    await requireFarmMembership(ctx, args.farmId);
 
     const results = await ctx.db
       .query("harvestLogs")
@@ -33,7 +32,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("harvestLogs", args);
   },
 });
@@ -41,7 +40,9 @@ export const create = mutation({
 export const remove = mutation({
   args: { harvestLogId: v.id("harvestLogs") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const record = await ctx.db.get(args.harvestLogId);
+    if (!record) return;
+    await requireFarmMembership(ctx, record.farmId);
     await ctx.db.delete(args.harvestLogId);
   },
 });
