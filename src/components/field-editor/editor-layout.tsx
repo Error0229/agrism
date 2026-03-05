@@ -702,8 +702,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         fieldId: field._id,
         ...rect,
       });
-      setPendingRegionId(plantedCropId);
-      setPendingRectInfo(rect);
+      // Region created — no auto-dialog
     },
     [farmId, field, createRegionMut],
   );
