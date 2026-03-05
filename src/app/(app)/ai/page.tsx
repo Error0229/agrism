@@ -68,10 +68,10 @@ export default function AiAssistantPage() {
 
     const plantedInfo = (fieldsData ?? []).flatMap((field: any) =>
       field.plantedCrops
-        .filter((pc: any) => pc.plantedCrop.status === 'growing')
+        .filter((pc: any) => pc.status === 'growing')
         .map((pc: any) => {
-          const cropName = (pc.plantedCrop.cropId ? cropMap.get(pc.plantedCrop.cropId) : null) ?? '未知作物'
-          return `- ${cropName}（${field.name}），種植日期：${pc.plantedCrop.plantedDate}`
+          const cropName = (pc.cropId ? cropMap.get(pc.cropId) : null) ?? '未知作物'
+          return `- ${cropName}（${field.name}），種植日期：${pc.plantedDate}`
         }),
     )
 
