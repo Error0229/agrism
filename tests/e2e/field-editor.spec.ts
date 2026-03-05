@@ -8,7 +8,7 @@ test.describe("Field Editor", () => {
 
   test("fields page loads and shows heading", async ({ page }) => {
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // If redirected to sign-in, Clerk testing token may not be configured
     if (page.url().includes("/sign-in")) {
@@ -25,7 +25,7 @@ test.describe("Field Editor", () => {
 
   test("create field dialog opens and has required form fields", async ({ page }) => {
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
       test.skip(true, "Clerk testing token not configured");
       return;
@@ -50,7 +50,7 @@ test.describe("Field Editor", () => {
 
   test("field editor canvas loads without errors", async ({ page }) => {
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
       test.skip(true, "Clerk testing token not configured");
       return;
@@ -75,7 +75,7 @@ test.describe("Field Editor", () => {
     }
 
     await fieldLink.click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Wait for the canvas (Konva stage) or the editor container to appear
     const editorContainer = page.locator('[class*="field-editor"], .konvajs-content, canvas').first();
@@ -90,7 +90,7 @@ test.describe("Field Editor", () => {
 
   test("field editor toolbar renders tool buttons", async ({ page }) => {
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
       test.skip(true, "Clerk testing token not configured");
       return;
@@ -105,7 +105,7 @@ test.describe("Field Editor", () => {
     }
 
     await fieldLink.click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Wait for toolbar to load — check for tool buttons
     // The toolbar should have tool buttons like select, hand, draw rect, etc.

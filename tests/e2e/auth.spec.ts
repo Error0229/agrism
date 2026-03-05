@@ -4,7 +4,7 @@ import { setupClerkTestingToken } from "@clerk/testing/playwright";
 test.describe("Authentication", () => {
   test("unauthenticated access redirects to sign-in", async ({ page }) => {
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Without auth, should be redirected to Clerk sign-in
     expect(page.url()).toMatch(/\/sign-in/);
@@ -12,7 +12,7 @@ test.describe("Authentication", () => {
 
   test("sign-in page renders Clerk component", async ({ page }) => {
     await page.goto("/sign-in");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Clerk sign-in page should render
     expect(page.url()).toContain("/sign-in");
@@ -21,7 +21,7 @@ test.describe("Authentication", () => {
   test("authenticated access reaches protected routes", async ({ page }) => {
     await setupClerkTestingToken({ page });
     await page.goto("/fields");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // With Clerk testing token, should not redirect to sign-in
     if (!page.url().includes("/sign-in")) {
