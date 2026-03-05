@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./_helpers";
+import { requireFarmMembership } from "./_helpers";
 
 // ---------------------------------------------------------------------------
 // Soil Profile (inlined into fields table)
@@ -15,8 +15,10 @@ export const upsertProfile = mutation({
     organicMatterPct: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { fieldId, texture, ph, ec, organicMatterPct } = args;
+    const field = await ctx.db.get(fieldId);
+    if (!field) throw new Error("找不到田區");
+    await requireFarmMembership(ctx, field.farmId);
 
     const patch: Record<string, unknown> = { soilUpdatedAt: Date.now() };
     if (texture !== undefined) patch.soilTexture = texture;
@@ -35,8 +37,9 @@ export const upsertProfile = mutation({
 export const listAmendments = query({
   args: { fieldId: v.id("fields") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    const field = await ctx.db.get(args.fieldId);
+    if (!field) return [];
+    await requireFarmMembership(ctx, field.farmId);
 
     const results = await ctx.db
       .query("soilAmendments")
@@ -57,7 +60,9 @@ export const createAmendment = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const field = await ctx.db.get(args.fieldId);
+    if (!field) throw new Error("找不到田區");
+    await requireFarmMembership(ctx, field.farmId);
     return ctx.db.insert("soilAmendments", args);
   },
 });
@@ -65,7 +70,11 @@ export const createAmendment = mutation({
 export const removeAmendment = mutation({
   args: { amendmentId: v.id("soilAmendments") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const amendment = await ctx.db.get(args.amendmentId);
+    if (!amendment) return;
+    const field = await ctx.db.get(amendment.fieldId);
+    if (!field) return;
+    await requireFarmMembership(ctx, field.farmId);
     await ctx.db.delete(args.amendmentId);
   },
 });
@@ -77,8 +86,9 @@ export const removeAmendment = mutation({
 export const listNotes = query({
   args: { fieldId: v.id("fields") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    const field = await ctx.db.get(args.fieldId);
+    if (!field) return [];
+    await requireFarmMembership(ctx, field.farmId);
 
     const results = await ctx.db
       .query("soilNotes")
@@ -97,7 +107,9 @@ export const createNote = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const field = await ctx.db.get(args.fieldId);
+    if (!field) throw new Error("找不到田區");
+    await requireFarmMembership(ctx, field.farmId);
     return ctx.db.insert("soilNotes", args);
   },
 });
@@ -105,7 +117,11 @@ export const createNote = mutation({
 export const removeNote = mutation({
   args: { noteId: v.id("soilNotes") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const note = await ctx.db.get(args.noteId);
+    if (!note) return;
+    const field = await ctx.db.get(note.fieldId);
+    if (!field) return;
+    await requireFarmMembership(ctx, field.farmId);
     await ctx.db.delete(args.noteId);
   },
 });
