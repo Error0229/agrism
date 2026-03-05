@@ -118,7 +118,15 @@ function FieldSoilContent({ fieldId, fields }: { fieldId: string; fields: any[] 
 
 function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[] }) {
   const field = fields.find((f) => f._id === fieldId)
-  const profile = field?.soilProfile ?? null
+  const profile = field
+    ? {
+        texture: field.soilTexture ?? null,
+        ph: field.soilPh ?? null,
+        ec: field.soilEc ?? null,
+        organicMatterPct: field.soilOrganicMatterPct ?? null,
+      }
+    : null
+  const hasProfile = profile && (profile.texture || profile.ph != null || profile.ec != null || profile.organicMatterPct != null)
   const upsert = useUpsertSoilProfile()
   const [editing, setEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -233,7 +241,7 @@ function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[
               <Button variant="outline" onClick={() => setEditing(false)}>取消</Button>
             </div>
           </div>
-        ) : profile ? (
+        ) : hasProfile ? (
           <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
             <div>
               <p className="text-muted-foreground">質地</p>

@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireAuth } from "./_helpers";
 
 /**
@@ -58,6 +59,9 @@ export const ensureFarm = mutation({
       role: "owner",
       createdAt: Date.now(),
     });
+
+    // Seed default crops for the new farm
+    await ctx.scheduler.runAfter(0, internal.crops.seedDefaultsInternal, { farmId });
 
     const farm = await ctx.db.get(farmId);
     return { farm, role: "owner" as const };
