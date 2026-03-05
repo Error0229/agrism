@@ -680,7 +680,6 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           toNodeId: toNodeId as Id<"utilityNodes">,
           kind: fromNode.kind,
         });
-        toast.success('設施連接已建立');
       } catch {
         toast.error('建立連接失敗，請重試');
       }
