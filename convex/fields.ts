@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { requireAuth, requireFarmMembership } from "./_helpers";
+import { requireFarmMembership } from "./_helpers";
 
 async function resolveFieldFarmId(ctx: QueryCtx | MutationCtx, fieldId: Id<"fields">) {
   const field = await ctx.db.get(fieldId);
