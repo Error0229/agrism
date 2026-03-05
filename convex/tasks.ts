@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./_helpers";
+import { requireFarmMembership } from "./_helpers";
 import { Id } from "./_generated/dataModel";
 
 // ---------------------------------------------------------------------------
@@ -37,8 +37,7 @@ export const list = query({
     dateTo: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    await requireFarmMembership(ctx, args.farmId);
 
     let results = await ctx.db
       .query("tasks")
@@ -84,7 +83,7 @@ export const create = mutation({
     requiredTools: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("tasks", {
       ...args,
       completed: args.completed ?? false,
@@ -107,7 +106,9 @@ export const update = mutation({
     requiredTools: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("找不到任務");
+    await requireFarmMembership(ctx, task.farmId);
     const { taskId, ...patch } = args;
     // Remove undefined values
     const updates: Record<string, unknown> = {};
@@ -121,7 +122,9 @@ export const update = mutation({
 export const remove = mutation({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("找不到任務");
+    await requireFarmMembership(ctx, task.farmId);
     await ctx.db.delete(args.taskId);
   },
 });
@@ -129,9 +132,9 @@ export const remove = mutation({
 export const toggleComplete = mutation({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("找不到任務");
+    await requireFarmMembership(ctx, task.farmId);
     await ctx.db.patch(args.taskId, { completed: !task.completed });
   },
 });
@@ -161,7 +164,7 @@ export const generateForPlantedCrop = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireFarmMembership(ctx, args.farmId);
     const { farmId, cropData, plantedCropData } = args;
 
     // Skip infrastructure crops
@@ -319,11 +322,18 @@ export const generateForPlantedCrop = mutation({
 export const removeByPlantedCrop = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    // No index on plantedCropId, so query by farmId isn't possible directly.
-    // Scan all tasks and filter — acceptable since this is a mutation, not a hot path.
-    const allTasks = await ctx.db.query("tasks").collect();
-    const toDelete = allTasks.filter((t) => t.plantedCropId === args.plantedCropId);
+    const pc = await ctx.db.get(args.plantedCropId);
+    if (!pc) return;
+    const field = await ctx.db.get(pc.fieldId);
+    if (!field) return;
+    await requireFarmMembership(ctx, field.farmId);
+
+    // Use by_farmId index instead of full table scan, then filter in memory
+    const farmTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId", (q) => q.eq("farmId", field.farmId))
+      .collect();
+    const toDelete = farmTasks.filter((t) => t.plantedCropId === args.plantedCropId);
     for (const task of toDelete) {
       await ctx.db.delete(task._id);
     }
