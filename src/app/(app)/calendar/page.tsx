@@ -82,7 +82,8 @@ const ALL_TASK_TYPES = 'all'
 
 export default function CalendarPage() {
   const farmId = useFarmId()
-  const tasks = useTasks(farmId) ?? []
+  const rawTasks = useTasks(farmId)
+  const tasks = useMemo(() => rawTasks ?? [], [rawTasks])
   const crops = useCrops(farmId) ?? []
   const fields = useFields(farmId) ?? []
   const toggleTask = useToggleTask()

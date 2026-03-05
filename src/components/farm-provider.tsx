@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect, useState } from "react";
+import { useRef, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 /**
@@ -14,14 +14,16 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
   const farm = useQuery(api.farms.getMyFarm, isSignedIn ? {} : "skip");
   const ensureFarm = useMutation(api.farms.ensureFarm);
-  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   useEffect(() => {
-    if (isSignedIn && farm === null && !creating) {
-      setCreating(true);
-      ensureFarm().finally(() => setCreating(false));
+    if (isSignedIn && farm === null && !creatingRef.current) {
+      creatingRef.current = true;
+      ensureFarm().finally(() => {
+        creatingRef.current = false;
+      });
     }
-  }, [isSignedIn, farm, creating, ensureFarm]);
+  }, [isSignedIn, farm, ensureFarm]);
 
   // Auth not loaded yet
   if (!isLoaded) return null;
@@ -29,8 +31,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
   // Not signed in — render children (middleware will redirect to login)
   if (!isSignedIn) return <>{children}</>;
 
-  // Signed in but farm still loading or being created
-  if (farm === undefined || (farm === null && creating)) {
+  // Signed in but farm still loading
+  if (farm === undefined || farm === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">正在設定您的農場...</p>

@@ -47,7 +47,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, Pencil, Layers, FlaskConical, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 

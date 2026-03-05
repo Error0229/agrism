@@ -319,7 +319,7 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               {growingEntries.map((entry) => {
-                const plantedDate = new Date(entry.plantedDate ?? Date.now())
+                const plantedDate = new Date(entry.plantedDate ?? "2000-01-01")
                 const daysSincePlanted = differenceInDays(new Date(), plantedDate)
                 const growthDays =
                   entry.customGrowthDays ??

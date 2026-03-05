@@ -556,7 +556,7 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
 
 const CropSelectionSection = React.memo(function CropSelectionSection({
   item,
-  onDelete,
+  onDelete: _onDelete,
   onDeleteArea,
   onRemovePlant,
   onDeselect,

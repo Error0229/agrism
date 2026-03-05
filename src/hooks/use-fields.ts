@@ -50,11 +50,11 @@ export function useCreateRegion() {
       // Build optimistic crop matching the shape returned by getById query.
       // Use type assertion to avoid strict type mismatch with the query return shape.
       const optimisticCrop = {
-        _id: `optimistic_region_${Date.now()}` as Id<"plantedCrops">,
-        _creationTime: Date.now(),
+        _id: "__optimistic__" as Id<"plantedCrops">,
+        _creationTime: 0,
         fieldId: args.fieldId,
         cropId: args.cropId,
-        plantedDate: new Date().toISOString().split("T")[0],
+        plantedDate: "2000-01-01",
         status: "growing" as const,
         xM: args.xM,
         yM: args.yM,
@@ -136,8 +136,8 @@ export function useCreateFacility() {
       if (current === undefined || current === null) return;
 
       const optimisticFacility = {
-        _id: `optimistic_facility_${Date.now()}` as Id<"facilities">,
-        _creationTime: Date.now(),
+        _id: "__optimistic__" as Id<"facilities">,
+        _creationTime: 0,
         fieldId: args.fieldId,
         facilityType: args.facilityType,
         name: args.name,
@@ -200,8 +200,8 @@ export function useCreateUtilityNode() {
       if (current === undefined || current === null) return;
 
       const optimisticNode = {
-        _id: `optimistic_node_${Date.now()}` as Id<"utilityNodes">,
-        _creationTime: Date.now(),
+        _id: "__optimistic__" as Id<"utilityNodes">,
+        _creationTime: 0,
         fieldId: args.fieldId,
         label: args.label,
         kind: args.kind,
@@ -260,8 +260,8 @@ export function useCreateUtilityEdge() {
       if (current === undefined || current === null) return;
 
       const optimisticEdge = {
-        _id: `optimistic_edge_${Date.now()}` as Id<"utilityEdges">,
-        _creationTime: Date.now(),
+        _id: "__optimistic__" as Id<"utilityEdges">,
+        _creationTime: 0,
         fieldId: args.fieldId,
         fromNodeId: args.fromNodeId,
         toNodeId: args.toNodeId,

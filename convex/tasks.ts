@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requireFarmId } from "./_helpers";
+import { requireAuth } from "./_helpers";
 import { Id } from "./_generated/dataModel";
 
 // ---------------------------------------------------------------------------

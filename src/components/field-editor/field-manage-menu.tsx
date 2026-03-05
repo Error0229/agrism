@@ -44,7 +44,7 @@ interface FieldManageMenuProps {
 
 export function FieldManageMenu({
   fieldId,
-  farmId,
+  farmId: _farmId,
   fieldName,
   fieldWidthM,
   fieldHeightM,

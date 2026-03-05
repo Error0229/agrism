@@ -3,7 +3,6 @@
 import { use, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useFarmId } from '@/hooks/use-farm-id'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +34,6 @@ export default function CropDetailPage({
   params: Promise<{ cropId: string }>
 }) {
   const { cropId } = use(params)
-  const farmId = useFarmId()
   const crop = useCropById(cropId as any)
   const deleteCrop = useDeleteCrop()
   const router = useRouter()

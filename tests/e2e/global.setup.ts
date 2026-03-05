@@ -1,5 +1,5 @@
 import { clerk, clerkSetup } from "@clerk/testing/playwright";
-import { test as setup, expect } from "@playwright/test";
+import { test as setup } from "@playwright/test";
 import path from "path";
 
 setup.describe.configure({ mode: "serial" });

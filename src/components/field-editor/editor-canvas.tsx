@@ -20,7 +20,6 @@ import {
 } from "@/hooks/use-fields";
 import {
   createMoveCommand,
-  createDeleteCommand,
   createResizeCommand,
 } from "@/lib/store/editor-commands";
 import { buildPlannerGridLines, snapToGrid } from "@/lib/utils/planner-grid";
@@ -291,7 +290,7 @@ interface EditorCanvasProps {
   }) => void;
 }
 
-export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction, onContextMenu }: EditorCanvasProps) {
+export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete, onPlaceUtilityNode, onConnectUtilityNodes, onQuickAdd, onContextAction: _onContextAction, onContextMenu }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
@@ -327,12 +326,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
   // Mutations
   const updatePlacement = useUpdateCropPlacement();
-  const removePlantedCrop = useRemovePlantedCrop();
-  const restorePlantedCrop = useRestorePlantedCrop();
+  const _removePlantedCrop = useRemovePlantedCrop();
+  const _restorePlantedCrop = useRestorePlantedCrop();
   const deletePlantedCropWithPlacement = useDeletePlantedCropWithPlacement();
   const deleteFacility = useDeleteFacility();
   const deleteUtilityNode = useDeleteUtilityNode();
-  const createFacility = useCreateFacility();
+  const _createFacility = useCreateFacility();
   const updateFacility = useUpdateFacility();
   const updateUtilityNode = useUpdateUtilityNode();
 

@@ -700,7 +700,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
         widthM: DEFAULT_SIZE,
         heightM: DEFAULT_SIZE,
       };
-      const plantedCropId = await createRegionMut({
+      await createRegionMut({
         fieldId: field._id,
         ...rect,
       });
