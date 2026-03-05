@@ -35,9 +35,7 @@ test.describe("Field Editor", () => {
       await expect(dialog).toBeVisible();
       // Verify form fields exist in dialog
       await expect(
-        page.getByRole("heading", { name: "新增田地", level: 2 }).or(
-          page.getByText("新增田地").first(),
-        ),
+        dialog.getByRole("heading", { name: "新增田地" }),
       ).toBeVisible();
     }
   });

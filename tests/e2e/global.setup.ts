@@ -11,12 +11,12 @@ setup("global setup", async ({}) => {
 });
 
 setup("authenticate", async ({ page }) => {
-  const username = process.env.E2E_CLERK_USER_USERNAME;
-  const password = process.env.E2E_CLERK_USER_PASSWORD;
+  const email = process.env.E2E_CLERK_USER_EMAIL;
 
-  if (!username || !password) {
+  if (!email) {
     console.warn(
-      "⚠ E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD not set in .env.local — skipping auth setup.\n" +
+      "⚠ E2E_CLERK_USER_EMAIL not set in .env.local — skipping auth setup.\n" +
+        "  Use a test email containing '+clerk_test' (e.g. test+clerk_test@test.com).\n" +
         "  Tests requiring authentication will be skipped.",
     );
     return;
@@ -26,9 +26,8 @@ setup("authenticate", async ({ page }) => {
   await clerk.signIn({
     page,
     signInParams: {
-      strategy: "password",
-      identifier: username,
-      password: password,
+      strategy: "email_code",
+      identifier: email,
     },
   });
 

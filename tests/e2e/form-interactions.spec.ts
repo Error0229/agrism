@@ -73,7 +73,7 @@ test.describe("Form Interactions", () => {
     const isVisible = await dialog.isVisible().catch(() => false);
     if (isVisible) {
       await expect(dialog).toBeVisible();
-      await expect(page.getByText("新增田地")).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "新增田地" })).toBeVisible();
     }
   });
 });
