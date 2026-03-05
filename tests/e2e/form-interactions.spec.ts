@@ -1,17 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
 
 test.describe("Form Interactions", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page });
-  });
-
   test("harvest page '新增收成' button opens dialog", async ({ page }) => {
     await page.goto("/records/harvest");
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -37,7 +32,7 @@ test.describe("Form Interactions", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -62,7 +57,7 @@ test.describe("Form Interactions", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 

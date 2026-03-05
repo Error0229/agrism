@@ -1,11 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
 
 test.describe("Sidebar Navigation", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page });
-  });
-
   const sidebarLinks = [
     { name: "首頁", href: "/", heading: "花蓮蔬果種植指南" },
     { name: "田地規劃", href: "/fields", heading: "田地管理" },
@@ -24,10 +19,10 @@ test.describe("Sidebar Navigation", () => {
       await page.goto("/");
       await page.waitForLoadState("domcontentloaded");
 
-      // Check if redirected to sign-in
+      // Check if redirected to sign-in (storageState missing or invalid)
       await page.waitForTimeout(2000);
       if (page.url().includes("/sign-in")) {
-        test.skip(true, "Clerk testing token not configured");
+        test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
         return;
       }
 
@@ -61,7 +56,7 @@ test.describe("Sidebar Navigation", () => {
 
     await page.waitForTimeout(2000);
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 

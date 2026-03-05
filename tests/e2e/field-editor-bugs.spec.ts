@@ -1,11 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
 
 test.describe("Field Editor Bug Fixes", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page });
-  });
-
   test("canvas renders without errors after navigating to field editor", async ({
     page,
   }) => {
@@ -14,7 +9,7 @@ test.describe("Field Editor Bug Fixes", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -62,7 +57,7 @@ test.describe("Field Editor Bug Fixes", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -101,7 +96,7 @@ test.describe("Field Editor Bug Fixes", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -148,7 +143,7 @@ test.describe("Field Editor Bug Fixes", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -185,7 +180,7 @@ test.describe("Field Editor Bug Fixes", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 

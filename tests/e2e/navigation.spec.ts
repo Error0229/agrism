@@ -1,11 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
 
 test.describe("Page Rendering", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page });
-  });
-
   const pages = [
     { path: "/", heading: "花蓮蔬果種植指南" },
     { path: "/fields", heading: "田地管理" },
@@ -29,7 +24,7 @@ test.describe("Page Rendering", () => {
       await page.waitForLoadState("domcontentloaded");
 
       if (page.url().includes("/sign-in")) {
-        test.skip(true, "Clerk testing token not configured");
+        test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
         return;
       }
 
@@ -52,7 +47,7 @@ test.describe("Page Rendering", () => {
     await page.waitForTimeout(2000);
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -79,7 +74,7 @@ test.describe("Page Rendering", () => {
     await page.waitForLoadState("domcontentloaded");
 
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 

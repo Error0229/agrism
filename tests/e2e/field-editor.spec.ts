@@ -1,18 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { setupClerkTestingToken } from "@clerk/testing/playwright";
 
 test.describe("Field Editor", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page });
-  });
-
   test("fields page loads and shows heading", async ({ page }) => {
     await page.goto("/fields");
     await page.waitForLoadState("domcontentloaded");
 
-    // If redirected to sign-in, Clerk testing token may not be configured
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured — skipping auth-required test");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -27,7 +21,7 @@ test.describe("Field Editor", () => {
     await page.goto("/fields");
     await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -52,7 +46,7 @@ test.describe("Field Editor", () => {
     await page.goto("/fields");
     await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 
@@ -92,7 +86,7 @@ test.describe("Field Editor", () => {
     await page.goto("/fields");
     await page.waitForLoadState("domcontentloaded");
     if (page.url().includes("/sign-in")) {
-      test.skip(true, "Clerk testing token not configured");
+      test.skip(true, "Set E2E_CLERK_USER_USERNAME and E2E_CLERK_USER_PASSWORD in .env.local");
       return;
     }
 

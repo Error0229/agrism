@@ -10,15 +10,22 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 3,
   reporter: "html",
   timeout: 60000,
-  globalSetup: "./tests/e2e/global.setup.ts",
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "on-first-retry",
   },
   projects: [
     {
+      name: "setup",
+      testMatch: /global\.setup\.ts/,
+    },
+    {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.clerk/user.json",
+      },
+      dependencies: ["setup"],
     },
   ],
   webServer: {
