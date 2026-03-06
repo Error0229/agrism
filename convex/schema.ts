@@ -84,7 +84,8 @@ export default defineSchema({
   cropProfiles: defineTable({
     cropId: v.id("crops"),
     scope: v.string(), // "base" | "location" | "farm"
-    scopeKey: v.optional(v.string()), // e.g., "花蓮縣/吉安鄉" for location, farmId for farm
+    scopeKey: v.optional(v.string()), // Geography key (e.g., "TW", "TW-HUA", "TW-HUA-JA") or farmId for farm scope
+    geographyGranularity: v.optional(v.string()), // "country" | "county" | "district" — only for scope="location"
     status: v.string(), // "draft" | "active" | "archived"
     facts: v.array(v.object({
       key: v.string(),
@@ -292,4 +293,35 @@ export default defineSchema({
     condition: v.optional(v.string()),
     notes: v.optional(v.string()),
   }).index("by_farmId", ["farmId"]),
+
+  // === Planned Plantings (issue #87) ===
+  plannedPlantings: defineTable({
+    farmId: v.id("farms"),
+    fieldId: v.id("fields"),
+    regionId: v.optional(v.string()),
+    cropId: v.optional(v.id("crops")),
+    cropName: v.optional(v.string()),
+    planningState: v.union(
+      v.literal("draft"),
+      v.literal("confirmed"),
+      v.literal("cancelled"),
+      v.literal("completed")
+    ),
+    startWindowEarliest: v.optional(v.string()),
+    startWindowLatest: v.optional(v.string()),
+    endWindowEarliest: v.optional(v.string()),
+    endWindowLatest: v.optional(v.string()),
+    predecessorPlantedCropId: v.optional(v.id("plantedCrops")),
+    predecessorPlanId: v.optional(v.id("plannedPlantings")),
+    notes: v.optional(v.string()),
+    confidence: v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_farmId", ["farmId"])
+    .index("by_fieldId", ["fieldId"]),
 });
