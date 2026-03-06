@@ -21,6 +21,7 @@ import {
   useUpdateFieldMemo,
   useUpdateCropPlacement,
   useUpdateFacility,
+  useUpdatePlantedCropLifecycle,
 } from "@/hooks/use-fields";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { useFieldEditor, type ClipboardItem } from "@/lib/store/field-editor-store";
@@ -48,6 +49,7 @@ import { EditorStatusBar } from "./editor-status-bar";
 import { EditorTimelineBar } from "./editor-timeline-bar";
 import { PropertyInspector, type AlignType } from "./property-inspector";
 import { PlantCropDialog } from "./plant-crop-dialog";
+import type { OnboardingResult } from "./existing-planting-onboard";
 import { FieldManageMenu } from "./field-manage-menu";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 
@@ -106,6 +108,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const updateFieldMemo = useUpdateFieldMemo();
   const updatePlacement = useUpdateCropPlacement();
   const updateFacilityMut = useUpdateFacility();
+  const updateLifecycle = useUpdatePlantedCropLifecycle();
 
   // Map import file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -535,12 +538,42 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   );
 
   const handleReassignCrop = useCallback(
-    async (cropId: string) => {
+    async (cropId: string, onboarding?: OnboardingResult) => {
       if (!reassignPlantedCropId) return;
-      await assignCropToRegion({ plantedCropId: reassignPlantedCropId as Id<"plantedCrops">, cropId: cropId as Id<"crops"> });
+      const plantedCropId = reassignPlantedCropId as Id<"plantedCrops">;
+      await assignCropToRegion({ plantedCropId, cropId: cropId as Id<"crops"> });
+
+      // Apply onboarding lifecycle data if provided
+      if (onboarding?.isExisting) {
+        const patch: Record<string, unknown> = { plantedCropId };
+        if (onboarding.lifecycleType) patch.lifecycleType = onboarding.lifecycleType;
+        if (onboarding.stage) patch.stage = onboarding.stage;
+        patch.startDateMode = onboarding.startDateMode;
+
+        if (onboarding.startDateMode === "exact" && onboarding.plantedDate) {
+          patch.plantedDate = onboarding.plantedDate;
+          patch.timelineConfidence = "high";
+        } else if (onboarding.startDateMode === "relative" && onboarding.estimatedAgeDays) {
+          patch.estimatedAgeDays = onboarding.estimatedAgeDays;
+          patch.timelineConfidence = "medium";
+        } else {
+          patch.timelineConfidence = "low";
+        }
+
+        await updateLifecycle(patch as any);
+      } else if (onboarding && !onboarding.isExisting) {
+        // New planting — set today's date with exact mode
+        await updateLifecycle({
+          plantedCropId,
+          plantedDate: onboarding.plantedDate ?? new Date().toISOString().split("T")[0],
+          startDateMode: "exact",
+          timelineConfidence: "high",
+        });
+      }
+
       setReassignPlantedCropId(null);
     },
-    [reassignPlantedCropId, assignCropToRegion],
+    [reassignPlantedCropId, assignCropToRegion, updateLifecycle],
   );
 
   // --- Zone split ---

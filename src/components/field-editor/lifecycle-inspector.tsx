@@ -7,6 +7,8 @@ import {
   TreePine,
   Calendar,
   CalendarCheck,
+  Clock,
+  HelpCircle,
   Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,6 +56,13 @@ const STAGE_COLORS: Record<string, string> = {
   declining: "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400",
 };
 
+const START_DATE_MODE_LABELS: Record<string, string> = {
+  exact: "確切日期",
+  relative: "約略估計",
+  range: "範圍估計",
+  unknown: "未知",
+};
+
 // --- Helpers ---
 
 function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
@@ -74,6 +83,26 @@ function addDaysToDate(dateStr: string, days: number): string {
   const d = new Date(dateStr);
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0];
+}
+
+/** Badge for estimated / approximate values — visually softer */
+function EstimatedBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded border border-dashed border-amber-300/60 bg-amber-50/50 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-amber-400">
+      <Clock className="size-2" />
+      {children}
+    </span>
+  );
+}
+
+/** Badge for unknown values */
+function UnknownBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded border border-dashed border-border/50 bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/60">
+      <HelpCircle className="size-2" />
+      未知
+    </span>
+  );
 }
 
 // --- Main component ---
@@ -111,6 +140,10 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
   // Compute estimated harvest date
   const growthDays = plantedCrop.customGrowthDays ?? cropGrowthDays;
   const plantedDate: string | undefined = plantedCrop.plantedDate;
+  const startDateMode: string | undefined = plantedCrop.startDateMode;
+  const estimatedAgeDays: number | undefined = plantedCrop.estimatedAgeDays;
+  const isEstimated = startDateMode === "relative" || startDateMode === "unknown";
+  const isUnknownDate = startDateMode === "unknown";
 
   const estimatedHarvestDate = useMemo(() => {
     if (!plantedDate || !growthDays) return null;
@@ -125,6 +158,14 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
   const displayHarvestDate = manualHarvestDate ?? estimatedHarvestDate;
 
   const currentStage = plantedCrop.stage;
+
+  // Format estimated age as human-readable
+  const estimatedAgeDisplay = useMemo(() => {
+    if (!estimatedAgeDays) return null;
+    const months = Math.round(estimatedAgeDays / 30);
+    if (months < 1) return `約 ${estimatedAgeDays} 天`;
+    return `約 ${months} 個月`;
+  }, [estimatedAgeDays]);
 
   return (
     <div className="space-y-4">
@@ -197,20 +238,73 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
           時程
         </SectionHeader>
 
+        {/* Date mode indicator */}
+        {startDateMode && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">日期精確度:</span>
+            {startDateMode === "exact" ? (
+              <span className="rounded bg-green-50 px-1.5 py-0.5 text-[9px] font-medium text-green-700 dark:bg-green-950/30 dark:text-green-400">
+                {START_DATE_MODE_LABELS[startDateMode]}
+              </span>
+            ) : startDateMode === "unknown" ? (
+              <UnknownBadge />
+            ) : (
+              <EstimatedBadge>
+                {START_DATE_MODE_LABELS[startDateMode] ?? startDateMode}
+              </EstimatedBadge>
+            )}
+          </div>
+        )}
+
         {/* Planted date — simple date input */}
         <div className="space-y-1">
           <label className="text-[10px] font-medium text-muted-foreground">種植日期</label>
-          <Input
-            type="date"
-            className="h-7 text-xs"
-            value={plantedDate ?? ""}
-            onChange={(e) => {
-              const val = e.target.value || undefined;
-              save("plantedDate", val ?? "");
-            }}
-            disabled={saving === "plantedDate"}
-          />
+          {isUnknownDate && !plantedDate ? (
+            <div className="flex items-center gap-2 rounded-md border border-dashed border-border/40 bg-muted/20 px-2.5 py-1.5">
+              <HelpCircle className="size-3 text-muted-foreground/40" />
+              <span className="text-[10px] italic text-muted-foreground/50">
+                未設定 — 可隨時補充
+              </span>
+            </div>
+          ) : (
+            <div className={cn(
+              isEstimated && "relative",
+            )}>
+              <Input
+                type="date"
+                className={cn(
+                  "h-7 text-xs",
+                  isEstimated && "border-dashed border-amber-300/60 text-foreground/60 dark:border-amber-700/40",
+                )}
+                value={plantedDate ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value || undefined;
+                  save("plantedDate", val ?? "");
+                  if (val) {
+                    save("startDateMode", "exact");
+                    save("timelineConfidence", "high");
+                  }
+                }}
+                disabled={saving === "plantedDate"}
+              />
+              {isEstimated && plantedDate && (
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[9px] text-amber-500">
+                  約
+                </span>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Estimated age display — only for relative mode */}
+        {startDateMode === "relative" && estimatedAgeDisplay && (
+          <div className="flex items-center gap-2 rounded-md border border-dashed border-amber-200/60 bg-amber-50/30 px-2.5 py-1.5 dark:border-amber-800/30 dark:bg-amber-950/10">
+            <Clock className="size-3 text-amber-500/60" />
+            <span className="text-xs text-amber-700/80 dark:text-amber-400/80">
+              {estimatedAgeDisplay}前種植
+            </span>
+          </div>
+        )}
 
         {/* Estimated harvest date — auto-calculated, overridable */}
         <div className="space-y-1">
@@ -251,9 +345,23 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
               }}
             />
           ) : displayHarvestDate ? (
-            <div className="flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/30 px-2.5 py-1.5">
-              <CalendarCheck className="size-3 text-muted-foreground/60" />
-              <span className="font-mono text-xs text-foreground/80">{displayHarvestDate}</span>
+            <div className={cn(
+              "flex items-center gap-2 rounded-md border px-2.5 py-1.5",
+              isEstimated
+                ? "border-dashed border-amber-200/60 bg-amber-50/20 dark:border-amber-800/30 dark:bg-amber-950/10"
+                : "border-dashed border-border/60 bg-muted/30",
+            )}>
+              <CalendarCheck className={cn(
+                "size-3",
+                isEstimated ? "text-amber-500/60" : "text-muted-foreground/60",
+              )} />
+              <span className={cn(
+                "font-mono text-xs",
+                isEstimated ? "text-foreground/60" : "text-foreground/80",
+              )}>
+                {isEstimated && "約 "}
+                {displayHarvestDate}
+              </span>
               {manualHarvestDate && (
                 <span className="ml-auto rounded bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary">
                   已調整
