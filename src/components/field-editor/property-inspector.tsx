@@ -324,7 +324,7 @@ export const PropertyInspector = React.memo(function PropertyInspector({
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-col overflow-hidden",
+        "flex h-full shrink-0 flex-col overflow-x-hidden",
         embedded
           ? ""
           : cn("border-l bg-background transition-[width] duration-200", inspectorOpen ? "w-[280px]" : "w-10"),
