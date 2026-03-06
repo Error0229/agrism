@@ -20,6 +20,13 @@
 - QA doing code review instead of browser testing is useless — user explicitly forbids it
 - Committing in small steps per user preference
 
+## Skills Usage
+- `find-skills` searches a NETWORK REGISTRY — agents can discover and install new skills, not just local ones
+- If PM already knows which skill fits, tell agent to call it directly (e.g., "Use Skill tool to call `frontend-design`")
+- Only use `find-skills` when the agent might need skills PM doesn't know about
+- Frontend UI tasks → tell agent to use `frontend-design` skill directly
+- React/Next.js tasks → tell agent to use `vercel-react-best-practices` skill directly
+
 ## Codebase Insights
 - crops table had extra fields from seed data not in schema
 - Field editor sidebar height chain: root-shell → SidebarProvider → SidebarInset → main → property-inspector → ScrollArea
