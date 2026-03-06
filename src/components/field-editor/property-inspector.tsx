@@ -80,6 +80,10 @@ import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
 import { LifecycleInspector } from "./lifecycle-inspector";
+import { RegionPlanningInspector } from "@/components/planning/region-planning-inspector";
+import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
+import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
+import { useFarmId } from "@/hooks/use-farm-id";
 
 // --- Sortable section helpers ---
 
@@ -399,6 +403,7 @@ export const PropertyInspector = React.memo(function PropertyInspector({
             {selectedIds.length === 1 && selectedItem?.kind === "crop" && (
               <CropSelectionSection
                 item={selectedItem}
+                fieldId={field?._id}
                 onDelete={onDeleteSelected}
                 onDeleteArea={onDeleteArea ? () => onDeleteArea(selectedItem.plantedCrop._id) : undefined}
                 onRemovePlant={onRemovePlant && selectedItem.plantedCrop.cropId ? () => onRemovePlant(selectedItem.plantedCrop._id) : undefined}
@@ -712,6 +717,7 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
 
 const CropSelectionSection = React.memo(function CropSelectionSection({
   item,
+  fieldId,
   onDelete: _onDelete,
   onDeleteArea,
   onRemovePlant,
@@ -725,6 +731,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     plantedCrop: FieldData["plantedCrops"][number];
     crop: FieldData["plantedCrops"][number]["crop"];
   };
+  fieldId?: string;
   onDelete?: () => void;
   onDeleteArea?: () => void;
   onRemovePlant?: () => void;
@@ -749,7 +756,20 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     1,
   );
 
-  const CROP_DEFAULTS = ["area-info", "lifecycle", "notes", "actions"];
+  // Planning hooks
+  const farmId = useFarmId();
+  const occupancy = useFieldOccupancy(fieldId as any);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
+  const [editPlanId, setEditPlanId] = useState<string | null>(null);
+
+  const regionOccupancy = useMemo(() => {
+    if (!occupancy) return [];
+    return occupancy.filter(
+      (o) => o.sourceId === plantedCrop._id || o.regionId === plantedCrop._id,
+    );
+  }, [occupancy, plantedCrop._id]);
+
+  const CROP_DEFAULTS = ["area-info", "lifecycle", "planning", "notes", "actions"];
   const { order, activeId, handleDragStart, handleDragEnd, handleDragCancel } = useSectionOrder("crop-selection", CROP_DEFAULTS);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -783,6 +803,17 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     "lifecycle": (
       <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} />
     ),
+    "planning": fieldId ? (
+      <RegionPlanningInspector
+        plantedCrop={plantedCrop}
+        occupancy={regionOccupancy}
+        onPlanNext={() => setPlanDialogOpen(true)}
+        onEditPlanning={(sourceId) => {
+          setEditPlanId(sourceId);
+          setPlanDialogOpen(true);
+        }}
+      />
+    ) : null,
     "notes": plantedCrop.notes ? (
       <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
         <p className="text-[10px] font-medium text-muted-foreground">備註</p>
@@ -937,6 +968,23 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Plan crop dialog */}
+      {farmId && fieldId && (
+        <PlanCropDialog
+          farmId={farmId as any}
+          fieldId={fieldId as any}
+          open={planDialogOpen}
+          onOpenChange={(open) => {
+            setPlanDialogOpen(open);
+            if (!open) setEditPlanId(null);
+          }}
+          regionId={plantedCrop._id}
+          currentOccupant={{
+            cropName: crop?.name,
+          }}
+        />
+      )}
     </>
   );
 });

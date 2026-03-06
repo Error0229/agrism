@@ -52,6 +52,8 @@ import { PlantCropDialog } from "./plant-crop-dialog";
 import type { OnboardingResult } from "./existing-planting-onboard";
 import { FieldManageMenu } from "./field-manage-menu";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
+import { SeasonPlannerPanel } from "@/components/planning/season-planner-panel";
+import { CalendarRange } from "lucide-react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -94,6 +96,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
   const enterTimeline = useFieldEditor((s) => s.enterTimeline);
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
   const toggleInspector = useFieldEditor((s) => s.toggleInspector);
+
+  const [viewMode, setViewMode] = useState<"editor" | "planner">("editor");
 
   const createRegionMut = useCreateRegion();
   const assignCropToRegion = useAssignCropToRegion();
@@ -982,6 +986,24 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
         <div className="flex-1" />
 
+        {/* Planning toggle */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={viewMode === "planner" ? "secondary" : "ghost"}
+                size="icon"
+                className={cn("size-8 shrink-0", viewMode === "planner" && "text-sky-700 dark:text-sky-300")}
+                onClick={() => setViewMode(viewMode === "planner" ? "editor" : "planner")}
+                aria-label="季節規劃"
+              >
+                <CalendarRange className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>季節規劃板</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         {/* Timeline toggle */}
         <TooltipProvider>
           <Tooltip>
@@ -1087,15 +1109,28 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       {/* Timeline bar (when active) */}
       {timelineMode && <EditorTimelineBar />}
 
-      {/* Main area: toolbar + canvas + inspector */}
+      {/* Main area: toolbar + canvas/planner + inspector */}
       <div className="flex w-full min-w-0 flex-1 overflow-hidden">
-        {/* Left: toolbar (desktop vertical) */}
-        <div className="hidden md:flex">
-          <EditorToolbar />
-        </div>
+        {/* Left: toolbar (desktop vertical) — hidden in planner mode */}
+        {viewMode === "editor" && (
+          <div className="hidden md:flex">
+            <EditorToolbar />
+          </div>
+        )}
 
-        {/* Center: canvas */}
-        <div ref={canvasContainerRef} className="relative min-w-0 flex-1 overflow-hidden bg-muted/30">
+        {/* Season planner view */}
+        {viewMode === "planner" && farmId && (
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <SeasonPlannerPanel
+              fieldId={field._id}
+              farmId={farmId}
+              plantedCrops={field.plantedCrops}
+            />
+          </div>
+        )}
+
+        {/* Center: canvas (hidden in planner mode) */}
+        <div ref={canvasContainerRef} className={cn("relative min-w-0 flex-1 overflow-hidden bg-muted/30", viewMode === "planner" && "hidden")}>
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
