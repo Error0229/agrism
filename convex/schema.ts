@@ -56,6 +56,19 @@ export default defineSchema({
     pestControl: v.optional(v.array(v.string())),
     typhoonResistance: v.optional(v.string()),
     hualienNotes: v.optional(v.string()),
+    commonDiseases: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    commonPests: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    companionPlants: v.optional(v.array(v.string())),
+    hualienGrowingTips: v.optional(v.string()),
+    incompatiblePlants: v.optional(v.array(v.string())),
     isDefault: v.boolean(),
   }).index("by_farmId", ["farmId"]),
 

@@ -51,6 +51,19 @@ export const create = mutation({
     pestControl: v.optional(v.array(v.string())),
     typhoonResistance: v.optional(v.string()),
     hualienNotes: v.optional(v.string()),
+    commonDiseases: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    commonPests: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    companionPlants: v.optional(v.array(v.string())),
+    hualienGrowingTips: v.optional(v.string()),
+    incompatiblePlants: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, args.farmId);
@@ -88,6 +101,19 @@ export const update = mutation({
     pestControl: v.optional(v.array(v.string())),
     typhoonResistance: v.optional(v.string()),
     hualienNotes: v.optional(v.string()),
+    commonDiseases: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    commonPests: v.optional(v.array(v.object({
+      name: v.string(),
+      organicTreatment: v.string(),
+      symptoms: v.string(),
+    }))),
+    companionPlants: v.optional(v.array(v.string())),
+    hualienGrowingTips: v.optional(v.string()),
+    incompatiblePlants: v.optional(v.array(v.string())),
   },
   handler: async (ctx, { cropId, ...fields }) => {
     const crop = await ctx.db.get(cropId);
