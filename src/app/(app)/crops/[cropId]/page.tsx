@@ -1,13 +1,13 @@
 'use client'
 
-import { use, useState, useCallback } from 'react'
+import { use, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { useResolvedCropFacts, useCropProfiles, useUpdateCropFact, useTriggerCropMigration } from '@/hooks/use-crop-profiles'
 import { useFarmId } from '@/hooks/use-farm-id'
-import type { ResolvedFact } from '@/lib/crop-facts'
+import type { ResolvedFact, CropProfile } from '@/lib/crop-facts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,11 +20,17 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   ArrowLeft,
   Bug,
   Calendar,
   Droplets,
   FlaskConical,
+  Layers,
   MapPin,
   Pencil,
   RefreshCw,
@@ -37,6 +43,10 @@ import {
   X,
   Check,
   AlertTriangle,
+  Database,
+  Download,
+  User,
+  Sparkles,
 } from 'lucide-react'
 import {
   CROP_CATEGORY_LABELS,
@@ -131,16 +141,48 @@ function renderPestDiseaseList(v: string): string {
 
 // --- Scope badge ---
 
-const SCOPE_LABELS: Record<string, { label: string; className: string }> = {
-  base: { label: '一般', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
-  location: { label: '花蓮縣', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' },
-  farm: { label: '本農地', className: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
+interface ScopeInfo {
+  label: string
+  className: string
 }
 
-function ScopeBadge({ scope }: { scope: string }) {
-  const info = SCOPE_LABELS[scope] ?? { label: scope, className: 'bg-muted text-muted-foreground' }
+function getScopeInfo(scope: string, scopeKey?: string): ScopeInfo {
+  if (scope === 'base') {
+    return { label: '一般建議', className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' }
+  }
+  if (scope === 'farm') {
+    return { label: '本農地調整', className: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/30' }
+  }
+  if (scope === 'location') {
+    // Determine granularity from scopeKey
+    if (scopeKey) {
+      const parts = scopeKey.split('-')
+      if (parts.length >= 3) {
+        // District level — e.g. TW-HUA-吉安
+        return { label: `${parts[2]}鄉建議`, className: 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400 border-green-200 dark:border-green-800/30' }
+      }
+      if (parts.length === 2) {
+        // County level
+        const countyNames: Record<string, string> = {
+          'TW-HUA': '花蓮縣', 'TW-TPE': '臺北市', 'TW-NWT': '新北市',
+          'TW-TAO': '桃園市', 'TW-TXG': '臺中市', 'TW-TNN': '臺南市',
+          'TW-KHH': '高雄市', 'TW-ILA': '宜蘭縣', 'TW-TTT': '臺東縣',
+          'TW-PIF': '屏東縣',
+        }
+        const countyName = countyNames[scopeKey] ?? scopeKey
+        return { label: `${countyName}建議`, className: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-800/30' }
+      }
+    }
+    // Fallback for legacy or unknown scopeKeys
+    return { label: '地區建議', className: 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-200 dark:border-blue-800/30' }
+  }
+  return { label: scope, className: 'bg-muted text-muted-foreground' }
+}
+
+function ScopeBadge({ scope, scopeKey }: { scope: string; scopeKey?: string }) {
+  const info = getScopeInfo(scope, scopeKey)
   return (
-    <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-medium', info.className)}>
+    <span className={cn('inline-flex items-center rounded-full border border-transparent px-1.5 py-0.5 text-[9px] font-medium leading-tight', info.className)}>
       {info.label}
     </span>
   )
@@ -154,17 +196,145 @@ function ConfidenceDot({ confidence }: { confidence?: string }) {
     : confidence === 'low'
       ? 'bg-red-400'
       : 'bg-amber-400'
+  const label = confidence === 'high' ? '高可信度' : confidence === 'low' ? '低可信度' : '中等可信度'
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn('inline-block size-1.5 rounded-full', color)} />
+          <span className={cn('inline-block size-1.5 rounded-full shrink-0', color)} />
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          {confidence === 'high' ? '高可信度' : confidence === 'low' ? '低可信度' : '中等可信度'}
+          {label}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  )
+}
+
+// --- Origin indicator ---
+
+const ORIGIN_CONFIG: Record<string, { label: string; Icon: typeof Database }> = {
+  seeded: { label: '系統內建', Icon: Database },
+  imported: { label: 'AI 匯入', Icon: Download },
+  user: { label: '使用者調整', Icon: User },
+  derived: { label: '推算產生', Icon: Sparkles },
+}
+
+function OriginIndicator({ origin }: { origin?: string }) {
+  if (!origin) return null
+  const config = ORIGIN_CONFIG[origin]
+  if (!config) return null
+  const { label, Icon } = config
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Icon className="size-2.5 shrink-0 text-muted-foreground/60" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// --- Provenance popover ---
+
+function ProvenancePopover({
+  factKey,
+  meta,
+  profiles,
+}: {
+  factKey: string
+  meta: FactMeta
+  profiles: CropProfile[]
+}) {
+  // Collect this fact's value from each profile layer
+  const layers = useMemo(() => {
+    const result: Array<{
+      scope: string
+      scopeKey?: string
+      value: string
+      confidence?: string
+      origin?: string
+    }> = []
+
+    for (const profile of profiles) {
+      const fact = profile.facts.find((f) => f.key === factKey)
+      if (fact) {
+        result.push({
+          scope: profile.scope,
+          scopeKey: profile.scopeKey,
+          value: fact.value,
+          confidence: fact.confidence,
+          origin: fact.origin,
+        })
+      }
+    }
+
+    return result
+  }, [factKey, profiles])
+
+  if (layers.length <= 1) return null
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Layers className="size-2.5" />
+          <span>{layers.length} 層</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <div className="border-b px-3 py-2">
+          <p className="text-xs font-medium text-foreground">{meta.label} — 各層來源</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            較具體的範圍會覆蓋較廣泛的建議
+          </p>
+        </div>
+        <div className="divide-y">
+          {layers.map((layer, i) => {
+            const displayValue = meta.render ? meta.render(layer.value) : String(parseVal(layer.value))
+            const isWinner = i === layers.length - 1
+            return (
+              <div
+                key={`${layer.scope}-${layer.scopeKey ?? 'default'}`}
+                className={cn(
+                  'flex items-start gap-2 px-3 py-2',
+                  isWinner && 'bg-accent/50',
+                )}
+              >
+                <div className="flex-1 space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <ScopeBadge scope={layer.scope} scopeKey={layer.scopeKey} />
+                    {isWinner && (
+                      <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-medium text-primary">
+                        目前使用
+                      </span>
+                    )}
+                  </div>
+                  <p className={cn(
+                    'text-xs whitespace-pre-wrap',
+                    isWinner ? 'text-foreground font-medium' : 'text-muted-foreground line-through decoration-muted-foreground/30',
+                  )}>
+                    {displayValue}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 pt-0.5">
+                  <ConfidenceDot confidence={layer.confidence} />
+                  <OriginIndicator origin={layer.origin} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -173,26 +343,31 @@ function ConfidenceDot({ confidence }: { confidence?: string }) {
 function FactRow({
   fact,
   meta,
+  profiles,
   onEdit,
 }: {
   fact: ResolvedFact
   meta: FactMeta
+  profiles: CropProfile[]
   onEdit: (factKey: string, currentValue: string, profileId: string) => void
 }) {
   const displayValue = meta.render ? meta.render(fact.value) : String(parseVal(fact.value))
-  const isUserOverride = fact.origin === 'user'
+
+  // Check if this fact has values at multiple layers
+  const hasMultipleLayers = profiles.filter((p) =>
+    p.facts.some((f) => f.key === fact.key)
+  ).length > 1
 
   return (
     <div className="group flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50">
       <div className="flex flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-foreground/80">{meta.label}</span>
           <ConfidenceDot confidence={fact.confidence} />
-          <ScopeBadge scope={fact.resolvedFrom} />
-          {isUserOverride && (
-            <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-medium text-primary">
-              已調整
-            </span>
+          <ScopeBadge scope={fact.resolvedFrom} scopeKey={fact.scopeKey} />
+          <OriginIndicator origin={fact.origin} />
+          {hasMultipleLayers && (
+            <ProvenancePopover factKey={fact.key} meta={meta} profiles={profiles} />
           )}
         </div>
         <p className="text-sm text-foreground whitespace-pre-wrap">{displayValue}</p>
@@ -201,6 +376,7 @@ function FactRow({
         type="button"
         onClick={() => onEdit(fact.key, fact.value, fact.profileId)}
         className="mt-1 shrink-0 rounded p-1 text-muted-foreground/40 opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:opacity-100"
+        title="新增農地覆寫"
       >
         <Pencil className="size-3" />
       </button>
@@ -240,18 +416,23 @@ function FactEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-accent/30 px-2 py-1.5">
-      <Input
-        className="h-7 flex-1 text-xs"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
-          if (e.key === 'Escape') onCancel()
-        }}
-        autoFocus
-        disabled={saving}
-      />
+    <div className="flex items-center gap-1.5 rounded-md border border-orange-200 bg-orange-50/30 px-2 py-1.5 dark:border-orange-800/30 dark:bg-orange-950/20">
+      <div className="flex flex-1 flex-col gap-1">
+        <span className="text-[9px] font-medium text-orange-600 dark:text-orange-400">
+          新增本農地覆寫
+        </span>
+        <Input
+          className="h-7 flex-1 text-xs"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') onCancel()
+          }}
+          autoFocus
+          disabled={saving}
+        />
+      </div>
       <Button size="icon" variant="ghost" className="size-6" onClick={handleSave} disabled={saving}>
         <Check className="size-3" />
       </Button>
@@ -315,6 +496,45 @@ function MigrationBanner({
   )
 }
 
+// --- Profile layer summary ---
+
+function ProfileLayerSummary({ profiles }: { profiles: CropProfile[] }) {
+  if (!profiles || profiles.length === 0) return null
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Layers className="size-4" />
+          知識來源層級
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-2">
+          {profiles.map((profile) => {
+            const info = getScopeInfo(profile.scope, profile.scopeKey)
+            const factCount = profile.facts.length
+            return (
+              <div
+                key={profile._id}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
+                  info.className,
+                )}
+              >
+                <span className="font-medium">{info.label}</span>
+                <span className="rounded-full bg-black/5 px-1.5 py-0 text-[10px] dark:bg-white/10">
+                  {factCount} 項
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // === Main Page ===
 
 export default function CropDetailPage({
@@ -355,8 +575,14 @@ export default function CropDetailPage({
       confidence: 'high',
     })
     setEditingFact(null)
-    toast.success('已更新')
+    toast.success('已儲存農地覆寫')
   }, [profiles, updateFact])
+
+  // Cast profiles for component use
+  const typedProfiles = useMemo(() => {
+    if (!profiles) return []
+    return profiles as unknown as CropProfile[]
+  }, [profiles])
 
   if (crop === undefined) {
     return (
@@ -523,6 +749,11 @@ export default function CropDetailPage({
         </CardContent>
       </Card>
 
+      {/* Profile layer summary */}
+      {hasProfiles && typedProfiles.length > 1 && (
+        <ProfileLayerSummary profiles={typedProfiles} />
+      )}
+
       {/* Profiled facts by category */}
       {hasProfiles && resolvedFacts && resolvedFacts.length > 0 && (
         <>
@@ -560,6 +791,7 @@ export default function CropDetailPage({
                         key={fact.key}
                         fact={fact}
                         meta={meta}
+                        profiles={typedProfiles}
                         onEdit={handleEdit}
                       />
                     )
