@@ -67,6 +67,7 @@ export interface CropProfile {
   cropId: string;
   scope: "base" | "location" | "farm";
   scopeKey?: string;
+  geographyGranularity?: "country" | "county" | "district";
   status: string;
   facts: CropFact[];
   notes?: string;
@@ -83,6 +84,8 @@ export interface ResolvedFact {
   sourceRefs?: string[];
   /** Which scope the winning value came from. */
   resolvedFrom: "base" | "location" | "farm";
+  /** The specific scopeKey (geography key or farmId) that provided this value. */
+  scopeKey?: string;
   profileId: string;
 }
 
