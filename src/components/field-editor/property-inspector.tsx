@@ -62,6 +62,7 @@ import type { CropCategory, PlantedCropStatus, FacilityType, UtilityKind } from 
 import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
+import { LifecycleInspector } from "./lifecycle-inspector";
 
 // Field data type — resolved from Convex at runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -695,6 +696,9 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           </div>
         )}
       </div>
+
+      {/* Lifecycle inspector */}
+      <LifecycleInspector plantedCrop={plantedCrop} />
 
       <Separator />
 

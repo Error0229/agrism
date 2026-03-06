@@ -80,6 +80,10 @@ export function useUpdatePlantedCrop() {
   return useMutation(api.fields.updatePlantedCrop);
 }
 
+export function useUpdatePlantedCropLifecycle() {
+  return useMutation(api.fields.updatePlantedCropLifecycle);
+}
+
 export function useHarvestCrop() {
   return useMutation(api.fields.harvestCrop);
 }
