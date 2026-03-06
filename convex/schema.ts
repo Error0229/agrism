@@ -37,6 +37,14 @@ export default defineSchema({
     emoji: v.optional(v.string()),
     color: v.optional(v.string()),
     category: v.string(), // CropCategory enum as string
+    // Identity fields (v3)
+    aliases: v.optional(v.array(v.string())),
+    cultivar: v.optional(v.string()),
+    scientificName: v.optional(v.string()),
+    growthHabit: v.optional(v.string()), // "bush" | "vine" | "tree" | "upright" | "spreading"
+    propagationMethod: v.optional(v.string()), // "seed" | "seedling" | "cutting" | "tuber" | "grafted"
+    source: v.optional(v.string()), // "seeded" | "imported" | "custom"
+    // Legacy flat fields (kept for backward compatibility)
     plantingMonths: v.optional(v.array(v.number())),
     harvestMonths: v.optional(v.array(v.number())),
     growthDays: v.optional(v.number()),
@@ -71,6 +79,28 @@ export default defineSchema({
     incompatiblePlants: v.optional(v.array(v.string())),
     isDefault: v.boolean(),
   }).index("by_farmId", ["farmId"]),
+
+  // === Crop Profiles (v3 layered knowledge) ===
+  cropProfiles: defineTable({
+    cropId: v.id("crops"),
+    scope: v.string(), // "base" | "location" | "farm"
+    scopeKey: v.optional(v.string()), // e.g., "花蓮縣/吉安鄉" for location, farmId for farm
+    status: v.string(), // "draft" | "active" | "archived"
+    facts: v.array(v.object({
+      key: v.string(),
+      value: v.string(), // JSON-encoded
+      unit: v.optional(v.string()),
+      confidence: v.optional(v.string()), // "high" | "medium" | "low"
+      origin: v.optional(v.string()), // "seeded" | "imported" | "user" | "derived"
+      sourceRefs: v.optional(v.array(v.string())),
+      updatedAt: v.optional(v.number()),
+    })),
+    notes: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_cropId", ["cropId"])
+    .index("by_scope", ["scope"])
+    .index("by_cropId_scope", ["cropId", "scope"]),
 
   cropTemplates: defineTable({
     farmId: v.id("farms"),
