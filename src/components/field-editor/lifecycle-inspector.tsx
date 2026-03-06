@@ -208,18 +208,9 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
             value={plantedDate ?? ""}
             onChange={(e) => {
               const val = e.target.value || undefined;
-              // Save to plantedDate field directly
-              // Also set startDateMode to exact and plantStartEarliest for backwards compat
-              if (val) {
-                const ts = new Date(val).getTime();
-                save("plantStartEarliest", ts);
-                save("plantStartLatest", ts);
-              }
-              // We need to update the plantedDate as well via updatePlantedCrop
-              // For now, save to startDateMode as "exact"
-              save("startDateMode", val ? "exact" : "unknown");
+              save("plantedDate", val ?? "");
             }}
-            disabled={saving === "plantStartEarliest"}
+            disabled={saving === "plantedDate"}
           />
         </div>
 

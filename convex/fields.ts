@@ -325,6 +325,7 @@ export const updatePlantedCrop = mutation({
 export const updatePlantedCropLifecycle = mutation({
   args: {
     plantedCropId: v.id("plantedCrops"),
+    plantedDate: v.optional(v.string()),
     lifecycleType: v.optional(
       v.union(
         v.literal("seasonal"),
