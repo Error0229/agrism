@@ -322,6 +322,57 @@ export const updatePlantedCrop = mutation({
   },
 });
 
+export const updatePlantedCropLifecycle = mutation({
+  args: {
+    plantedCropId: v.id("plantedCrops"),
+    lifecycleType: v.optional(
+      v.union(
+        v.literal("seasonal"),
+        v.literal("long_cycle"),
+        v.literal("perennial"),
+        v.literal("orchard")
+      )
+    ),
+    stage: v.optional(v.string()),
+    stageConfidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
+    ),
+    startDateMode: v.optional(
+      v.union(
+        v.literal("exact"),
+        v.literal("range"),
+        v.literal("relative"),
+        v.literal("unknown")
+      )
+    ),
+    plantStartEarliest: v.optional(v.number()),
+    plantStartLatest: v.optional(v.number()),
+    estimatedAgeDays: v.optional(v.number()),
+    timelineConfidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
+    ),
+    endWindowEarliest: v.optional(v.number()),
+    endWindowLatest: v.optional(v.number()),
+    isOccupyingArea: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { plantedCropId, ...patch }) => {
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
+    const updates: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(patch)) {
+      if (val !== undefined) updates[key] = val;
+    }
+    // Auto-set stageUpdatedAt when stage changes
+    if (updates.stage !== undefined) {
+      updates.stageUpdatedAt = Date.now();
+    }
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(plantedCropId, updates);
+    }
+  },
+});
+
 export const harvestCrop = mutation({
   args: { plantedCropId: v.id("plantedCrops") },
   handler: async (ctx, { plantedCropId }) => {

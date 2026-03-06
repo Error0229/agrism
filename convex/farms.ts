@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth } from "./_helpers";
+import { v } from "convex/values";
+import { requireAuth, requireFarmMembership } from "./_helpers";
 
 /**
  * Get the current user's farm and role.
@@ -65,5 +66,30 @@ export const ensureFarm = mutation({
 
     const farm = await ctx.db.get(farmId);
     return { farm, role: "owner" as const };
+  },
+});
+
+/**
+ * Update farm location fields.
+ * Only farm members can update.
+ */
+export const updateFarmLocation = mutation({
+  args: {
+    farmId: v.id("farms"),
+    country: v.optional(v.string()),
+    countyCity: v.optional(v.string()),
+    districtTownship: v.optional(v.string()),
+    locality: v.optional(v.string()),
+    latitude: v.optional(v.float64()),
+    longitude: v.optional(v.float64()),
+    elevationBand: v.optional(v.string()),
+    coastalInland: v.optional(v.string()),
+    farmLocationNotes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireFarmMembership(ctx, args.farmId);
+
+    const { farmId, ...locationFields } = args;
+    await ctx.db.patch(farmId, locationFields);
   },
 });

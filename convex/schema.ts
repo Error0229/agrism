@@ -8,6 +8,16 @@ export default defineSchema({
     clerkUserId: v.string(),
     name: v.string(),
     createdAt: v.number(),
+    // Location fields (all optional for backward compatibility)
+    country: v.optional(v.string()),
+    countyCity: v.optional(v.string()),
+    districtTownship: v.optional(v.string()),
+    locality: v.optional(v.string()),
+    latitude: v.optional(v.float64()),
+    longitude: v.optional(v.float64()),
+    elevationBand: v.optional(v.string()),
+    coastalInland: v.optional(v.string()),
+    farmLocationNotes: v.optional(v.string()),
   }).index("by_clerkUserId", ["clerkUserId"]),
 
   farmMembers: defineTable({
@@ -100,6 +110,45 @@ export default defineSchema({
     widthM: v.optional(v.number()),
     heightM: v.optional(v.number()),
     shapePoints: v.optional(v.array(v.object({ x: v.number(), y: v.number() }))),
+
+    // --- Lifecycle fields (issue #85) ---
+    // Lifecycle type classification
+    lifecycleType: v.optional(
+      v.union(
+        v.literal("seasonal"),
+        v.literal("long_cycle"),
+        v.literal("perennial"),
+        v.literal("orchard")
+      )
+    ),
+    // Current growth stage
+    stage: v.optional(v.string()), // e.g. "seedling", "vegetative", "flowering", "fruiting", "harvest_ready", "dormant", "declining"
+    stageConfidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
+    ),
+    stageUpdatedAt: v.optional(v.number()),
+    // Start date semantics — supports fuzzy/uncertain planting dates
+    // Migration note: existing records with plantedDate → startDateMode="exact", timelineConfidence="high"
+    // Existing records without plantedDate → startDateMode="unknown", timelineConfidence="low"
+    startDateMode: v.optional(
+      v.union(
+        v.literal("exact"),
+        v.literal("range"),
+        v.literal("relative"),
+        v.literal("unknown")
+      )
+    ),
+    plantStartEarliest: v.optional(v.number()),
+    plantStartLatest: v.optional(v.number()),
+    estimatedAgeDays: v.optional(v.number()),
+    // Timeline estimates
+    timelineConfidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
+    ),
+    endWindowEarliest: v.optional(v.number()),
+    endWindowLatest: v.optional(v.number()),
+    // Occupancy — whether this planting currently occupies its area
+    isOccupyingArea: v.optional(v.boolean()),
   })
     .index("by_fieldId", ["fieldId"])
     .index("by_cropId", ["cropId"]),
