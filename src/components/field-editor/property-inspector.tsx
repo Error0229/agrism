@@ -8,7 +8,6 @@ import {
   AlignEndVertical,
   AlignStartHorizontal,
   AlignStartVertical,
-  Calendar,
   Check,
   CircleDot,
   Eye,
@@ -17,7 +16,6 @@ import {
   Magnet,
   MapPin,
   Merge,
-  Move,
   NotebookPen,
   PanelRightClose,
   PanelRightOpen,
@@ -590,115 +588,79 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     ? (CROP_CATEGORY_LABELS[crop.category as CropCategory] ?? crop.category)
     : null;
 
-  const growthDays = plantedCrop.customGrowthDays ?? crop?.growthDays;
-
   const area = (Number(plantedCrop.widthM ?? 1) * Number(plantedCrop.heightM ?? 1)).toFixed(
     1,
   );
 
   return (
     <>
-      {/* Header */}
+      {/* Header — crop identity */}
       <div className="space-y-2">
-        <SectionHeading>{crop ? "作物屬性" : "區域屬性"}</SectionHeading>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{crop?.emoji ?? ""}</span>
-          <div>
-            <p className="text-sm font-medium">{crop?.name ?? "未指定作物"}</p>
-            {categoryLabel && (
-              <p className="text-[10px] text-muted-foreground">{categoryLabel}</p>
-            )}
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/5 text-xl">
+            {crop?.emoji ?? ""}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{crop?.name ?? "未指定作物"}</p>
+            <div className="flex items-center gap-1.5">
+              {categoryLabel && (
+                <span className="text-[10px] text-muted-foreground">{categoryLabel}</span>
+              )}
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-medium",
+                  plantedCrop.status === "growing" &&
+                    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                  plantedCrop.status === "harvested" &&
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                  plantedCrop.status === "removed" &&
+                    "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+                )}
+              >
+                {statusLabel}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       <Separator />
 
-      {/* Status */}
-      <div className="space-y-1.5">
-        <SectionHeading>狀態</SectionHeading>
-        <div className="flex items-center gap-1.5 text-xs">
-          <Sprout className="size-3 text-muted-foreground" />
-          <span
-            className={cn(
-              "rounded px-1.5 py-0.5 text-[10px] font-medium",
-              plantedCrop.status === "growing" &&
-                "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-              plantedCrop.status === "harvested" &&
-                "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-              plantedCrop.status === "removed" &&
-                "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
-            )}
-          >
-            {statusLabel}
-          </span>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Geometry */}
-      <div className="space-y-1.5">
-        <SectionHeading>位置與尺寸</SectionHeading>
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      {/* ====== SECTION 1: 區域資訊 (Area Info) ====== */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 pb-0.5">
+          <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-primary">
             <MapPin className="size-3" />
-            <span>位置</span>
           </div>
-          <PropRow
-            label="X"
-            value={`${Number(plantedCrop.xM).toFixed(1)} m`}
-          />
-          <PropRow
-            label="Y"
-            value={`${Number(plantedCrop.yM).toFixed(1)} m`}
-          />
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70">
+            區域資訊
+          </h3>
+          <div className="h-px flex-1 bg-border/60" />
         </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Move className="size-3" />
-            <span>尺寸</span>
-          </div>
-          <PropRow
-            label="寬"
-            value={`${Number(plantedCrop.widthM ?? 1).toFixed(1)} m`}
-          />
-          <PropRow
-            label="高"
-            value={`${Number(plantedCrop.heightM ?? 1).toFixed(1)} m`}
-          />
+
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md bg-muted/20 px-2.5 py-2">
+          <PropRow label="X" value={`${Number(plantedCrop.xM).toFixed(1)} m`} />
+          <PropRow label="Y" value={`${Number(plantedCrop.yM).toFixed(1)} m`} />
+          <PropRow label="寬" value={`${Number(plantedCrop.widthM ?? 1).toFixed(1)} m`} />
+          <PropRow label="高" value={`${Number(plantedCrop.heightM ?? 1).toFixed(1)} m`} />
+        </div>
+        <div className="px-0.5">
           <PropRow label="面積" value={<>{area} m&sup2;</>} />
         </div>
       </div>
 
       <Separator />
 
-      {/* Dates */}
-      <div className="space-y-1.5">
-        <SectionHeading>種植資訊</SectionHeading>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="size-3" />
-          <span>日期</span>
-        </div>
-        {plantedCrop.plantedDate && (
-          <PropRow label="種植日" value={plantedCrop.plantedDate} />
-        )}
-        {plantedCrop.harvestedDate && (
-          <PropRow label="收成日" value={plantedCrop.harvestedDate} />
-        )}
-        {growthDays != null && (
-          <PropRow label="生長天數" value={`${growthDays} 天`} />
-        )}
-        {plantedCrop.notes && (
-          <div className="mt-1.5">
-            <p className="text-[10px] text-muted-foreground">備註</p>
-            <p className="text-xs">{plantedCrop.notes}</p>
-          </div>
-        )}
-      </div>
+      {/* ====== SECTION 2: 作物資訊 (Crop Info) ====== */}
+      <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} />
 
-      {/* Lifecycle inspector */}
-      <LifecycleInspector plantedCrop={plantedCrop} />
+      {/* Notes if present */}
+      {plantedCrop.notes && (
+        <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
+          <p className="text-[10px] font-medium text-muted-foreground">備註</p>
+          <p className="mt-0.5 text-xs leading-relaxed">{plantedCrop.notes}</p>
+        </div>
+      )}
 
       <Separator />
 

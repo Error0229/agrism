@@ -1,17 +1,16 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Leaf,
   TreePine,
-  CalendarClock,
-  CircleHelp,
-  Timer,
+  Calendar,
+  CalendarCheck,
   SquareCheck,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,82 +45,53 @@ export const STAGE_LABELS: Record<string, string> = {
   declining: "衰退",
 };
 
-export const CONFIDENCE_LABELS: Record<string, string> = {
-  high: "高",
-  medium: "中",
-  low: "低",
+// Stage color mapping for the pill indicator
+const STAGE_COLORS: Record<string, string> = {
+  seedling: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
+  vegetative: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  flowering: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
+  fruiting: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  harvest_ready: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  dormant: "bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400",
+  declining: "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400",
 };
 
-export const START_DATE_MODE_LABELS: Record<string, string> = {
-  exact: "確切日期",
-  range: "日期範圍",
-  relative: "大約天數",
-  unknown: "不確定",
-};
+// --- Helpers ---
 
-// --- Helper ---
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
+function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </h3>
-  );
-}
-
-function PropRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-2 text-xs">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
+    <div className="flex items-center gap-2 pb-1">
+      <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <h3 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70">
+        {children}
+      </h3>
+      <div className="h-px flex-1 bg-border/60" />
     </div>
   );
 }
 
-// --- Confidence badge ---
-
-function ConfidenceBadge({ level }: { level: string | undefined }) {
-  if (!level) return <span className="text-[10px] text-muted-foreground">--</span>;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
-        level === "high" &&
-          "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-        level === "medium" &&
-          "border border-dashed border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
-        level === "low" &&
-          "border border-dotted border-red-300 bg-red-50/50 text-red-500 dark:bg-red-900/10 dark:text-red-400",
-      )}
-    >
-      {CONFIDENCE_LABELS[level] ?? level}
-    </span>
-  );
-}
-
-// --- Date formatting helper ---
-
-function formatTimestamp(ts: number | undefined): string {
-  if (!ts) return "--";
-  return new Date(ts).toLocaleDateString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+function addDaysToDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
 }
 
 // --- Main component ---
 
 interface LifecycleInspectorProps {
   plantedCrop: PlantedCropData;
+  cropGrowthDays?: number;
 }
 
 export const LifecycleInspector = React.memo(function LifecycleInspector({
   plantedCrop,
+  cropGrowthDays,
 }: LifecycleInspectorProps) {
   const updateLifecycle = useUpdatePlantedCropLifecycle();
   const [saving, setSaving] = useState<string | null>(null);
+  const [harvestOverride, setHarvestOverride] = useState(false);
 
   const save = useCallback(
     async (field: string, value: unknown) => {
@@ -140,24 +110,35 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
     [updateLifecycle, plantedCrop._id],
   );
 
-  const startDateMode: string = plantedCrop.startDateMode ?? "unknown";
+  // Compute estimated harvest date
+  const growthDays = plantedCrop.customGrowthDays ?? cropGrowthDays;
+  const plantedDate: string | undefined = plantedCrop.plantedDate;
+
+  const estimatedHarvestDate = useMemo(() => {
+    if (!plantedDate || !growthDays) return null;
+    return addDaysToDate(plantedDate, growthDays);
+  }, [plantedDate, growthDays]);
+
+  // Check if user has manually set an end window (override)
+  const manualHarvestDate = plantedCrop.endWindowEarliest
+    ? new Date(plantedCrop.endWindowEarliest).toISOString().split("T")[0]
+    : null;
+
+  const displayHarvestDate = manualHarvestDate ?? estimatedHarvestDate;
+
+  const currentStage = plantedCrop.stage;
 
   return (
-    <>
-      <Separator />
+    <div className="space-y-4">
+      {/* --- Crop Lifecycle Info --- */}
+      <div className="space-y-3">
+        <SectionHeader icon={<TreePine className="size-3" />}>
+          作物資訊
+        </SectionHeader>
 
-      {/* Lifecycle Type */}
-      <div className="space-y-2">
-        <SectionHeading>
-          <span className="flex items-center gap-1.5">
-            <TreePine className="size-3" />
-            生命週期
-          </span>
-        </SectionHeading>
-
-        {/* Lifecycle type selector */}
+        {/* Lifecycle type */}
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">生長類型</label>
+          <label className="text-[10px] font-medium text-muted-foreground">生長類型</label>
           <Select
             value={plantedCrop.lifecycleType ?? ""}
             onValueChange={(val) => save("lifecycleType", val)}
@@ -176,277 +157,139 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
           </Select>
         </div>
 
-        {/* Current stage */}
+        {/* Current stage with colored pill */}
         <div className="space-y-1">
-          <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <label className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
             <Leaf className="size-2.5" />
             目前階段
           </label>
           <Select
-            value={plantedCrop.stage ?? ""}
+            value={currentStage ?? ""}
             onValueChange={(val) => save("stage", val)}
             disabled={saving === "stage"}
           >
-            <SelectTrigger className="h-7 w-full text-xs">
+            <SelectTrigger className={cn(
+              "h-7 w-full text-xs transition-colors",
+              currentStage && STAGE_COLORS[currentStage]
+                ? "border-transparent font-medium " + STAGE_COLORS[currentStage]
+                : "",
+            )}>
               <SelectValue placeholder="選擇階段" />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(STAGE_LABELS).map(([val, label]) => (
                 <SelectItem key={val} value={val}>
-                  {label}
+                  <span className="flex items-center gap-1.5">
+                    <span className={cn(
+                      "size-1.5 rounded-full",
+                      STAGE_COLORS[val]?.split(" ")[0] ?? "bg-muted",
+                    )} />
+                    {label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
-        {/* Stage confidence */}
-        <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">階段信心度</label>
-          <div className="flex gap-1.5">
-            {(["high", "medium", "low"] as const).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => save("stageConfidence", level)}
-                disabled={saving === "stageConfidence"}
-                className={cn(
-                  "flex-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all",
-                  plantedCrop.stageConfidence === level
-                    ? level === "high"
-                      ? "bg-green-100 text-green-700 ring-1 ring-green-300 dark:bg-green-900/40 dark:text-green-400 dark:ring-green-700"
-                      : level === "medium"
-                        ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-900/40 dark:text-amber-400 dark:ring-amber-700"
-                        : "bg-red-100 text-red-600 ring-1 ring-red-300 dark:bg-red-900/40 dark:text-red-400 dark:ring-red-700"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {CONFIDENCE_LABELS[level]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {plantedCrop.stageUpdatedAt && (
-          <PropRow
-            label="階段更新"
-            value={formatTimestamp(plantedCrop.stageUpdatedAt)}
-          />
-        )}
       </div>
 
-      <Separator />
+      {/* --- Dates --- */}
+      <div className="space-y-3">
+        <SectionHeader icon={<Calendar className="size-3" />}>
+          時程
+        </SectionHeader>
 
-      {/* Timeline / Planting Time */}
-      <div className="space-y-2">
-        <SectionHeading>
-          <span className="flex items-center gap-1.5">
-            <CalendarClock className="size-3" />
-            種植時間
-          </span>
-        </SectionHeading>
-
-        {/* Start date mode */}
+        {/* Planted date — simple date input */}
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">日期模式</label>
-          <div className="grid grid-cols-2 gap-1">
-            {Object.entries(START_DATE_MODE_LABELS).map(([val, label]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => save("startDateMode", val)}
-                disabled={saving === "startDateMode"}
-                className={cn(
-                  "rounded-md px-2 py-1 text-[10px] font-medium transition-all",
-                  startDateMode === val
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {val === "unknown" && <CircleHelp className="mr-0.5 inline size-2.5" />}
-                {val === "relative" && <Timer className="mr-0.5 inline size-2.5" />}
-                {label}
-              </button>
-            ))}
-          </div>
+          <label className="text-[10px] font-medium text-muted-foreground">種植日期</label>
+          <Input
+            type="date"
+            className="h-7 text-xs"
+            value={plantedDate ?? ""}
+            onChange={(e) => {
+              const val = e.target.value || undefined;
+              // Save to plantedDate field directly
+              // Also set startDateMode to exact and plantStartEarliest for backwards compat
+              if (val) {
+                const ts = new Date(val).getTime();
+                save("plantStartEarliest", ts);
+                save("plantStartLatest", ts);
+              }
+              // We need to update the plantedDate as well via updatePlantedCrop
+              // For now, save to startDateMode as "exact"
+              save("startDateMode", val ? "exact" : "unknown");
+            }}
+            disabled={saving === "plantStartEarliest"}
+          />
         </div>
 
-        {/* Mode-specific inputs */}
-        {startDateMode === "exact" && (
-          <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">確切種植日</label>
+        {/* Estimated harvest date — auto-calculated, overridable */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+              <CalendarCheck className="size-2.5" />
+              預估採收日
+            </label>
+            {displayHarvestDate && (
+              <button
+                type="button"
+                onClick={() => setHarvestOverride(!harvestOverride)}
+                className={cn(
+                  "flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] transition-colors",
+                  harvestOverride
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground/60 hover:text-muted-foreground",
+                )}
+              >
+                <Pencil className="size-2" />
+                {harvestOverride ? "編輯中" : "調整"}
+              </button>
+            )}
+          </div>
+
+          {harvestOverride ? (
             <Input
               type="date"
               className="h-7 text-xs"
-              defaultValue={
-                plantedCrop.plantStartEarliest
-                  ? new Date(plantedCrop.plantStartEarliest).toISOString().split("T")[0]
-                  : ""
-              }
-              onChange={(e) => {
+              defaultValue={displayHarvestDate ?? ""}
+              onBlur={(e) => {
                 const ts = e.target.value ? new Date(e.target.value).getTime() : undefined;
                 if (ts) {
-                  save("plantStartEarliest", ts);
-                  save("plantStartLatest", ts);
+                  save("endWindowEarliest", ts);
+                  save("endWindowLatest", ts);
                 }
+                setHarvestOverride(false);
               }}
             />
-          </div>
-        )}
-
-        {startDateMode === "range" && (
-          <div className="space-y-1.5">
-            <div className="space-y-1">
-              <label className="text-[10px] text-muted-foreground">最早日期</label>
-              <Input
-                type="date"
-                className="h-7 text-xs"
-                defaultValue={
-                  plantedCrop.plantStartEarliest
-                    ? new Date(plantedCrop.plantStartEarliest).toISOString().split("T")[0]
-                    : ""
-                }
-                onBlur={(e) => {
-                  const ts = e.target.value ? new Date(e.target.value).getTime() : undefined;
-                  if (ts) save("plantStartEarliest", ts);
-                }}
-              />
+          ) : displayHarvestDate ? (
+            <div className="flex items-center gap-2 rounded-md border border-dashed border-border/60 bg-muted/30 px-2.5 py-1.5">
+              <CalendarCheck className="size-3 text-muted-foreground/60" />
+              <span className="font-mono text-xs text-foreground/80">{displayHarvestDate}</span>
+              {manualHarvestDate && (
+                <span className="ml-auto rounded bg-primary/10 px-1 py-0.5 text-[9px] font-medium text-primary">
+                  已調整
+                </span>
+              )}
+              {!manualHarvestDate && growthDays && (
+                <span className="ml-auto text-[9px] text-muted-foreground/60">
+                  +{growthDays}天
+                </span>
+              )}
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] text-muted-foreground">最晚日期</label>
-              <Input
-                type="date"
-                className="h-7 text-xs"
-                defaultValue={
-                  plantedCrop.plantStartLatest
-                    ? new Date(plantedCrop.plantStartLatest).toISOString().split("T")[0]
-                    : ""
-                }
-                onBlur={(e) => {
-                  const ts = e.target.value ? new Date(e.target.value).getTime() : undefined;
-                  if (ts) save("plantStartLatest", ts);
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {startDateMode === "relative" && (
-          <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">大約幾天前種植</label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="number"
-                min={0}
-                className="h-7 flex-1 text-xs"
-                defaultValue={plantedCrop.estimatedAgeDays ?? ""}
-                onBlur={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val >= 0) save("estimatedAgeDays", val);
-                }}
-              />
-              <span className="shrink-0 text-xs text-muted-foreground">天前</span>
-            </div>
-          </div>
-        )}
-
-        {startDateMode === "unknown" && (
-          <p className="text-[10px] italic text-muted-foreground">
-            種植日期不確定
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* End window & timeline confidence */}
-      <div className="space-y-2">
-        <SectionHeading>
-          <span className="flex items-center gap-1.5">
-            <CalendarClock className="size-3" />
-            預估結束
-          </span>
-        </SectionHeading>
-
-        <div className="space-y-1.5">
-          <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">最早結束</label>
-            <Input
-              type="date"
-              className="h-7 text-xs"
-              defaultValue={
-                plantedCrop.endWindowEarliest
-                  ? new Date(plantedCrop.endWindowEarliest).toISOString().split("T")[0]
-                  : ""
-              }
-              onBlur={(e) => {
-                const ts = e.target.value ? new Date(e.target.value).getTime() : undefined;
-                if (ts) save("endWindowEarliest", ts);
-              }}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">最晚結束</label>
-            <Input
-              type="date"
-              className="h-7 text-xs"
-              defaultValue={
-                plantedCrop.endWindowLatest
-                  ? new Date(plantedCrop.endWindowLatest).toISOString().split("T")[0]
-                  : ""
-              }
-              onBlur={(e) => {
-                const ts = e.target.value ? new Date(e.target.value).getTime() : undefined;
-                if (ts) save("endWindowLatest", ts);
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Timeline confidence */}
-        <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">時程信心度</label>
-          <div className="flex gap-1.5">
-            {(["high", "medium", "low"] as const).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => save("timelineConfidence", level)}
-                disabled={saving === "timelineConfidence"}
-                className={cn(
-                  "flex-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all",
-                  plantedCrop.timelineConfidence === level
-                    ? level === "high"
-                      ? "bg-green-100 text-green-700 ring-1 ring-green-300 dark:bg-green-900/40 dark:text-green-400 dark:ring-green-700"
-                      : level === "medium"
-                        ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-900/40 dark:text-amber-400 dark:ring-amber-700"
-                        : "bg-red-100 text-red-600 ring-1 ring-red-300 dark:bg-red-900/40 dark:text-red-400 dark:ring-red-700"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
-                )}
-              >
-                {CONFIDENCE_LABELS[level]}
-              </button>
-            ))}
-          </div>
-          {plantedCrop.timelineConfidence && (
-            <div className="flex justify-end">
-              <ConfidenceBadge level={plantedCrop.timelineConfidence} />
-            </div>
+          ) : (
+            <p className="px-1 text-[10px] italic text-muted-foreground/60">
+              未設定
+            </p>
           )}
         </div>
       </div>
 
-      <Separator />
-
-      {/* Occupying Area toggle */}
-      <div className="space-y-1.5">
-        <SectionHeading>
-          <span className="flex items-center gap-1.5">
-            <SquareCheck className="size-3" />
-            區域佔用
-          </span>
-        </SectionHeading>
-        <div className="flex items-center justify-between gap-2">
+      {/* --- Occupying toggle --- */}
+      <div className="space-y-2">
+        <SectionHeader icon={<SquareCheck className="size-3" />}>
+          區域佔用
+        </SectionHeader>
+        <div className="flex items-center justify-between gap-2 rounded-md bg-muted/20 px-2.5 py-1.5">
           <span className="text-xs text-muted-foreground">佔用中</span>
           <Switch
             checked={plantedCrop.isOccupyingArea ?? true}
@@ -455,6 +298,6 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
           />
         </div>
       </div>
-    </>
+    </div>
   );
 });
