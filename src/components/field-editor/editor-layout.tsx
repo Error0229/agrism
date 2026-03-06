@@ -1129,8 +1129,8 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
           </div>
         )}
 
-        {/* Center: canvas (hidden in planner mode) */}
-        <div ref={canvasContainerRef} className={cn("relative min-w-0 flex-1 overflow-hidden bg-muted/30", viewMode === "planner" && "hidden")}>
+        {/* Center: canvas (unmounted in planner mode to avoid Konva 0-size crash) */}
+        {viewMode === "editor" && <div ref={canvasContainerRef} className="relative min-w-0 flex-1 overflow-hidden bg-muted/30">
           <EditorCanvas
             field={field}
             onDrawRectComplete={handleDrawRectComplete}
@@ -1286,7 +1286,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Right: property inspector (desktop only) */}
         {!isMobile && (
