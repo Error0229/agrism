@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { useResolvedCropFacts, useCropProfiles, useUpdateCropFact, useTriggerCropMigration } from '@/hooks/use-crop-profiles'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { ResolvedFact } from '@/lib/crop-facts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -168,17 +169,6 @@ function ConfidenceDot({ confidence }: { confidence?: string }) {
 }
 
 // --- Editable fact row ---
-
-interface ResolvedFact {
-  key: string
-  value: string
-  unit?: string
-  confidence?: string
-  origin?: string
-  sourceRefs?: string[]
-  resolvedFrom: string
-  profileId: string
-}
 
 function FactRow({
   fact,
@@ -409,7 +399,7 @@ export default function CropDetailPage({
       const meta = FACT_META[fact.key]
       const category = meta?.category ?? 'local'
       const list = factsByCategory.get(category) ?? []
-      list.push(fact)
+      list.push(fact as ResolvedFact)
       factsByCategory.set(category, list)
     }
   }
