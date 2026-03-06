@@ -760,7 +760,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   const farmId = useFarmId();
   const occupancy = useFieldOccupancy(fieldId as any);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [editPlanId, setEditPlanId] = useState<string | null>(null);
+  const [_editPlanId, setEditPlanId] = useState<string | null>(null);
 
   const regionOccupancy = useMemo(() => {
     if (!occupancy) return [];

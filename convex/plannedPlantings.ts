@@ -86,6 +86,22 @@ export const getFieldOccupancy = query({
       isPerennial: boolean;
     };
 
+    // Batch-fetch all unique crop IDs to avoid N+1 queries
+    const cropIdSet = new Set<Id<"crops">>();
+    for (const pc of plantedCrops) {
+      if (pc.cropId && pc.status !== "removed") cropIdSet.add(pc.cropId);
+    }
+    for (const pp of activePlans) {
+      if (pp.cropId && !pp.cropName) cropIdSet.add(pp.cropId);
+    }
+    const cropNameMap = new Map<string, string>();
+    await Promise.all(
+      [...cropIdSet].map(async (cropId) => {
+        const crop = await ctx.db.get(cropId);
+        if (crop) cropNameMap.set(cropId, crop.name);
+      }),
+    );
+
     const occupancy: OccupancyEntry[] = [];
 
     // Build occupancy from current planted crops
@@ -95,11 +111,7 @@ export const getFieldOccupancy = query({
       const isPerennial =
         pc.lifecycleType === "perennial" || pc.lifecycleType === "orchard";
 
-      let cropName: string | undefined;
-      if (pc.cropId) {
-        const crop = await ctx.db.get(pc.cropId);
-        cropName = crop?.name;
-      }
+      const cropName = pc.cropId ? cropNameMap.get(pc.cropId) : undefined;
 
       occupancy.push({
         regionId: undefined,
@@ -122,11 +134,7 @@ export const getFieldOccupancy = query({
 
     // Build occupancy from planned plantings
     for (const pp of activePlans) {
-      let cropName = pp.cropName;
-      if (!cropName && pp.cropId) {
-        const crop = await ctx.db.get(pp.cropId);
-        cropName = crop?.name;
-      }
+      const cropName = pp.cropName ?? (pp.cropId ? cropNameMap.get(pp.cropId) : undefined);
 
       occupancy.push({
         regionId: pp.regionId,

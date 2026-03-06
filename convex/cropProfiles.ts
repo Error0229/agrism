@@ -80,6 +80,7 @@ export const resolvedCropFacts = query({
     // Build geography keys from farm location
     let geographyKeys: string[] = [];
     let resolvedFarmId: string | undefined;
+    const legacyKeys = new Set<string>();
 
     if (farmId) {
       const farm = await ctx.db.get(farmId);
@@ -90,18 +91,13 @@ export const resolvedCropFacts = query({
           districtTownship: farm.districtTownship,
         });
         resolvedFarmId = farmId;
-      }
-    }
 
-    // Also support legacy scopeKey format ("花蓮縣") for backward compatibility
-    // by including legacy keys in the geography key set
-    const legacyKeys = new Set<string>();
-    if (farmId) {
-      const farm = await ctx.db.get(farmId);
-      if (farm?.countyCity) {
-        legacyKeys.add(farm.countyCity);
-        if (farm.districtTownship) {
-          legacyKeys.add(`${farm.countyCity}/${farm.districtTownship}`);
+        // Also support legacy scopeKey format ("花蓮縣") for backward compatibility
+        if (farm.countyCity) {
+          legacyKeys.add(farm.countyCity);
+          if (farm.districtTownship) {
+            legacyKeys.add(`${farm.countyCity}/${farm.districtTownship}`);
+          }
         }
       }
     }
