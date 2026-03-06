@@ -54,8 +54,20 @@ export const formSchema = z.object({
   elevationBand: z.string().optional(),
   coastalInland: z.string().optional(),
   farmLocationNotes: z.string().optional(),
-  latitude: z.coerce.number().min(-90).max(90).optional().or(z.literal("")),
-  longitude: z.coerce.number().min(-180).max(180).optional().or(z.literal("")),
+  latitude: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || (!isNaN(Number(v)) && Number(v) >= -90 && Number(v) <= 90),
+      { message: "緯度必須介於 -90 到 90 之間" },
+    ),
+  longitude: z
+    .string()
+    .optional()
+    .refine(
+      (v) => !v || (!isNaN(Number(v)) && Number(v) >= -180 && Number(v) <= 180),
+      { message: "經度必須介於 -180 到 180 之間" },
+    ),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -96,8 +108,8 @@ export function FarmLocationSection({ farmId }: FarmLocationSectionProps) {
       elevationBand: farm.elevationBand ?? "",
       coastalInland: farm.coastalInland ?? "",
       farmLocationNotes: farm.farmLocationNotes ?? "",
-      latitude: farm.latitude ?? "",
-      longitude: farm.longitude ?? "",
+      latitude: farm.latitude != null ? String(farm.latitude) : "",
+      longitude: farm.longitude != null ? String(farm.longitude) : "",
     });
   }, [farm, form]);
 
@@ -131,14 +143,8 @@ export function FarmLocationSection({ farmId }: FarmLocationSectionProps) {
         elevationBand: values.elevationBand || undefined,
         coastalInland: values.coastalInland || undefined,
         farmLocationNotes: values.farmLocationNotes || undefined,
-        latitude:
-          values.latitude !== "" && values.latitude !== undefined
-            ? Number(values.latitude)
-            : undefined,
-        longitude:
-          values.longitude !== "" && values.longitude !== undefined
-            ? Number(values.longitude)
-            : undefined,
+        latitude: values.latitude ? Number(values.latitude) : undefined,
+        longitude: values.longitude ? Number(values.longitude) : undefined,
       });
       toast.success("農地位置已更新");
     } catch {

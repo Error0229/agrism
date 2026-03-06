@@ -10,8 +10,8 @@ describe("farm location form schema", () => {
       elevationBand: "lowland",
       coastalInland: "coastal",
       farmLocationNotes: "靠近海邊",
-      latitude: 23.9769,
-      longitude: 121.6044,
+      latitude: "23.9769",
+      longitude: "121.6044",
     });
     expect(result.success).toBe(true);
   });
@@ -63,7 +63,7 @@ describe("farm location form schema", () => {
   it("should reject latitude below -90", () => {
     const result = formSchema.safeParse({
       countyCity: "花蓮縣",
-      latitude: -91,
+      latitude: "-91",
     });
     expect(result.success).toBe(false);
   });
@@ -71,7 +71,7 @@ describe("farm location form schema", () => {
   it("should reject latitude above 90", () => {
     const result = formSchema.safeParse({
       countyCity: "花蓮縣",
-      latitude: 91,
+      latitude: "91",
     });
     expect(result.success).toBe(false);
   });
@@ -79,7 +79,7 @@ describe("farm location form schema", () => {
   it("should reject longitude below -180", () => {
     const result = formSchema.safeParse({
       countyCity: "花蓮縣",
-      longitude: -181,
+      longitude: "-181",
     });
     expect(result.success).toBe(false);
   });
@@ -87,26 +87,26 @@ describe("farm location form schema", () => {
   it("should reject longitude above 180", () => {
     const result = formSchema.safeParse({
       countyCity: "花蓮縣",
-      longitude: 181,
+      longitude: "181",
     });
     expect(result.success).toBe(false);
   });
 
   it("should accept boundary latitude values (-90 and 90)", () => {
     expect(
-      formSchema.safeParse({ countyCity: "花蓮縣", latitude: -90 }).success,
+      formSchema.safeParse({ countyCity: "花蓮縣", latitude: "-90" }).success,
     ).toBe(true);
     expect(
-      formSchema.safeParse({ countyCity: "花蓮縣", latitude: 90 }).success,
+      formSchema.safeParse({ countyCity: "花蓮縣", latitude: "90" }).success,
     ).toBe(true);
   });
 
   it("should accept boundary longitude values (-180 and 180)", () => {
     expect(
-      formSchema.safeParse({ countyCity: "花蓮縣", longitude: -180 }).success,
+      formSchema.safeParse({ countyCity: "花蓮縣", longitude: "-180" }).success,
     ).toBe(true);
     expect(
-      formSchema.safeParse({ countyCity: "花蓮縣", longitude: 180 }).success,
+      formSchema.safeParse({ countyCity: "花蓮縣", longitude: "180" }).success,
     ).toBe(true);
   });
 });
