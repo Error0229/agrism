@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
 } from 'lucide-react'
+import { FarmLocationSection } from '@/components/settings/farm-location-section'
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime })
@@ -121,6 +122,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Farm Location */}
+      <FarmLocationSection farmId={farmId} />
 
       {/* Data Export */}
       <Card>
