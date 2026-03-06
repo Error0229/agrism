@@ -47,7 +47,7 @@ import {
   COASTAL_INLAND_OPTIONS,
 } from "@/lib/data/taiwan-locations";
 
-const formSchema = z.object({
+export const formSchema = z.object({
   countyCity: z.string().min(1, "請選擇縣市"),
   districtTownship: z.string().optional(),
   locality: z.string().optional(),

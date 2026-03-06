@@ -29,14 +29,14 @@ type PlantedCropData = any;
 
 // --- Label maps ---
 
-const LIFECYCLE_TYPE_LABELS: Record<string, string> = {
+export const LIFECYCLE_TYPE_LABELS: Record<string, string> = {
   seasonal: "短期季節作物",
   long_cycle: "長期作物",
   perennial: "多年生",
   orchard: "果園",
 };
 
-const STAGE_LABELS: Record<string, string> = {
+export const STAGE_LABELS: Record<string, string> = {
   seedling: "幼苗期",
   vegetative: "營養生長期",
   flowering: "開花期",
@@ -46,13 +46,13 @@ const STAGE_LABELS: Record<string, string> = {
   declining: "衰退",
 };
 
-const CONFIDENCE_LABELS: Record<string, string> = {
+export const CONFIDENCE_LABELS: Record<string, string> = {
   high: "高",
   medium: "中",
   low: "低",
 };
 
-const START_DATE_MODE_LABELS: Record<string, string> = {
+export const START_DATE_MODE_LABELS: Record<string, string> = {
   exact: "確切日期",
   range: "日期範圍",
   relative: "大約天數",
