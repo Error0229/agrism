@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
-import { useResolvedCropFacts, useCropProfiles, useUpdateCropFact, useTriggerCropMigration } from '@/hooks/use-crop-profiles'
+import { useResolvedCropFacts, useCropProfiles, useUpdateCropFact, useUpsertCropProfile, useTriggerCropMigration } from '@/hooks/use-crop-profiles'
 import { useFarmId } from '@/hooks/use-farm-id'
 import type { ResolvedFact, CropProfile } from '@/lib/crop-facts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -551,6 +551,7 @@ export default function CropDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const profiles = useCropProfiles(cropId as any)
   const updateFact = useUpdateCropFact()
+  const upsertProfile = useUpsertCropProfile()
   const deleteCrop = useDeleteCrop()
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
@@ -561,22 +562,39 @@ export default function CropDetailPage({
     setEditingFact({ key: factKey, value: currentValue, profileId })
   }, [])
 
-  const handleSaveFact = useCallback(async (profileId: string, key: string, value: string) => {
-    // Find the farm-scope profile to save into, or use the source profile
+  const handleSaveFact = useCallback(async (_profileId: string, key: string, value: string) => {
     const farmProfile = profiles?.find((p) => p.scope === 'farm')
-    const targetProfileId = farmProfile?._id ?? profileId
 
-    await updateFact({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      profileId: targetProfileId as any,
-      factKey: key,
-      value,
-      origin: 'user',
-      confidence: 'high',
-    })
+    if (farmProfile) {
+      // Farm-scope profile exists — update the fact in it
+      await updateFact({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        profileId: farmProfile._id as any,
+        factKey: key,
+        value,
+        origin: 'user',
+        confidence: 'high',
+      })
+    } else {
+      // No farm-scope profile yet — create one with this fact
+      await upsertProfile({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cropId: cropId as any,
+        scope: 'farm',
+        scopeKey: farmId as string | undefined,
+        facts: [{
+          key,
+          value,
+          confidence: 'high',
+          origin: 'user',
+          updatedAt: Date.now(),
+        }],
+      })
+    }
+
     setEditingFact(null)
     toast.success('已儲存農地覆寫')
-  }, [profiles, updateFact])
+  }, [profiles, updateFact, upsertProfile, cropId, farmId])
 
   // Cast profiles for component use
   const typedProfiles = useMemo(() => {
