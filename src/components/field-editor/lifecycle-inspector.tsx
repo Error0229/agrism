@@ -7,11 +7,9 @@ import {
   TreePine,
   Calendar,
   CalendarCheck,
-  SquareCheck,
   Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -275,20 +273,6 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
         </div>
       </div>
 
-      {/* --- Occupying toggle --- */}
-      <div className="space-y-2">
-        <SectionHeader icon={<SquareCheck className="size-3" />}>
-          區域佔用
-        </SectionHeader>
-        <div className="flex items-center justify-between gap-2 rounded-md bg-muted/20 px-2.5 py-1.5">
-          <span className="text-xs text-muted-foreground">佔用中</span>
-          <Switch
-            checked={plantedCrop.isOccupyingArea ?? true}
-            onCheckedChange={(checked) => save("isOccupyingArea", checked)}
-            disabled={saving === "isOccupyingArea"}
-          />
-        </div>
-      </div>
     </div>
   );
 });

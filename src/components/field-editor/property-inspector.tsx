@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   Grid3X3,
+  GripVertical,
   Magnet,
   MapPin,
   Merge,
@@ -28,6 +29,23 @@ import {
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export type AlignType = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom';
 
@@ -61,6 +79,97 @@ import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
 import { LifecycleInspector } from "./lifecycle-inspector";
+
+// --- Sortable section helpers ---
+
+const SECTION_ORDER_KEY = "agrism:inspector-section-order";
+
+function loadSectionOrder(context: string, defaults: string[]): string[] {
+  try {
+    const raw = localStorage.getItem(`${SECTION_ORDER_KEY}:${context}`);
+    if (!raw) return defaults;
+    const saved: string[] = JSON.parse(raw);
+    // Ensure all default IDs are present (handles new sections added later)
+    const set = new Set(saved);
+    const merged = saved.filter((id) => defaults.includes(id));
+    for (const id of defaults) {
+      if (!set.has(id)) merged.push(id);
+    }
+    return merged;
+  } catch {
+    return defaults;
+  }
+}
+
+function saveSectionOrder(context: string, order: string[]) {
+  try {
+    localStorage.setItem(`${SECTION_ORDER_KEY}:${context}`, JSON.stringify(order));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function useSectionOrder(context: string, defaults: string[]) {
+  const [order, setOrder] = useState(() => loadSectionOrder(context, defaults));
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      setOrder((prev) => {
+        const oldIndex = prev.indexOf(active.id as string);
+        const newIndex = prev.indexOf(over.id as string);
+        const next = arrayMove(prev, oldIndex, newIndex);
+        saveSectionOrder(context, next);
+        return next;
+      });
+    },
+    [context],
+  );
+
+  return { order, handleDragEnd };
+}
+
+function SortableSection({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="group/section relative">
+      <button
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        type="button"
+        className="absolute -left-1 top-0 flex h-6 w-4 cursor-grab items-center justify-center rounded opacity-0 transition-opacity hover:bg-accent/50 group-hover/section:opacity-60 active:cursor-grabbing"
+        aria-label="拖曳排序"
+      >
+        <GripVertical className="size-3 text-muted-foreground" />
+      </button>
+      {children}
+    </div>
+  );
+}
 
 // Field data type — resolved from Convex at runtime
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -457,23 +566,15 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
       ? (fieldWidthM * fieldHeightM).toFixed(1)
       : null;
 
-  return (
-    <>
-      {/* Field properties */}
-      <div className="space-y-2">
-        <SectionHeading>田地資訊</SectionHeading>
-        {fieldName && (
-          <p className="text-sm font-medium">{fieldName}</p>
-        )}
-        {fieldWidthM != null && fieldHeightM != null && (
-          <p className="text-xs text-muted-foreground">
-            {fieldWidthM} &times; {fieldHeightM} m
-            {area && <> &mdash; {area} m&sup2;</>}
-          </p>
-        )}
-      </div>
+  const FIELD_DEFAULTS = ["grid-snap", "layers", "stats"];
+  const { order, handleDragEnd } = useSectionOrder("field-info", FIELD_DEFAULTS);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
-      {/* Grid & snap toggles */}
+  const sectionMap: Record<string, React.ReactNode> = {
+    "grid-snap": (
       <div className="space-y-2">
         <SectionHeading>格線與吸附</SectionHeading>
         <ToggleRow
@@ -502,8 +603,8 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
           </select>
         </div>
       </div>
-
-      {/* Layer visibility */}
+    ),
+    "layers": (
       <div className="space-y-2">
         <SectionHeading>圖層</SectionHeading>
         <ToggleRow
@@ -537,8 +638,8 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
           onToggle={toggleShowHarvested}
         />
       </div>
-
-      {/* Quick stats */}
+    ),
+    "stats": (
       <div className="space-y-2">
         <SectionHeading>統計</SectionHeading>
         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -547,6 +648,35 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
           <StatCard label="設施" value={facilityCount} />
         </div>
       </div>
+    ),
+  };
+
+  return (
+    <>
+      {/* Field properties — pinned top */}
+      <div className="space-y-2">
+        <SectionHeading>田地資訊</SectionHeading>
+        {fieldName && (
+          <p className="text-sm font-medium">{fieldName}</p>
+        )}
+        {fieldWidthM != null && fieldHeightM != null && (
+          <p className="text-xs text-muted-foreground">
+            {fieldWidthM} &times; {fieldHeightM} m
+            {area && <> &mdash; {area} m&sup2;</>}
+          </p>
+        )}
+      </div>
+
+      {/* Sortable sections */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          {order.map((id) => (
+            <SortableSection key={id} id={id}>
+              {sectionMap[id]}
+            </SortableSection>
+          ))}
+        </SortableContext>
+      </DndContext>
     </>
   );
 });
@@ -592,41 +722,15 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     1,
   );
 
-  return (
-    <>
-      {/* Header — crop identity */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/5 text-xl">
-            {crop?.emoji ?? ""}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{crop?.name ?? "未指定作物"}</p>
-            <div className="flex items-center gap-1.5">
-              {categoryLabel && (
-                <span className="text-[10px] text-muted-foreground">{categoryLabel}</span>
-              )}
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-medium",
-                  plantedCrop.status === "growing" &&
-                    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                  plantedCrop.status === "harvested" &&
-                    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-                  plantedCrop.status === "removed" &&
-                    "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
-                )}
-              >
-                {statusLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+  const CROP_DEFAULTS = ["area-info", "lifecycle", "notes", "actions"];
+  const { order, handleDragEnd } = useSectionOrder("crop-selection", CROP_DEFAULTS);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
-      <Separator />
-
-      {/* ====== SECTION 1: 區域資訊 (Area Info) ====== */}
+  const sectionMap: Record<string, React.ReactNode> = {
+    "area-info": (
       <div className="space-y-2">
         <div className="flex items-center gap-2 pb-0.5">
           <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-primary">
@@ -648,23 +752,17 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           <PropRow label="面積" value={<>{area} m&sup2;</>} />
         </div>
       </div>
-
-      <Separator />
-
-      {/* ====== SECTION 2: 作物資訊 (Crop Info) ====== */}
+    ),
+    "lifecycle": (
       <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} />
-
-      {/* Notes if present */}
-      {plantedCrop.notes && (
-        <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
-          <p className="text-[10px] font-medium text-muted-foreground">備註</p>
-          <p className="mt-0.5 text-xs leading-relaxed">{plantedCrop.notes}</p>
-        </div>
-      )}
-
-      <Separator />
-
-      {/* Actions */}
+    ),
+    "notes": plantedCrop.notes ? (
+      <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
+        <p className="text-[10px] font-medium text-muted-foreground">備註</p>
+        <p className="mt-0.5 text-xs leading-relaxed">{plantedCrop.notes}</p>
+      </div>
+    ) : null,
+    "actions": (
       <div className="space-y-2">
         {onChangeCrop && (
           <Button
@@ -690,7 +788,6 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           </Button>
         )}
 
-        {/* Split operations */}
         {(onSplitHorizontal || onSplitVertical) && (
           <>
             <SectionHeading>動作</SectionHeading>
@@ -755,6 +852,57 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           )}
         </div>
       </div>
+    ),
+  };
+
+  return (
+    <>
+      {/* Header — crop identity (pinned, not draggable) */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/5 text-xl">
+            {crop?.emoji ?? ""}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{crop?.name ?? "未指定作物"}</p>
+            <div className="flex items-center gap-1.5">
+              {categoryLabel && (
+                <span className="text-[10px] text-muted-foreground">{categoryLabel}</span>
+              )}
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-medium",
+                  plantedCrop.status === "growing" &&
+                    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                  plantedCrop.status === "harvested" &&
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                  plantedCrop.status === "removed" &&
+                    "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
+                )}
+              >
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Sortable sections */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          {order.map((id) => {
+            const content = sectionMap[id];
+            if (content === null || content === undefined) return null;
+            return (
+              <SortableSection key={id} id={id}>
+                {content}
+              </SortableSection>
+            );
+          })}
+        </SortableContext>
+      </DndContext>
     </>
   );
 });
