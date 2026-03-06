@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "首頁",
@@ -42,15 +43,15 @@ export function RootShell({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider className={isFieldEditor ? "max-h-svh overflow-hidden" : undefined}>
         <AppSidebar />
-        <SidebarInset className="min-w-0 overflow-hidden">
-          <header className="flex h-12 items-center gap-2 border-b px-4">
+        <SidebarInset className={cn("min-w-0 overflow-hidden", isFieldEditor && "h-svh max-h-svh")}>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 !h-4" />
             <span className="text-sm text-muted-foreground">{pageTitle}</span>
           </header>
-          <main className={isFieldEditor ? "min-w-0 flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 md:p-6"}>{children}</main>
+          <div className={isFieldEditor ? "min-h-0 min-w-0 flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 md:p-6"}>{children}</div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

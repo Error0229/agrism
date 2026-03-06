@@ -31,12 +31,14 @@ import {
 import { toast } from "sonner";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -111,9 +113,15 @@ function saveSectionOrder(context: string, order: string[]) {
 
 function useSectionOrder(context: string, defaults: string[]) {
   const [order, setOrder] = useState(() => loadSectionOrder(context, defaults));
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setActiveId(null);
       const { active, over } = event;
       if (!over || active.id === over.id) return;
       setOrder((prev) => {
@@ -127,7 +135,11 @@ function useSectionOrder(context: string, defaults: string[]) {
     [context],
   );
 
-  return { order, handleDragEnd };
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  return { order, activeId, handleDragStart, handleDragEnd, handleDragCancel };
 }
 
 function SortableSection({
@@ -150,22 +162,31 @@ function SortableSection({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 10 : undefined,
-    opacity: isDragging ? 0.8 : undefined,
+    opacity: isDragging ? 0.4 : undefined,
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="group/section relative">
-      <button
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        type="button"
-        className="absolute -left-1 top-0 flex h-6 w-4 cursor-grab items-center justify-center rounded opacity-0 transition-opacity hover:bg-accent/50 group-hover/section:opacity-60 active:cursor-grabbing"
-        aria-label="拖曳排序"
-      >
-        <GripVertical className="size-3 text-muted-foreground" />
-      </button>
+    <div ref={setNodeRef} style={style} className="group/section">
+      <div className="flex items-center gap-1">
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          type="button"
+          className="flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded opacity-0 transition-opacity hover:bg-accent/50 group-hover/section:opacity-60 active:cursor-grabbing"
+          aria-label="拖曳排序"
+        >
+          <GripVertical className="size-3 text-muted-foreground" />
+        </button>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function SortableSectionOverlay({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-md border bg-background p-2 shadow-md">
       {children}
     </div>
   );
@@ -567,7 +588,7 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
       : null;
 
   const FIELD_DEFAULTS = ["grid-snap", "layers", "stats"];
-  const { order, handleDragEnd } = useSectionOrder("field-info", FIELD_DEFAULTS);
+  const { order, activeId, handleDragStart, handleDragEnd, handleDragCancel } = useSectionOrder("field-info", FIELD_DEFAULTS);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -668,7 +689,7 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
       </div>
 
       {/* Sortable sections */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           {order.map((id) => (
             <SortableSection key={id} id={id}>
@@ -676,6 +697,13 @@ const FieldInfoSection = React.memo(function FieldInfoSection({
             </SortableSection>
           ))}
         </SortableContext>
+        <DragOverlay>
+          {activeId ? (
+            <SortableSectionOverlay>
+              {sectionMap[activeId]}
+            </SortableSectionOverlay>
+          ) : null}
+        </DragOverlay>
       </DndContext>
     </>
   );
@@ -723,7 +751,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   );
 
   const CROP_DEFAULTS = ["area-info", "lifecycle", "notes", "actions"];
-  const { order, handleDragEnd } = useSectionOrder("crop-selection", CROP_DEFAULTS);
+  const { order, activeId, handleDragStart, handleDragEnd, handleDragCancel } = useSectionOrder("crop-selection", CROP_DEFAULTS);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -890,7 +918,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       <Separator />
 
       {/* Sortable sections */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <SortableContext items={order} strategy={verticalListSortingStrategy}>
           {order.map((id) => {
             const content = sectionMap[id];
@@ -902,6 +930,13 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
             );
           })}
         </SortableContext>
+        <DragOverlay>
+          {activeId && sectionMap[activeId] != null ? (
+            <SortableSectionOverlay>
+              {sectionMap[activeId]}
+            </SortableSectionOverlay>
+          ) : null}
+        </DragOverlay>
       </DndContext>
     </>
   );
