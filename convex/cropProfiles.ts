@@ -1,4 +1,5 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 
@@ -325,5 +326,13 @@ export const migrateCropToProfiles = internalMutation({
     if (!crop.source) {
       await ctx.db.patch(cropId, { source: "seeded" });
     }
+  },
+});
+
+/** Client-callable action to trigger migration for a single crop. */
+export const triggerMigration = action({
+  args: { cropId: v.id("crops") },
+  handler: async (ctx, { cropId }) => {
+    await ctx.runMutation(internal.cropProfiles.migrateCropToProfiles, { cropId });
   },
 });
