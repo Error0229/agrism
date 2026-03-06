@@ -13,7 +13,6 @@ import {
   Eye,
   EyeOff,
   Grid3X3,
-  GripVertical,
   Magnet,
   MapPin,
   Merge,
@@ -167,16 +166,18 @@ function SortableSection({
 
   return (
     <div ref={setNodeRef} style={style} className="group/section relative">
-      <button
-        ref={setActivatorNodeRef}
-        {...attributes}
-        {...listeners}
-        type="button"
-        className="absolute right-0 top-0 z-10 flex h-5 w-5 cursor-grab items-center justify-center rounded opacity-0 transition-opacity hover:bg-accent/50 group-hover/section:opacity-60 active:cursor-grabbing"
-        aria-label="拖曳排序"
-      >
-        <GripVertical className="size-3 text-muted-foreground" />
-      </button>
+      <div className="flex justify-center pt-0.5 pb-0.5">
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          type="button"
+          className="flex h-3 w-10 cursor-grab items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-accent/50 group-hover/section:opacity-100 active:cursor-grabbing"
+          aria-label="拖曳排序"
+        >
+          <span className="block h-1 w-8 rounded-full bg-muted-foreground/30" />
+        </button>
+      </div>
       {children}
     </div>
   );
