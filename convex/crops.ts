@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 
@@ -142,6 +142,30 @@ export const getById = query({
     if (!crop) return null;
     await requireFarmMembership(ctx, crop.farmId);
     return crop;
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { cropId: v.id("crops") },
+  handler: async (ctx, { cropId }) => {
+    return ctx.db.get(cropId);
+  },
+});
+
+export const listByFarmInternal = internalQuery({
+  args: { farmId: v.id("farms") },
+  handler: async (ctx, { farmId }) => {
+    return ctx.db
+      .query("crops")
+      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .collect();
+  },
+});
+
+export const listAllFarmsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return ctx.db.query("farms").collect();
   },
 });
 

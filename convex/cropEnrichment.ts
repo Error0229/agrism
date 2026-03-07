@@ -1,6 +1,6 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { v } from "convex/values";
 
@@ -133,7 +133,7 @@ async function callOpenRouter(
       "X-Title": "Agrism Crop Enrichment",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -340,6 +340,10 @@ function cleanNulls(obj: Record<string, unknown>): Record<string, unknown> {
   return cleaned;
 }
 
+function cleanArrayItems<T extends Record<string, unknown>>(items: T[]): Record<string, unknown>[] {
+  return items.map((item) => cleanNulls(item));
+}
+
 function mergeResults(
   pass1: Pass1Result,
   pass2: Pass2Result,
@@ -401,8 +405,8 @@ function mergeResults(
     criticalDroughtStages: pass3.criticalDroughtStages?.length ? pass3.criticalDroughtStages : undefined,
 
     // Pass 4 — Pest + Disease + Typhoon
-    commonPests: pass4.commonPests?.length ? pass4.commonPests : undefined,
-    commonDiseases: pass4.commonDiseases?.length ? pass4.commonDiseases : undefined,
+    commonPests: pass4.commonPests?.length ? cleanArrayItems(pass4.commonPests) : undefined,
+    commonDiseases: pass4.commonDiseases?.length ? cleanArrayItems(pass4.commonDiseases) : undefined,
     typhoonResistance: pass4.typhoonResistance,
     typhoonPrep: pass4.typhoonPrep,
 
@@ -419,7 +423,7 @@ function mergeResults(
     shelfLifeDays: pass5.shelfLifeDays,
 
     // Pass 6 — Growth Stages
-    growthStages: pass6.growthStages?.length ? pass6.growthStages : undefined,
+    growthStages: pass6.growthStages?.length ? cleanArrayItems(pass6.growthStages) : undefined,
 
     // Pass 7 — Growing Guide
     growingGuide: {
@@ -449,8 +453,8 @@ export const enrichCrop = action({
       throw new Error("OPENROUTER_API_KEY environment variable is not set");
     }
 
-    // Fetch the crop to get its name and category
-    const crop = await ctx.runQuery(api.crops.getById, { cropId });
+    // Fetch the crop to get its name and category (internal — no auth required)
+    const crop = await ctx.runQuery(internal.crops.getByIdInternal, { cropId });
     if (!crop) {
       throw new Error("Crop not found");
     }
@@ -505,8 +509,8 @@ export const enrichAllDefaults = action({
     farmId: v.id("farms"),
   },
   handler: async (ctx, { farmId }): Promise<{ total: number; succeeded: number; failed: string[] }> => {
-    // Get all crops for this farm
-    const crops = await ctx.runQuery(api.crops.list, { farmId });
+    // Get all crops for this farm (internal — no auth required)
+    const crops = await ctx.runQuery(internal.crops.listByFarmInternal, { farmId });
     const defaultCrops = crops.filter((c: { isDefault: boolean }) => c.isDefault);
 
     const failed: string[] = [];
@@ -526,6 +530,68 @@ export const enrichAllDefaults = action({
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         failed.push(`${crop.name}: ${message}`);
+      }
+    }
+
+    return {
+      total: defaultCrops.length,
+      succeeded,
+      failed,
+    };
+  },
+});
+
+// === CLI-callable action: find all farms, enrich all default crops ===
+
+export const enrichAllCrops = internalAction({
+  args: {},
+  handler: async (ctx): Promise<{ farms: number; total: number; succeeded: number; failed: string[] }> => {
+    const farms = await ctx.runQuery(internal.crops.listAllFarmsInternal, {});
+    let total = 0;
+    let succeeded = 0;
+    const failed: string[] = [];
+
+    for (const farm of farms) {
+      console.log(`Processing farm: ${farm.name} (${farm._id})`);
+      const result = await ctx.runAction(internal.cropEnrichment.enrichAllDefaultsInternal, {
+        farmId: farm._id,
+      });
+      total += result.total;
+      succeeded += result.succeeded;
+      failed.push(...result.failed);
+    }
+
+    return { farms: farms.length, total, succeeded, failed };
+  },
+});
+
+export const enrichAllDefaultsInternal = internalAction({
+  args: {
+    farmId: v.id("farms"),
+  },
+  handler: async (ctx, { farmId }): Promise<{ total: number; succeeded: number; failed: string[] }> => {
+    const crops = await ctx.runQuery(internal.crops.listByFarmInternal, { farmId });
+    const defaultCrops = crops.filter((c: { isDefault: boolean }) => c.isDefault);
+
+    const failed: string[] = [];
+    let succeeded = 0;
+
+    for (const crop of defaultCrops) {
+      try {
+        const result = await ctx.runAction(api.cropEnrichment.enrichCrop, {
+          cropId: crop._id,
+        });
+        if (result.success) {
+          succeeded++;
+          console.log(`Enriched: ${crop.name}`);
+        } else {
+          failed.push(`${crop.name}: ${result.error}`);
+          console.error(`Failed: ${crop.name}: ${result.error}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failed.push(`${crop.name}: ${message}`);
+        console.error(`Failed: ${crop.name}: ${message}`);
       }
     }
 
