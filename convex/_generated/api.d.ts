@@ -9,8 +9,6 @@
  */
 
 import type * as _helpers from "../_helpers.js";
-import type * as cropProfileResolver from "../cropProfileResolver.js";
-import type * as cropProfiles from "../cropProfiles.js";
 import type * as crops from "../crops.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
@@ -30,8 +28,6 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
-  cropProfileResolver: typeof cropProfileResolver;
-  cropProfiles: typeof cropProfiles;
   crops: typeof crops;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;

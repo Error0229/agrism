@@ -32,84 +32,124 @@ export default defineSchema({
 
   // === Crops ===
   crops: defineTable({
+    // === Identity ===
     farmId: v.id("farms"),
     name: v.string(),
+    scientificName: v.optional(v.string()),
+    variety: v.optional(v.string()),
+    aliases: v.optional(v.array(v.string())),
     emoji: v.optional(v.string()),
     color: v.optional(v.string()),
-    category: v.string(), // CropCategory enum as string
-    // Identity fields (v3)
-    aliases: v.optional(v.array(v.string())),
-    cultivar: v.optional(v.string()),
-    scientificName: v.optional(v.string()),
-    growthHabit: v.optional(v.string()), // "bush" | "vine" | "tree" | "upright" | "spreading"
-    propagationMethod: v.optional(v.string()), // "seed" | "seedling" | "cutting" | "tuber" | "grafted"
-    source: v.optional(v.string()), // "seeded" | "imported" | "custom"
-    lifecycleType: v.optional(
-      v.union(
-        v.literal("seasonal"),
-        v.literal("long_cycle"),
-        v.literal("perennial"),
-        v.literal("orchard")
-      )
-    ),
-    // Legacy flat fields (kept for backward compatibility)
+    category: v.string(), // vegetable | fruit | herb | flower | grain | legume
+    lifecycleType: v.optional(v.string()), // annual | biennial | perennial | orchard
+    propagationMethod: v.optional(v.string()), // seed | seedling | cutting | tuber | grafted | division
+    isDefault: v.boolean(),
+    source: v.optional(v.string()), // "seeded" | "ai-imported" | "custom"
+
+    // === Timing & Lifecycle ===
     plantingMonths: v.optional(v.array(v.number())),
     harvestMonths: v.optional(v.array(v.number())),
     growthDays: v.optional(v.number()),
-    spacingRowCm: v.optional(v.number()),
-    spacingPlantCm: v.optional(v.number()),
-    water: v.optional(v.string()),
-    sunlight: v.optional(v.string()),
+    daysToGermination: v.optional(v.number()),
+    daysToTransplant: v.optional(v.number()),
+    daysToFlowering: v.optional(v.number()),
+    harvestWindowDays: v.optional(v.number()),
+    growingSeasonStart: v.optional(v.number()),
+    growingSeasonEnd: v.optional(v.number()),
+
+    // === Growth Stages ===
+    growthStages: v.optional(v.array(v.object({
+      stage: v.string(),
+      daysFromStart: v.number(),
+      careNotes: v.optional(v.string()),
+      waterFrequencyDays: v.optional(v.number()),
+      fertilizerFrequencyDays: v.optional(v.number()),
+    }))),
+
+    // === Environment Requirements ===
     tempMin: v.optional(v.number()),
     tempMax: v.optional(v.number()),
+    tempOptimalMin: v.optional(v.number()),
+    tempOptimalMax: v.optional(v.number()),
+    humidityMin: v.optional(v.number()),
+    humidityMax: v.optional(v.number()),
+    sunlight: v.optional(v.string()), // full_sun | partial_shade | shade
+    sunlightHoursMin: v.optional(v.number()),
+    sunlightHoursMax: v.optional(v.number()),
+    windSensitivity: v.optional(v.string()), // low | medium | high
+    droughtTolerance: v.optional(v.string()), // low | medium | high
+    waterloggingTolerance: v.optional(v.string()), // low | medium | high
+    altitudeMin: v.optional(v.number()),
+    altitudeMax: v.optional(v.number()),
+
+    // === Soil & Fertility ===
     soilPhMin: v.optional(v.number()),
     soilPhMax: v.optional(v.number()),
-    pestSusceptibility: v.optional(v.string()),
-    yieldKgPerSqm: v.optional(v.number()),
-    fertilizerIntervalDays: v.optional(v.number()),
-    needsPruning: v.optional(v.boolean()),
+    soilType: v.optional(v.string()), // sandy | loamy | clay | well-drained
+    organicMatterPreference: v.optional(v.string()), // low | medium | high
+    fertilityDemand: v.optional(v.string()), // light | moderate | heavy
+    fertilizerType: v.optional(v.string()), // organic | chemical | compost | liquid
+    fertilizerFrequencyDays: v.optional(v.number()),
+    commonDeficiencies: v.optional(v.array(v.string())),
+
+    // === Spacing & Structure ===
+    spacingPlantCm: v.optional(v.number()),
+    spacingRowCm: v.optional(v.number()),
+    maxHeightCm: v.optional(v.number()),
+    maxSpreadCm: v.optional(v.number()),
+    trellisRequired: v.optional(v.boolean()),
+    pruningRequired: v.optional(v.boolean()),
+    pruningFrequencyDays: v.optional(v.number()),
     pruningMonths: v.optional(v.array(v.number())),
-    pestControl: v.optional(v.array(v.string())),
-    typhoonResistance: v.optional(v.string()),
-    hualienNotes: v.optional(v.string()),
-    commonDiseases: v.optional(v.array(v.object({
-      name: v.string(),
-      organicTreatment: v.string(),
-      symptoms: v.string(),
-    }))),
+
+    // === Water ===
+    water: v.optional(v.string()), // low | moderate | high
+    waterFrequencyDays: v.optional(v.number()),
+    waterAmountMl: v.optional(v.number()),
+    criticalDroughtStages: v.optional(v.array(v.string())),
+
+    // === Companion & Rotation ===
+    companionPlants: v.optional(v.array(v.string())),
+    antagonistPlants: v.optional(v.array(v.string())),
+    rotationFamily: v.optional(v.string()), // brassica | solanaceae | cucurbit | legume | allium | root
+    rotationYears: v.optional(v.number()),
+
+    // === Pest & Disease ===
     commonPests: v.optional(v.array(v.object({
       name: v.string(),
-      organicTreatment: v.string(),
       symptoms: v.string(),
+      organicTreatment: v.string(),
+      triggerConditions: v.optional(v.string()),
     }))),
-    companionPlants: v.optional(v.array(v.string())),
-    hualienGrowingTips: v.optional(v.string()),
-    incompatiblePlants: v.optional(v.array(v.string())),
-    isDefault: v.boolean(),
-  }).index("by_farmId", ["farmId"]),
+    commonDiseases: v.optional(v.array(v.object({
+      name: v.string(),
+      symptoms: v.string(),
+      organicTreatment: v.string(),
+      triggerConditions: v.optional(v.string()),
+    }))),
+    typhoonResistance: v.optional(v.string()), // low | medium | high
+    typhoonPrep: v.optional(v.string()),
 
-  // === Crop Profiles (v3 layered knowledge) ===
-  cropProfiles: defineTable({
-    cropId: v.id("crops"),
-    scope: v.string(), // "base" | "location" | "farm"
-    scopeKey: v.optional(v.string()), // Geography key (e.g., "TW", "TW-HUA", "TW-HUA-JA") or farmId for farm scope
-    geographyGranularity: v.optional(v.string()), // "country" | "county" | "district" — only for scope="location"
-    status: v.string(), // "draft" | "active" | "archived"
-    facts: v.array(v.object({
-      key: v.string(),
-      value: v.string(), // JSON-encoded
-      unit: v.optional(v.string()),
-      confidence: v.optional(v.string()), // "high" | "medium" | "low"
-      origin: v.optional(v.string()), // "seeded" | "imported" | "user" | "derived"
-      sourceRefs: v.optional(v.array(v.string())),
-      updatedAt: v.optional(v.number()),
+    // === Harvest ===
+    harvestMaturitySigns: v.optional(v.string()),
+    harvestMethod: v.optional(v.string()), // cut | pull | pick | dig
+    harvestCadence: v.optional(v.string()), // once | continuous | multiple_flushes
+    yieldPerPlant: v.optional(v.string()),
+    storageNotes: v.optional(v.string()),
+    shelfLifeDays: v.optional(v.number()),
+
+    // === Growing Guide (AI-generated, user-editable) ===
+    growingGuide: v.optional(v.object({
+      howToPlant: v.optional(v.string()),
+      howToCare: v.optional(v.string()),
+      warnings: v.optional(v.string()),
+      localNotes: v.optional(v.string()),
     })),
-    notes: v.optional(v.string()),
-    updatedAt: v.number(),
-  })
-    .index("by_cropId", ["cropId"])
-    .index("by_scope", ["scope"])
-    .index("by_cropId_scope", ["cropId", "scope"]),
+
+    // === Meta ===
+    lastAiEnriched: v.optional(v.number()),
+    aiEnrichmentNotes: v.optional(v.string()),
+  }).index("by_farmId", ["farmId"]),
 
   cropTemplates: defineTable({
     farmId: v.id("farms"),
