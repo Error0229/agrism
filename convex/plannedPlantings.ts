@@ -94,24 +94,55 @@ export const getFieldOccupancy = query({
     for (const pp of activePlans) {
       if (pp.cropId && !pp.cropName) cropIdSet.add(pp.cropId);
     }
-    const cropNameMap = new Map<string, string>();
+    const cropMap = new Map<string, { name: string; growthDays?: number; lifecycleType?: string }>();
     await Promise.all(
       [...cropIdSet].map(async (cropId) => {
         const crop = await ctx.db.get(cropId);
-        if (crop) cropNameMap.set(cropId, crop.name);
+        if (crop) cropMap.set(cropId, {
+          name: crop.name,
+          growthDays: crop.growthDays,
+          lifecycleType: crop.lifecycleType,
+        });
       }),
     );
 
     const occupancy: OccupancyEntry[] = [];
 
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const DEFAULT_GROWTH_DAYS = 90;
+
     // Build occupancy from current planted crops
     for (const pc of plantedCrops) {
       if (pc.status === "removed") continue;
 
+      const crop = pc.cropId ? cropMap.get(pc.cropId) : undefined;
+      // Read lifecycleType from crop first, fall back to plantedCrop for backward compat
+      const lifecycleType = crop?.lifecycleType ?? pc.lifecycleType;
       const isPerennial =
-        pc.lifecycleType === "perennial" || pc.lifecycleType === "orchard";
+        lifecycleType === "perennial" || lifecycleType === "orchard";
 
-      const cropName = pc.cropId ? cropNameMap.get(pc.cropId) : undefined;
+      const cropName = crop?.name;
+
+      // Calculate estimated end dates if not explicitly set and not perennial
+      let endEarliest = pc.endWindowEarliest;
+      let endLatest = pc.endWindowLatest;
+      if (!isPerennial && !endEarliest && !endLatest) {
+        const growthDays = pc.customGrowthDays ?? crop?.growthDays ?? DEFAULT_GROWTH_DAYS;
+        const growthMs = growthDays * DAY_MS;
+        // Derive from plantedDate or start window
+        const plantedTs = pc.plantedDate
+          ? new Date(pc.plantedDate).getTime()
+          : undefined;
+        const startTs = plantedTs ?? pc.plantStartEarliest;
+        if (startTs) {
+          endEarliest = startTs + growthMs;
+          endLatest = startTs + growthMs;
+        }
+        // If we also have plantStartLatest, use it for endLatest
+        if (pc.plantStartLatest) {
+          endLatest = pc.plantStartLatest + growthMs;
+        }
+      }
 
       occupancy.push({
         regionId: undefined,
@@ -120,12 +151,12 @@ export const getFieldOccupancy = query({
         cropId: pc.cropId ?? undefined,
         cropName,
         startWindow: {
-          earliest: pc.plantStartEarliest,
+          earliest: pc.plantStartEarliest ?? (pc.plantedDate ? new Date(pc.plantedDate).getTime() : undefined),
           latest: pc.plantStartLatest,
         },
         endWindow: {
-          earliest: isPerennial ? undefined : pc.endWindowEarliest,
-          latest: isPerennial ? undefined : pc.endWindowLatest,
+          earliest: isPerennial ? undefined : endEarliest,
+          latest: isPerennial ? undefined : endLatest,
         },
         confidence: pc.timelineConfidence ?? "low",
         isPerennial,
@@ -134,7 +165,7 @@ export const getFieldOccupancy = query({
 
     // Build occupancy from planned plantings
     for (const pp of activePlans) {
-      const cropName = pp.cropName ?? (pp.cropId ? cropNameMap.get(pp.cropId) : undefined);
+      const cropName = pp.cropName ?? (pp.cropId ? cropMap.get(pp.cropId)?.name : undefined);
 
       occupancy.push({
         regionId: pp.regionId,
