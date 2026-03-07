@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
+import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -36,6 +37,7 @@ import {
   FlaskConical,
   Leaf,
   Loader2,
+  MapPin,
   Move,
   Ruler,
   Scissors,
@@ -58,6 +60,7 @@ import {
   RESISTANCE_LEVEL_LABELS,
 } from '@/lib/types/labels'
 import type { CropCategory, WaterLevel, SunlightLevel, ResistanceLevel } from '@/lib/types/enums'
+import type { Id } from '../../../../../convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -212,6 +215,106 @@ function SectionHeader({
       <div className="text-muted-foreground">{icon}</div>
       <h3 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">{title}</h3>
       {children}
+    </div>
+  )
+}
+
+// === Suitability helpers ===
+
+const SCORE_LABELS: Record<string, string> = {
+  recommended: '推薦',
+  marginal: '注意',
+  risky: '風險',
+}
+
+const SCORE_STYLES: Record<string, string> = {
+  recommended: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  marginal: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  risky: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+}
+
+const STATUS_ICON: Record<string, { icon: string; color: string }> = {
+  ok: { icon: '\u2713', color: 'text-emerald-600' },
+  warning: { icon: '\u26A0', color: 'text-amber-600' },
+  critical: { icon: '\u2717', color: 'text-rose-600' },
+}
+
+function FieldSuitabilitySection({
+  cropId,
+  farmId,
+}: {
+  cropId: Id<'crops'>
+  farmId: Id<'farms'>
+}) {
+  const results = useCropFieldsSuitabilities(cropId, farmId)
+
+  if (results === undefined) return null
+  if (results.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-4">
+        <SectionHeader icon={<MapPin className="size-3.5" />} title="田區適性" />
+        <p className="text-sm text-muted-foreground">
+          尚未建立田區，
+          <Link href="/fields" className="text-primary underline underline-offset-2 hover:text-primary/80">
+            前往新增
+          </Link>
+        </p>
+      </div>
+    )
+  }
+
+  // Sort: recommended first, then marginal, then risky
+  const scoreOrder = { recommended: 0, marginal: 1, risky: 2 }
+  const sorted = [...results].sort(
+    (a, b) => (scoreOrder[a.score] ?? 9) - (scoreOrder[b.score] ?? 9)
+  )
+
+  return (
+    <div className="rounded-xl border bg-card p-4">
+      <SectionHeader icon={<MapPin className="size-3.5" />} title="田區適性" />
+      <div className="space-y-2">
+        {sorted.map((item) => {
+          const warningConstraints = item.constraints.filter(
+            (c) => c.status === 'warning' || c.status === 'critical'
+          )
+          return (
+            <div key={item.fieldId} className="rounded-lg border bg-muted/20 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">{item.fieldName}</span>
+                <Badge className={cn('text-[11px] px-1.5 py-0 border-0', SCORE_STYLES[item.score])}>
+                  {SCORE_LABELS[item.score] ?? item.score}
+                </Badge>
+              </div>
+              {/* Constraint pills */}
+              {item.constraints.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {item.constraints.map((c) => {
+                    const s = STATUS_ICON[c.status] ?? STATUS_ICON.ok
+                    return (
+                      <span
+                        key={c.factor}
+                        className={cn('text-[11px] inline-flex items-center gap-0.5', s.color)}
+                      >
+                        {c.factor}{s.icon}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+              {/* Show warning/critical explanations */}
+              {warningConstraints.length > 0 && (
+                <div className="mt-1.5 space-y-0.5">
+                  {warningConstraints.map((c) => (
+                    <p key={c.factor} className="text-xs text-muted-foreground leading-relaxed">
+                      {c.explanation}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1005,6 +1108,11 @@ export default function CropDetailPage({
               )
             })}
           </div>
+        )}
+
+        {/* ===== FIELD SUITABILITY ===== */}
+        {crop.farmId && (
+          <FieldSuitabilitySection cropId={crop._id} farmId={crop.farmId} />
         )}
 
         {/* ===== AI ENRICHMENT META ===== */}

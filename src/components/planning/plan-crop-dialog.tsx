@@ -5,6 +5,7 @@ import { Search, CalendarRange, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCrops } from "@/hooks/use-crops";
+import { useCropFieldSuitability, useFieldCropSuitabilities } from "@/hooks/use-suitability";
 import type { CellContext } from "./season-board";
 import {
   useCreatePlannedPlanting,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { CROP_CATEGORY_LABELS } from "@/lib/types/labels";
+import { cn } from "@/lib/utils";
 import type { CropCategory } from "@/lib/types/enums";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -131,6 +133,44 @@ function computeEndFromGrowthDays(
   return { year, month, jun };
 }
 
+// --- Suitability helpers ---
+
+const SUIT_LABELS: Record<string, string> = {
+  recommended: "推薦",
+  marginal: "注意",
+  risky: "風險",
+};
+
+const SUIT_STYLES: Record<string, string> = {
+  recommended: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  marginal: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  risky: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+};
+
+/** Small suitability badge shown next to crop in the details step */
+function DetailSuitabilityBadge({
+  cropId,
+  fieldId,
+}: {
+  cropId: Id<"crops">;
+  fieldId: Id<"fields">;
+}) {
+  const result = useCropFieldSuitability(cropId, fieldId);
+  if (!result) return null;
+  return (
+    <div>
+      <Badge className={cn("text-[10px] px-1.5 py-0 border-0", SUIT_STYLES[result.score])}>
+        {SUIT_LABELS[result.score] ?? result.score}
+      </Badge>
+      {result.score !== "recommended" && result.overallNotes && (
+        <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+          {result.overallNotes}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // --- Component ---
 
 export function PlanCropDialog({
@@ -150,6 +190,12 @@ export function PlanCropDialog({
   const deletePlanning = useDeletePlannedPlanting();
   const confirmPlanning = useConfirmPlannedPlanting();
   const cancelPlanning = useCancelPlannedPlanting();
+
+  const fieldSuitabilities = useFieldCropSuitabilities(fieldId, farmId);
+  const suitabilityMap = useMemo(() => {
+    if (!fieldSuitabilities) return new Map<string, { score: string; overallNotes: string }>();
+    return new Map(fieldSuitabilities.map((s) => [s.cropId, { score: s.score, overallNotes: s.overallNotes }]));
+  }, [fieldSuitabilities]);
 
   const isEditing = !!existingPlan;
 
@@ -214,17 +260,25 @@ export function PlanCropDialog({
     existingPlan?._id,
   );
 
-  // Filtered crops list
+  // Filtered crops list, sorted by suitability
   const filtered = useMemo(() => {
     if (!crops) return [];
-    if (!search.trim()) return crops;
-    const q = search.trim().toLowerCase();
-    return crops.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.emoji && c.emoji.includes(q)),
-    );
-  }, [crops, search]);
+    const scoreOrder: Record<string, number> = { recommended: 0, marginal: 1, risky: 2 };
+    let list = crops;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = crops.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.emoji && c.emoji.includes(q)),
+      );
+    }
+    return [...list].sort((a, b) => {
+      const sa = suitabilityMap.get(a._id)?.score ?? "marginal";
+      const sb = suitabilityMap.get(b._id)?.score ?? "marginal";
+      return (scoreOrder[sa] ?? 9) - (scoreOrder[sb] ?? 9);
+    });
+  }, [crops, search, suitabilityMap]);
 
   // Auto-recalculate end when start or crop changes
   const autoCalcEnd = useCallback(
@@ -466,22 +520,30 @@ export function PlanCropDialog({
                   {crops === undefined ? "載入中..." : "找不到作物"}
                 </p>
               )}
-              {filtered.map((crop) => (
-                <button
-                  key={crop._id}
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent transition-colors"
-                  onClick={() => handleCropSelect(crop._id, crop.name)}
-                >
-                  {crop.emoji && <span className="text-base">{crop.emoji}</span>}
-                  <span className="flex-1 truncate">{crop.name}</span>
-                  {crop.category && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {CROP_CATEGORY_LABELS[crop.category as CropCategory] ?? crop.category}
-                    </Badge>
-                  )}
-                </button>
-              ))}
+              {filtered.map((crop) => {
+                const suit = suitabilityMap.get(crop._id);
+                return (
+                  <button
+                    key={crop._id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent transition-colors"
+                    onClick={() => handleCropSelect(crop._id, crop.name)}
+                  >
+                    {crop.emoji && <span className="text-base">{crop.emoji}</span>}
+                    <span className="flex-1 truncate">{crop.name}</span>
+                    {suit && (
+                      <Badge className={cn("text-[10px] px-1.5 py-0 border-0", SUIT_STYLES[suit.score])}>
+                        {SUIT_LABELS[suit.score] ?? suit.score}
+                      </Badge>
+                    )}
+                    {crop.category && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {CROP_CATEGORY_LABELS[crop.category as CropCategory] ?? crop.category}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -490,22 +552,30 @@ export function PlanCropDialog({
         {step === "details" && (
           <div className="space-y-4">
             {/* Selected crop */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">作物</Label>
-                <Badge variant="outline" className="text-xs">
-                  {selectedCropName || "未選擇"}
-                </Badge>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">作物</Label>
+                  <Badge variant="outline" className="text-xs">
+                    {selectedCropName || "未選擇"}
+                  </Badge>
+                </div>
+                {!isEditing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setStep("crop")}
+                  >
+                    更換
+                  </Button>
+                )}
               </div>
-              {!isEditing && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => setStep("crop")}
-                >
-                  更換
-                </Button>
+              {selectedCropId && (
+                <DetailSuitabilityBadge
+                  cropId={selectedCropId as Id<"crops">}
+                  fieldId={fieldId}
+                />
               )}
             </div>
 
