@@ -28,6 +28,7 @@ export type OccupancyEntry = {
 
 type PlantedCropInfo = {
   _id: string;
+  name?: string; // user-editable region/area name
   cropId?: string;
   crop?: { _id: string; name: string; color?: string; emoji?: string } | null;
   status: string;
@@ -136,18 +137,21 @@ export function SeasonBoard({
   const regionRows = useMemo(() => {
     const rows: {
       id: string;
-      label: string;
+      areaName: string;
+      cropLabel: string;
       plantedCropId: string;
       color?: string;
       emoji?: string;
     }[] = [];
 
     // Group growing/harvested planted crops as rows
-    for (const pc of plantedCrops) {
+    for (let idx = 0; idx < plantedCrops.length; idx++) {
+      const pc = plantedCrops[idx];
       if (pc.status === "removed") continue;
       rows.push({
         id: pc._id,
-        label: pc.crop?.name ?? "未指定作物",
+        areaName: pc.name || `區域 ${idx + 1}`,
+        cropLabel: pc.crop?.name ?? "未指定作物",
         plantedCropId: pc._id,
         color: pc.crop?.color ?? undefined,
         emoji: pc.crop?.emoji ?? undefined,
@@ -341,7 +345,10 @@ export function SeasonBoard({
                   {/* Region label */}
                   <div className="flex items-center gap-1.5 border-b border-r px-2 py-2 min-h-[40px]">
                     {row.emoji && <span className="text-sm">{row.emoji}</span>}
-                    <span className="truncate text-xs font-medium">{row.label}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-[10px] text-muted-foreground">{row.areaName}</span>
+                      <span className="block truncate text-xs font-medium">{row.cropLabel}</span>
+                    </div>
                   </div>
 
                   {/* Grid cells with occupancy bars overlaid */}

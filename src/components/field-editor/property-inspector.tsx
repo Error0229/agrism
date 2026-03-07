@@ -67,6 +67,7 @@ import {
   useDeleteUtilityNode,
   useDeleteUtilityEdge,
   useUpdateFacility,
+  useUpdatePlantedCrop,
 } from "@/hooks/use-fields";
 import {
   CROP_CATEGORY_LABELS,
@@ -743,6 +744,36 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
 }) {
   // In Convex, placement data (xM, yM, widthM, heightM) is inlined into plantedCrop
   const { plantedCrop, crop } = item;
+  const updatePlantedCrop = useUpdatePlantedCrop();
+
+  // Area name editing — use key-derived state
+  const [editingNameForId, setEditingNameForId] = useState<{ id: string; editing: boolean; value: string }>({
+    id: plantedCrop._id,
+    editing: false,
+    value: plantedCrop.name ?? "",
+  });
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Derive editing state — reset when selected crop changes
+  const editingName = editingNameForId.id === plantedCrop._id ? editingNameForId.editing : false;
+  const nameValue = editingNameForId.id === plantedCrop._id ? editingNameForId.value : (plantedCrop.name ?? "");
+
+  const setEditingName = useCallback((editing: boolean) => {
+    setEditingNameForId((prev) => ({ ...prev, id: plantedCrop._id, editing }));
+  }, [plantedCrop._id]);
+
+  const setNameValue = useCallback((value: string) => {
+    setEditingNameForId((prev) => ({ ...prev, id: plantedCrop._id, value }));
+  }, [plantedCrop._id]);
+
+  const handleNameSave = () => {
+    const trimmed = nameValue.trim();
+    updatePlantedCrop({
+      plantedCropId: plantedCrop._id,
+      name: trimmed || undefined,
+    });
+    setEditingName(false);
+  };
 
   const statusLabel =
     PLANTED_CROP_STATUS_LABELS[plantedCrop.status as PlantedCropStatus] ??
@@ -787,6 +818,44 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
             區域資訊
           </h3>
           <div className="h-px flex-1 bg-border/60" />
+        </div>
+
+        {/* Editable area name */}
+        <div className="space-y-1">
+          <span className="text-[10px] text-muted-foreground">區域名稱</span>
+          {editingName ? (
+            <div className="flex gap-1">
+              <Input
+                ref={nameInputRef}
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleNameSave();
+                  if (e.key === "Escape") {
+                    setNameValue(plantedCrop.name ?? "");
+                    setEditingName(false);
+                  }
+                }}
+                placeholder="例如：右上角"
+                className="h-7 text-xs"
+                autoFocus
+              />
+              <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={handleNameSave}>
+                <Check className="size-3" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="w-full rounded-md border border-dashed border-border/50 px-2 py-1 text-left text-xs hover:bg-accent/30 transition-colors"
+              onClick={() => {
+                setEditingName(true);
+                setTimeout(() => nameInputRef.current?.focus(), 50);
+              }}
+            >
+              {plantedCrop.name || <span className="text-muted-foreground">點擊命名區域</span>}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md bg-muted/20 px-2.5 py-2">

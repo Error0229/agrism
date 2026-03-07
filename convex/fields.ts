@@ -264,6 +264,7 @@ export const createRegion = mutation({
   args: {
     fieldId: v.id("fields"),
     cropId: v.optional(v.id("crops")),
+    name: v.optional(v.string()),
     xM: v.number(),
     yM: v.number(),
     widthM: v.optional(v.number()),
@@ -277,6 +278,7 @@ export const createRegion = mutation({
     const plantedCropId = await ctx.db.insert("plantedCrops", {
       cropId: args.cropId,
       fieldId: args.fieldId,
+      name: args.name,
       plantedDate: new Date().toISOString().split("T")[0],
       status: "growing",
       xM: args.xM,
@@ -305,6 +307,7 @@ export const assignCropToRegion = mutation({
 export const updatePlantedCrop = mutation({
   args: {
     plantedCropId: v.id("plantedCrops"),
+    name: v.optional(v.string()),
     notes: v.optional(v.string()),
     customGrowthDays: v.optional(v.number()),
   },

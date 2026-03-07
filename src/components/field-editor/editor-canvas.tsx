@@ -42,6 +42,7 @@ interface CanvasItem {
   widthM: number;
   heightM: number;
   label: string;
+  areaName?: string; // user-editable region name
   emoji: string;
   color: string;
   status: string;
@@ -429,9 +430,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   const canvasItems = useMemo<CanvasItem[]>(() => {
     const items: CanvasItem[] = [];
 
-    for (const pc of field.plantedCrops) {
+    for (let idx = 0; idx < field.plantedCrops.length; idx++) {
+      const pc = field.plantedCrops[idx];
       // Handle unassigned regions (crop is null)
       const crop = pc.crop;
+      const areaName = pc.name || `區域 ${idx + 1}`;
+      const cropLabel = crop ? `${crop.emoji} ${crop.name}` : "未指定作物";
       items.push({
         id: pc._id,
         kind: "crop",
@@ -439,7 +443,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         yM: Number(pc.yM),
         widthM: Number(pc.widthM ?? 1),
         heightM: Number(pc.heightM ?? 1),
-        label: crop ? `${crop.emoji} ${crop.name}` : "未指定作物",
+        label: cropLabel,
+        areaName,
         emoji: crop?.emoji ?? "",
         color: crop?.color ?? "#d1d5db",
         status: pc.status,
@@ -509,9 +514,12 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
     });
   }, [utilityEdges, layerVisibility.waterUtilities, layerVisibility.electricUtilities]);
 
-  // Compute overlap conflict warnings between visible crop items
+  // Compute overlap conflict warnings between actively growing crop items
   const overlaps = useMemo(() => {
-    const cropItems = visibleCanvasItems.filter((item) => item.kind === "crop");
+    // Only check growing crops — harvested/removed crops don't physically occupy space
+    const cropItems = visibleCanvasItems.filter(
+      (item) => item.kind === "crop" && item.status === "growing"
+    );
     const result: { xPx: number; yPx: number; item1Name: string; item2Name: string }[] = [];
 
     // Helper: get polygon vertices for an item (rect → 4 corners, polygon → shapePoints)
@@ -589,8 +597,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
           result.push({
             xPx: ((aCx + bCx) / 2) * PIXELS_PER_METER,
             yPx: ((aCy + bCy) / 2) * PIXELS_PER_METER,
-            item1Name: a.label,
-            item2Name: b.label,
+            item1Name: a.areaName || a.label,
+            item2Name: b.areaName || b.label,
           });
         }
       }
@@ -1663,6 +1671,20 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                     cornerRadius={4}
                     shadowColor={isSelected ? "#16a34a" : "transparent"}
                     shadowBlur={isSelected ? 8 : 0}
+                  />
+                )}
+
+                {/* Area name */}
+                {item.kind === "crop" && item.areaName && (
+                  <Text
+                    x={labelX - wPx / 2}
+                    y={labelY - 30}
+                    width={wPx}
+                    align="center"
+                    text={item.areaName}
+                    fontSize={9}
+                    fill="#6b7280"
+                    listening={false}
                   />
                 )}
 
