@@ -18,6 +18,7 @@ import type * as finance from "../finance.js";
 import type * as harvest from "../harvest.js";
 import type * as plannedPlantings from "../plannedPlantings.js";
 import type * as soil from "../soil.js";
+import type * as suitability from "../suitability.js";
 import type * as tasks from "../tasks.js";
 import type * as weather from "../weather.js";
 
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   harvest: typeof harvest;
   plannedPlantings: typeof plannedPlantings;
   soil: typeof soil;
+  suitability: typeof suitability;
   tasks: typeof tasks;
   weather: typeof weather;
 }>;
