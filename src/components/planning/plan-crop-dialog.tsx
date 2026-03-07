@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { Search, CalendarRange, MessageSquare, Gauge } from "lucide-react";
+import { Search, CalendarRange, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { useCrops } from "@/hooks/use-crops";
+import type { CellContext } from "./season-board";
 import {
   useCreatePlannedPlanting,
   useUpdatePlannedPlanting,
@@ -55,7 +55,6 @@ export interface PlanCropDialogProps {
     startWindowLatest?: string;
     endWindowEarliest?: string;
     endWindowLatest?: string;
-    confidence: "high" | "medium" | "low";
     notes?: string;
     planningState: string;
   };
@@ -64,6 +63,8 @@ export interface PlanCropDialogProps {
     cropName?: string;
     estimatedEnd?: string;
   };
+  /** Pre-fill start period from clicked cell in season board */
+  initialCellContext?: CellContext;
 }
 
 // --- Month/Jun picker helpers ---
@@ -109,6 +110,23 @@ function monthJunToDateStr(year: string, month: string, jun: string): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Compute end month/jun by adding growthDays to a start month/jun */
+function computeEndFromGrowthDays(
+  sYear: string,
+  sMonth: string,
+  sJun: string,
+  growthDays: number,
+): { year: string; month: string; jun: string } {
+  const dateStr = monthJunToDateStr(sYear, sMonth, sJun);
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + growthDays);
+  const year = String(d.getFullYear());
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = d.getDate();
+  const jun = day <= 10 ? "early" : day <= 20 ? "mid" : "late";
+  return { year, month, jun };
+}
+
 // --- Component ---
 
 export function PlanCropDialog({
@@ -119,6 +137,7 @@ export function PlanCropDialog({
   regionId,
   existingPlan,
   currentOccupant,
+  initialCellContext,
 }: PlanCropDialogProps) {
   const crops = useCrops(farmId);
   const createPlanning = useCreatePlannedPlanting();
@@ -142,18 +161,15 @@ export function PlanCropDialog({
   const currentYear = String(new Date().getFullYear());
   const parsedStart = parseWindowToMonthJun(existingPlan?.startWindowEarliest);
 
-  const [startYear, setStartYear] = useState(parsedStart?.year ?? currentYear);
-  const [startMonth, setStartMonth] = useState(parsedStart?.month ?? "");
-  const [startJun, setStartJun] = useState(parsedStart?.jun ?? "");
+  const [startYear, setStartYear] = useState(parsedStart?.year ?? initialCellContext?.year ?? currentYear);
+  const [startMonth, setStartMonth] = useState(parsedStart?.month ?? initialCellContext?.month ?? "");
+  const [startJun, setStartJun] = useState(parsedStart?.jun ?? initialCellContext?.jun ?? "");
 
   const parsedEnd = parseWindowToMonthJun(existingPlan?.endWindowEarliest);
   const [endYear, setEndYear] = useState(parsedEnd?.year ?? currentYear);
   const [endMonth, setEndMonth] = useState(parsedEnd?.month ?? "");
   const [endJun, setEndJun] = useState(parsedEnd?.jun ?? "");
 
-  const [confidence, setConfidence] = useState<"high" | "medium" | "low">(
-    existingPlan?.confidence ?? "medium",
-  );
   const [notes, setNotes] = useState(existingPlan?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -169,13 +185,62 @@ export function PlanCropDialog({
     );
   }, [crops, search]);
 
+  // Auto-recalculate end when start or crop changes
+  const autoCalcEnd = useCallback(
+    (sYear: string, sMonth: string, sJun: string, cropId?: string) => {
+      if (!sMonth || !sJun || !crops) return;
+      const crop = crops.find((c) => c._id === (cropId ?? selectedCropId));
+      if (crop?.growthDays) {
+        const end = computeEndFromGrowthDays(sYear, sMonth, sJun, crop.growthDays);
+        setEndYear(end.year);
+        setEndMonth(end.month);
+        setEndJun(end.jun);
+      }
+    },
+    [crops, selectedCropId],
+  );
+
+  const handleStartYearChange = useCallback(
+    (val: string) => {
+      setStartYear(val);
+      autoCalcEnd(val, startMonth, startJun);
+    },
+    [startMonth, startJun, autoCalcEnd],
+  );
+
+  const handleStartMonthChange = useCallback(
+    (val: string) => {
+      setStartMonth(val);
+      autoCalcEnd(startYear, val, startJun);
+    },
+    [startYear, startJun, autoCalcEnd],
+  );
+
+  const handleStartJunChange = useCallback(
+    (val: string) => {
+      setStartJun(val);
+      autoCalcEnd(startYear, startMonth, val);
+    },
+    [startYear, startMonth, autoCalcEnd],
+  );
+
   const handleCropSelect = useCallback(
     (cropId: string, cropName: string) => {
       setSelectedCropId(cropId);
       setSelectedCropName(cropName);
+      // Auto-calculate end from growthDays if start is set
+      if (startMonth && startJun && crops) {
+        const crop = crops.find((c) => c._id === cropId);
+        if (crop?.growthDays) {
+          const end = computeEndFromGrowthDays(startYear, startMonth, startJun, crop.growthDays);
+          setEndYear(end.year);
+          setEndMonth(end.month);
+          setEndJun(end.jun);
+        }
+      }
       setStep("details");
     },
-    [],
+    [crops, startYear, startMonth, startJun],
   );
 
   const handleSave = useCallback(async () => {
@@ -197,7 +262,6 @@ export function PlanCropDialog({
           startWindowLatest,
           endWindowEarliest,
           endWindowLatest,
-          confidence,
           notes: notes || undefined,
         });
         toast.success("已更新種植計畫");
@@ -212,7 +276,6 @@ export function PlanCropDialog({
           startWindowLatest,
           endWindowEarliest,
           endWindowLatest,
-          confidence,
           notes: notes || undefined,
         });
         toast.success("已建立種植計畫");
@@ -237,7 +300,6 @@ export function PlanCropDialog({
     endYear,
     endMonth,
     endJun,
-    confidence,
     notes,
     createPlanning,
     updatePlanning,
@@ -299,7 +361,6 @@ export function PlanCropDialog({
           setStartJun("");
           setEndMonth("");
           setEndJun("");
-          setConfidence("medium");
           setNotes("");
         }
       }
@@ -411,7 +472,7 @@ export function PlanCropDialog({
                 預計開始時段
               </Label>
               <div className="flex items-center gap-1.5">
-                <Select value={startYear} onValueChange={setStartYear}>
+                <Select value={startYear} onValueChange={handleStartYearChange}>
                   <SelectTrigger className="h-7 w-[72px] text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -421,7 +482,7 @@ export function PlanCropDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={startMonth} onValueChange={setStartMonth}>
+                <Select value={startMonth} onValueChange={handleStartMonthChange}>
                   <SelectTrigger className="h-7 w-[72px] text-xs">
                     <SelectValue placeholder="月份" />
                   </SelectTrigger>
@@ -431,7 +492,7 @@ export function PlanCropDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={startJun} onValueChange={setStartJun}>
+                <Select value={startJun} onValueChange={handleStartJunChange}>
                   <SelectTrigger className="h-7 w-[72px] text-xs">
                     <SelectValue placeholder="旬" />
                   </SelectTrigger>
@@ -448,7 +509,7 @@ export function PlanCropDialog({
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1 text-xs text-muted-foreground">
                 <CalendarRange className="size-3" />
-                預計結束時段 <span className="text-[10px]">(選填)</span>
+                預計結束時段 <span className="text-[10px]">(依生長天數自動計算)</span>
               </Label>
               <div className="flex items-center gap-1.5">
                 <Select value={endYear} onValueChange={setEndYear}>
@@ -481,35 +542,6 @@ export function PlanCropDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            {/* Confidence */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs">
-                <Gauge className="size-3" />
-                確定性
-              </Label>
-              <div className="flex gap-1.5">
-                {(["high", "medium", "low"] as const).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    className={cn(
-                      "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-all",
-                      confidence === level
-                        ? level === "high"
-                          ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
-                          : level === "medium"
-                            ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-950/30 dark:text-amber-400"
-                            : "border-red-300 bg-red-50 text-red-600 dark:border-red-600 dark:bg-red-950/30 dark:text-red-400"
-                        : "border-border text-muted-foreground hover:bg-muted/50",
-                    )}
-                    onClick={() => setConfidence(level)}
-                  >
-                    {level === "high" ? "高" : level === "medium" ? "中" : "低"}
-                  </button>
-                ))}
               </div>
             </div>
 

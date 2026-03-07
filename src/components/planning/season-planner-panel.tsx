@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { SeasonBoard } from "./season-board";
+import { SeasonBoard, type CellContext } from "./season-board";
 import { PlanCropDialog } from "./plan-crop-dialog";
 import {
   usePlannedPlantingsByField,
@@ -41,6 +41,7 @@ export function SeasonPlannerPanel({
   // Dialog state
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [planRegionId, setPlanRegionId] = useState<string | undefined>();
+  const [planCellContext, setPlanCellContext] = useState<CellContext | undefined>();
   const [editingPlan, setEditingPlan] = useState<
     | {
         _id: Id<"plannedPlantings">;
@@ -50,7 +51,6 @@ export function SeasonPlannerPanel({
         startWindowLatest?: string;
         endWindowEarliest?: string;
         endWindowLatest?: string;
-        confidence: "high" | "medium" | "low";
         notes?: string;
         planningState: string;
       }
@@ -58,8 +58,9 @@ export function SeasonPlannerPanel({
   >();
 
   const handlePlanCrop = useCallback(
-    (_regionId?: string, _plantedCropId?: string) => {
+    (_regionId?: string, _plantedCropId?: string, _cellContext?: CellContext) => {
       setPlanRegionId(_plantedCropId);
+      setPlanCellContext(_cellContext);
       setEditingPlan(undefined);
       setPlanDialogOpen(true);
     },
@@ -79,7 +80,6 @@ export function SeasonPlannerPanel({
         startWindowLatest: plan.startWindowLatest ?? undefined,
         endWindowEarliest: plan.endWindowEarliest ?? undefined,
         endWindowLatest: plan.endWindowLatest ?? undefined,
-        confidence: plan.confidence,
         notes: plan.notes ?? undefined,
         planningState: plan.planningState,
       });
@@ -104,6 +104,7 @@ export function SeasonPlannerPanel({
         onOpenChange={setPlanDialogOpen}
         regionId={planRegionId}
         existingPlan={editingPlan}
+        initialCellContext={planCellContext}
       />
     </div>
   );
