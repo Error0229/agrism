@@ -40,8 +40,8 @@ import type {
   ResistanceLevel,
 } from '@/lib/types/enums'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 import { AddCropDialog } from '@/components/crops/add-crop-dialog'
+import { SmartAddDialog } from '@/components/crops/smart-add-dialog'
 
 const ALL_CATEGORIES = Object.values(CropCategory) as string[]
 
@@ -59,6 +59,7 @@ export default function CropsPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [smartDialogOpen, setSmartDialogOpen] = useState(false)
 
   const filtered = useMemo(() => {
     if (!crops) return []
@@ -99,7 +100,7 @@ export default function CropsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => toast('功能開發中')}
+              onClick={() => setSmartDialogOpen(true)}
               disabled={!farmId}
               className="gap-1.5 text-xs border-violet-200 text-violet-700 hover:bg-violet-50"
             >
@@ -184,6 +185,13 @@ export default function CropsPage() {
           farmId={farmId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
+        />
+
+        {/* Smart add dialog */}
+        <SmartAddDialog
+          farmId={farmId}
+          open={smartDialogOpen}
+          onOpenChange={setSmartDialogOpen}
         />
       </div>
     </TooltipProvider>
