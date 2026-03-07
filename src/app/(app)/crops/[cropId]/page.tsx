@@ -4,6 +4,7 @@ import { use, useState, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
+import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -34,6 +35,7 @@ import {
   Droplets,
   FlaskConical,
   Leaf,
+  Loader2,
   Move,
   Ruler,
   Scissors,
@@ -225,6 +227,7 @@ export default function CropDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const crop = useCropById(cropId as any)
   const deleteCrop = useDeleteCrop()
+  const { enrich, isEnriching } = useEnrichCrop()
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
 
@@ -403,10 +406,22 @@ export default function CropDetailPage({
                   size="sm"
                   variant="outline"
                   className="gap-1.5 text-xs border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800"
-                  onClick={() => toast('功能開發中')}
+                  disabled={isEnriching}
+                  onClick={async () => {
+                    const result = await enrich(crop._id)
+                    if (result.success) {
+                      toast.success('AI 知識補充完成！')
+                    } else {
+                      toast.error(result.error ?? 'AI 補充失敗')
+                    }
+                  }}
                 >
-                  <Sparkles className="size-3.5" />
-                  AI 補充知識
+                  {isEnriching ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
+                  {isEnriching ? 'AI 研究中...' : 'AI 補充知識'}
                 </Button>
                 {!crop.isDefault && (
                   <Button
