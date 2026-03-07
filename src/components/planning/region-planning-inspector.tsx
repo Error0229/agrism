@@ -7,10 +7,13 @@ import {
   ArrowRight,
   Clock,
   HelpCircle,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useSuccessionChain } from "@/hooks/use-planned-plantings";
 import type { OccupancyEntry } from "./season-board";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 // --- Types ---
 
@@ -26,6 +29,7 @@ interface RegionPlanningInspectorProps {
     endWindowLatest?: number;
   };
   occupancy: OccupancyEntry[];
+  fieldId?: Id<"fields">;
   onPlanNext: () => void;
   onEditPlanning: (sourceId: string) => void;
 }
@@ -52,9 +56,17 @@ function formatEndWindow(earliest?: number, latest?: number): string | null {
 
 // --- Component ---
 
+const PLANNING_STATE_LABELS: Record<string, string> = {
+  draft: "草稿",
+  confirmed: "已確認",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
 export function RegionPlanningInspector({
   plantedCrop,
   occupancy,
+  fieldId,
   onPlanNext,
   onEditPlanning,
 }: RegionPlanningInspectorProps) {
@@ -66,6 +78,12 @@ export function RegionPlanningInspector({
   const estimatedEnd = formatEndWindow(
     plantedCrop.endWindowEarliest,
     plantedCrop.endWindowLatest,
+  );
+
+  // Succession chain
+  const successionChain = useSuccessionChain(
+    fieldId,
+    plantedCrop._id as Id<"plantedCrops">,
   );
 
   return (
@@ -151,6 +169,57 @@ export function RegionPlanningInspector({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Succession chain */}
+      {successionChain && successionChain.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-medium text-muted-foreground">接續種植鏈</span>
+          <div className="relative ml-2 border-l-2 border-sky-300/40 dark:border-sky-700/40 pl-3 space-y-2">
+            {/* Current crop as chain root */}
+            <div className="relative">
+              <div className="absolute -left-[19px] top-1 size-2.5 rounded-full bg-emerald-500 border-2 border-background" />
+              <span className="text-xs font-medium">
+                {plantedCrop.crop?.emoji && <span className="mr-1">{plantedCrop.crop.emoji}</span>}
+                {plantedCrop.crop?.name ?? "目前作物"}
+              </span>
+            </div>
+            {/* Chain entries */}
+            {successionChain.map((plan, idx) => {
+              const startStr = plan.startWindowEarliest
+                ? formatEndWindow(new Date(plan.startWindowEarliest).getTime())
+                : null;
+              const stateLabel = PLANNING_STATE_LABELS[plan.planningState] ?? plan.planningState;
+              const isLast = idx === successionChain.length - 1;
+
+              return (
+                <button
+                  key={plan._id}
+                  type="button"
+                  className="relative flex w-full items-start gap-1.5 text-left transition-colors hover:bg-sky-50/40 dark:hover:bg-sky-950/20 rounded-md px-1 py-0.5"
+                  onClick={() => onEditPlanning(plan._id)}
+                >
+                  <div className={`absolute -left-[19px] top-1 size-2.5 rounded-full border-2 border-background ${isLast ? "bg-sky-400" : "bg-sky-400/60"}`} />
+                  <ChevronDown className="size-2.5 text-sky-400/60 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium">
+                      {plan.cropName ?? "未指定"}
+                    </span>
+                    {startStr && (
+                      <span className="ml-1.5 text-[10px] text-muted-foreground">{startStr}</span>
+                    )}
+                    <Badge
+                      variant={plan.planningState === "confirmed" ? "default" : "secondary"}
+                      className="ml-1.5 text-[8px] px-1 py-0"
+                    >
+                      {stateLabel}
+                    </Badge>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

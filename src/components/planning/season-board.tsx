@@ -404,6 +404,13 @@ export function SeasonBoard({
                           );
                         })}
 
+                        {/* Overlap indicator */}
+                        {covering.length > 1 && (
+                          <div className="absolute inset-0 z-10 pointer-events-none border-2 border-red-500/60 bg-red-500/10">
+                            <div className="absolute top-0 right-0 size-0 border-t-[8px] border-r-[8px] border-t-red-500 border-r-red-500 border-l-[8px] border-b-[8px] border-l-transparent border-b-transparent" />
+                          </div>
+                        )}
+
                         {/* Empty cell — clickable to plan */}
                         {isEmpty && (
                           <button

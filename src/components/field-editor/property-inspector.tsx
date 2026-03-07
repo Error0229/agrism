@@ -85,6 +85,7 @@ import { RegionPlanningInspector } from "@/components/planning/region-planning-i
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
 import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
 import { useFarmId } from "@/hooks/use-farm-id";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 // --- Sortable section helpers ---
 
@@ -876,6 +877,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       <RegionPlanningInspector
         plantedCrop={plantedCrop}
         occupancy={regionOccupancy}
+        fieldId={fieldId as Id<"fields"> | undefined}
         onPlanNext={() => setPlanDialogOpen(true)}
         onEditPlanning={(sourceId) => {
           setEditPlanId(sourceId);
@@ -1049,8 +1051,18 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
             if (!open) setEditPlanId(null);
           }}
           regionId={plantedCrop._id}
+          predecessorPlantedCropId={plantedCrop._id as Id<"plantedCrops">}
           currentOccupant={{
             cropName: crop?.name,
+            estimatedEnd: (() => {
+              const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
+              if (!occ?.endWindow.earliest) return undefined;
+              const d = new Date(occ.endWindow.earliest);
+              const month = d.getMonth() + 1;
+              const day = d.getDate();
+              const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+              return `${d.getFullYear()}年${month}月${jun}`;
+            })(),
           }}
         />
       )}

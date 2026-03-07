@@ -42,6 +42,8 @@ export function SeasonPlannerPanel({
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [planRegionId, setPlanRegionId] = useState<string | undefined>();
   const [planCellContext, setPlanCellContext] = useState<CellContext | undefined>();
+  const [predecessorPlantedCropId, setPredecessorPlantedCropId] = useState<string | undefined>();
+  const [currentOccupant, setCurrentOccupant] = useState<{ cropName?: string; estimatedEnd?: string } | undefined>();
   const [editingPlan, setEditingPlan] = useState<
     | {
         _id: Id<"plannedPlantings">;
@@ -58,13 +60,37 @@ export function SeasonPlannerPanel({
   >();
 
   const handlePlanCrop = useCallback(
-    (_regionId?: string, _plantedCropId?: string, _cellContext?: CellContext) => {
+    (_regionId?: string, _plantedCropId?: string, _cellContext?: CellContext, _predecessorId?: string) => {
       setPlanRegionId(_plantedCropId);
       setPlanCellContext(_cellContext);
+      setPredecessorPlantedCropId(_predecessorId);
       setEditingPlan(undefined);
+
+      // Find the current occupant info for predecessor display
+      if (_predecessorId) {
+        const pc = plantedCrops.find((p) => p._id === _predecessorId);
+        if (pc?.crop) {
+          // Compute estimated end from occupancy data
+          const occ = occupancy?.find((o) => o.sourceId === _predecessorId && o.type === "current");
+          let estimatedEnd: string | undefined;
+          if (occ?.endWindow.earliest) {
+            const d = new Date(occ.endWindow.earliest);
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+            estimatedEnd = `${d.getFullYear()}年${month}月${jun}`;
+          }
+          setCurrentOccupant({ cropName: pc.crop.name, estimatedEnd });
+        } else {
+          setCurrentOccupant(undefined);
+        }
+      } else {
+        setCurrentOccupant(undefined);
+      }
+
       setPlanDialogOpen(true);
     },
-    [],
+    [plantedCrops, occupancy],
   );
 
   const handleEditPlanning = useCallback(
@@ -105,6 +131,8 @@ export function SeasonPlannerPanel({
         regionId={planRegionId}
         existingPlan={editingPlan}
         initialCellContext={planCellContext}
+        predecessorPlantedCropId={predecessorPlantedCropId as Id<"plantedCrops"> | undefined}
+        currentOccupant={currentOccupant}
       />
     </div>
   );

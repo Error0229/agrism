@@ -12,7 +12,9 @@ import {
   useDeletePlannedPlanting,
   useConfirmPlannedPlanting,
   useCancelPlannedPlanting,
+  useCheckOverlap,
 } from "@/hooks/use-planned-plantings";
+import { AlertTriangle, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +67,8 @@ export interface PlanCropDialogProps {
   };
   /** Pre-fill start period from clicked cell in season board */
   initialCellContext?: CellContext;
+  /** Link to predecessor planted crop for succession planning */
+  predecessorPlantedCropId?: Id<"plantedCrops">;
 }
 
 // --- Month/Jun picker helpers ---
@@ -138,6 +142,7 @@ export function PlanCropDialog({
   existingPlan,
   currentOccupant,
   initialCellContext,
+  predecessorPlantedCropId,
 }: PlanCropDialogProps) {
   const crops = useCrops(farmId);
   const createPlanning = useCreatePlannedPlanting();
@@ -172,6 +177,22 @@ export function PlanCropDialog({
 
   const [notes, setNotes] = useState(existingPlan?.notes ?? "");
   const [saving, setSaving] = useState(false);
+
+  // Overlap detection
+  const overlapStartTs = useMemo(() => {
+    if (!startMonth || !startJun) return undefined;
+    return new Date(monthJunToDateStr(startYear, startMonth, startJun)).getTime();
+  }, [startYear, startMonth, startJun]);
+  const overlapEndTs = useMemo(() => {
+    if (!endMonth || !endJun) return undefined;
+    return new Date(monthJunToDateStr(endYear, endMonth, endJun)).getTime();
+  }, [endYear, endMonth, endJun]);
+  const overlaps = useCheckOverlap(
+    fieldId,
+    overlapStartTs,
+    overlapEndTs,
+    existingPlan?._id,
+  );
 
   // Filtered crops list
   const filtered = useMemo(() => {
@@ -276,6 +297,7 @@ export function PlanCropDialog({
           startWindowLatest,
           endWindowEarliest,
           endWindowLatest,
+          predecessorPlantedCropId,
           notes: notes || undefined,
         });
         toast.success("已建立種植計畫");
@@ -301,6 +323,7 @@ export function PlanCropDialog({
     endMonth,
     endJun,
     notes,
+    predecessorPlantedCropId,
     createPlanning,
     updatePlanning,
     onOpenChange,
@@ -389,8 +412,23 @@ export function PlanCropDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Current occupant info */}
-        {currentOccupant?.cropName && (
+        {/* Predecessor info banner */}
+        {predecessorPlantedCropId && currentOccupant?.cropName && (
+          <div className="flex items-start gap-2 rounded-md border border-sky-200/60 bg-sky-50/50 px-3 py-2 dark:border-sky-800/30 dark:bg-sky-950/20">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+            <p className="text-xs text-sky-700 dark:text-sky-400">
+              接續 <span className="font-medium">{currentOccupant.cropName}</span> 後種植
+              {currentOccupant.estimatedEnd && (
+                <span className="ml-1 text-muted-foreground">
+                  (預估結束: {currentOccupant.estimatedEnd})
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Current occupant info (when not in predecessor mode) */}
+        {!predecessorPlantedCropId && currentOccupant?.cropName && (
           <div className="rounded-md border border-amber-200/60 bg-amber-50/50 px-3 py-2 dark:border-amber-800/30 dark:bg-amber-950/20">
             <p className="text-xs text-amber-700 dark:text-amber-400">
               目前種植: <span className="font-medium">{currentOccupant.cropName}</span>
@@ -557,6 +595,23 @@ export function PlanCropDialog({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Overlap warning */}
+        {overlaps && overlaps.length > 0 && step === "details" && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="font-medium">時段與以下種植重疊：</p>
+              <ul className="mt-1 space-y-0.5">
+                {overlaps.map((o) => (
+                  <li key={o.sourceId}>
+                    - {o.cropName ?? "未指定"} ({o.type === "current" ? "目前種植" : "計畫種植"})
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
