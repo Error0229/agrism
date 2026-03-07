@@ -22,7 +22,6 @@ export type OccupancyEntry = {
   cropName: string | undefined;
   startWindow: { earliest: number | undefined; latest: number | undefined };
   endWindow: { earliest: number | undefined; latest: number | undefined };
-  confidence: "high" | "medium" | "low";
   isPerennial: boolean;
 };
 
@@ -38,10 +37,16 @@ type PlantedCropInfo = {
   heightM: number;
 };
 
+export interface CellContext {
+  month: string; // "01"-"12"
+  jun: "early" | "mid" | "late";
+  year: string;
+}
+
 interface SeasonBoardProps {
   plantedCrops: PlantedCropInfo[];
   occupancy: OccupancyEntry[] | undefined;
-  onPlanCrop: (regionId?: string, plantedCropId?: string) => void;
+  onPlanCrop: (regionId?: string, plantedCropId?: string, cellContext?: CellContext) => void;
   onEditPlanning: (sourceId: string) => void;
 }
 
@@ -53,18 +58,6 @@ const MONTH_NAMES = [
   "1月", "2月", "3月", "4月", "5月", "6月",
   "7月", "8月", "9月", "10月", "11月", "12月",
 ];
-
-const CONFIDENCE_OPACITY: Record<string, string> = {
-  high: "opacity-100",
-  medium: "opacity-75",
-  low: "opacity-50",
-};
-
-const CONFIDENCE_LABELS: Record<string, string> = {
-  high: "高確定性",
-  medium: "中確定性",
-  low: "低確定性",
-};
 
 // --- Helpers ---
 
@@ -145,13 +138,16 @@ export function SeasonBoard({
     }[] = [];
 
     // Group growing/harvested planted crops as rows
+    // Skip areas with no crop assigned (empty/unplanted areas are available space)
     for (let idx = 0; idx < plantedCrops.length; idx++) {
       const pc = plantedCrops[idx];
       if (pc.status === "removed") continue;
+      const cropName = pc.crop?.name;
+      if (!cropName) continue; // skip unplanted areas
       rows.push({
         id: pc._id,
         areaName: pc.name || `區域 ${idx + 1}`,
-        cropLabel: pc.crop?.name ?? "未指定作物",
+        cropLabel: cropName,
         plantedCropId: pc._id,
         color: pc.crop?.color ?? undefined,
         emoji: pc.crop?.emoji ?? undefined,
@@ -242,7 +238,7 @@ export function SeasonBoard({
           <Button variant="ghost" size="icon" className="size-7" onClick={handlePrev}>
             <ChevronLeft className="size-3.5" />
           </Button>
-          <span className="text-xs text-muted-foreground min-w-[80px] text-center">
+          <span className="text-sm text-muted-foreground min-w-[80px] text-center">
             {months[0]?.year !== months[months.length - 1]?.year
               ? `${months[0]?.year}/${months[0]?.label} - ${months[months.length - 1]?.year}/${months[months.length - 1]?.label}`
               : `${months[0]?.year} ${months[0]?.label} - ${months[months.length - 1]?.label}`}
@@ -257,31 +253,15 @@ export function SeasonBoard({
       <div className="flex items-center gap-3 border-b px-3 py-1.5">
         <div className="flex items-center gap-1">
           <div className="size-2.5 rounded-sm bg-emerald-500/80" />
-          <span className="text-[10px] text-muted-foreground">目前種植</span>
+          <span className="text-xs text-muted-foreground">目前種植</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="size-2.5 rounded-sm border border-dashed border-sky-400 bg-sky-400/30" />
-          <span className="text-[10px] text-muted-foreground">計畫種植</span>
+          <span className="text-xs text-muted-foreground">計畫種植</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="size-2.5 rounded-sm bg-amber-600/60" />
-          <span className="text-[10px] text-muted-foreground">多年生/果園</span>
-        </div>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground">確定性:</span>
-          <div className="flex items-center gap-1">
-            <div className="h-1.5 w-4 rounded-full bg-foreground/80" />
-            <span className="text-[9px] text-muted-foreground">高</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-1.5 w-4 rounded-full bg-foreground/50" />
-            <span className="text-[9px] text-muted-foreground">中</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-1.5 w-4 rounded-full bg-foreground/30" />
-            <span className="text-[9px] text-muted-foreground">低</span>
-          </div>
+          <span className="text-xs text-muted-foreground">多年生/果園</span>
         </div>
       </div>
 
@@ -292,14 +272,14 @@ export function SeasonBoard({
           <div className="sticky top-0 z-10 bg-background">
             <div className="grid" style={{ gridTemplateColumns: `140px repeat(${totalCols}, 1fr)` }}>
               {/* Corner cell */}
-              <div className="border-b border-r px-2 py-1 text-[10px] font-medium text-muted-foreground">
+              <div className="border-b border-r px-2 py-1 text-sm font-medium text-muted-foreground">
                 區域
               </div>
               {/* Month group headers */}
               {months.map((m) => (
                 <div
                   key={`${m.year}-${m.month}`}
-                  className="col-span-3 border-b border-r px-1 py-1 text-center text-[10px] font-semibold text-foreground/80"
+                  className="col-span-3 border-b border-r px-1 py-1 text-center text-sm font-semibold text-foreground/80"
                 >
                   {m.label}
                 </div>
@@ -316,7 +296,7 @@ export function SeasonBoard({
                     <div
                       key={`${m.year}-${m.month}-${ji}`}
                       className={cn(
-                        "border-b border-r px-0.5 py-0.5 text-center text-[9px] text-muted-foreground/70",
+                        "border-b border-r px-0.5 py-0.5 text-center text-xs text-muted-foreground/70",
                         isToday && "bg-primary/10 font-bold text-primary",
                       )}
                     >
@@ -344,10 +324,9 @@ export function SeasonBoard({
                 >
                   {/* Region label */}
                   <div className="flex items-center gap-1.5 border-b border-r px-2 py-2 min-h-[40px]">
-                    {row.emoji && <span className="text-sm">{row.emoji}</span>}
+                    {row.emoji && <span className="text-base">{row.emoji}</span>}
                     <div className="min-w-0 flex-1">
-                      <span className="block truncate text-[10px] text-muted-foreground">{row.areaName}</span>
-                      <span className="block truncate text-xs font-medium">{row.cropLabel}</span>
+                      <span className="block truncate text-sm font-medium">{row.areaName}</span>
                     </div>
                   </div>
 
@@ -390,7 +369,6 @@ export function SeasonBoard({
                                     className={cn(
                                       "absolute inset-x-0 top-1 bottom-1 transition-all",
                                       cropBg(entry),
-                                      CONFIDENCE_OPACITY[entry.confidence],
                                       isPlanned && "border-2 border-dashed border-sky-500/60 bg-sky-400/20 dark:bg-sky-500/15",
                                       bar.isPerennial && "bg-amber-600/30 dark:bg-amber-700/25",
                                       bar.isPerennial && "bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(0,0,0,0.05)_4px,rgba(0,0,0,0.05)_8px)]",
@@ -406,7 +384,7 @@ export function SeasonBoard({
                                     }}
                                   >
                                     {isStart && (
-                                      <span className="absolute left-1 top-1/2 -translate-y-1/2 truncate text-[9px] font-medium text-white dark:text-white/90 max-w-[60px]">
+                                      <span className="absolute left-1 top-1/2 -translate-y-1/2 truncate text-xs font-medium text-white dark:text-white/90 max-w-[80px]">
                                         {entry.cropName ?? ""}
                                       </span>
                                     )}
@@ -418,9 +396,6 @@ export function SeasonBoard({
                                     <p className="text-muted-foreground">
                                       {entry.type === "current" ? "目前種植" : "計畫種植"}
                                       {entry.isPerennial && " (多年生)"}
-                                    </p>
-                                    <p className="text-muted-foreground">
-                                      {CONFIDENCE_LABELS[entry.confidence]}
                                     </p>
                                   </div>
                                 </TooltipContent>
@@ -434,7 +409,20 @@ export function SeasonBoard({
                           <button
                             type="button"
                             className="absolute inset-0 opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-primary/10 flex items-center justify-center"
-                            onClick={() => onPlanCrop(undefined, row.plantedCropId)}
+                            onClick={() => {
+                              // Compute month/jun from column index
+                              const monthIdx = Math.floor(colIdx / 3);
+                              const junIdx = colIdx % 3;
+                              const cellDate = new Date(startYear, startMonth + monthIdx, 1);
+                              const cellMonth = String(cellDate.getMonth() + 1).padStart(2, "0");
+                              const cellYear = String(cellDate.getFullYear());
+                              const junValues = ["early", "mid", "late"] as const;
+                              onPlanCrop(undefined, row.plantedCropId, {
+                                month: cellMonth,
+                                jun: junValues[junIdx],
+                                year: cellYear,
+                              });
+                            }}
                             title="規劃種植"
                           >
                             <Sprout className="size-3 text-primary/40" />

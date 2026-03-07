@@ -1692,11 +1692,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 {item.kind === "crop" && item.areaName && (
                   <Text
                     x={labelX - wPx / 2}
-                    y={labelY - 30}
+                    y={labelY - 34}
                     width={wPx}
                     align="center"
                     text={item.areaName}
-                    fontSize={9}
+                    fontSize={13}
                     fill="#6b7280"
                     listening={false}
                   />
@@ -1709,18 +1709,18 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   width={wPx}
                   align="center"
                   text={item.emoji}
-                  fontSize={16}
+                  fontSize={18}
                   listening={false}
                 />
 
                 {/* Centered Label */}
                 <Text
                   x={labelX - wPx / 2}
-                  y={labelY}
+                  y={labelY + 2}
                   width={wPx}
                   align="center"
                   text={item.label}
-                  fontSize={10}
+                  fontSize={14}
                   fill="#374151"
                   listening={false}
                 />
@@ -1729,11 +1729,11 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 {isHarvested && (
                   <Text
                     x={labelX - wPx / 2}
-                    y={labelY + 14}
+                    y={labelY + 18}
                     width={wPx}
                     align="center"
                     text="\u5df2\u6536\u6210"
-                    fontSize={11}
+                    fontSize={13}
                     fill="#4b5563"
                     listening={false}
                   />
