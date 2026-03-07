@@ -18,8 +18,8 @@ type PlantedCropInfo = {
   status: string;
   xM: number;
   yM: number;
-  widthM: number;
-  heightM: number;
+  widthM?: number;
+  heightM?: number;
 };
 
 interface SeasonPlannerPanelProps {
