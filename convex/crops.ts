@@ -198,6 +198,101 @@ export const remove = mutation({
   },
 });
 
+// === AI Enrichment ===
+
+export const applyEnrichment = internalMutation({
+  args: {
+    cropId: v.id("crops"),
+    // Identity + Timing
+    scientificName: v.optional(v.string()),
+    variety: v.optional(v.string()),
+    aliases: v.optional(v.array(v.string())),
+    lifecycleType: v.optional(v.string()),
+    propagationMethod: v.optional(v.string()),
+    plantingMonths: v.optional(v.array(v.number())),
+    harvestMonths: v.optional(v.array(v.number())),
+    growthDays: v.optional(v.number()),
+    daysToGermination: v.optional(v.number()),
+    daysToTransplant: v.optional(v.number()),
+    daysToFlowering: v.optional(v.number()),
+    harvestWindowDays: v.optional(v.number()),
+    growingSeasonStart: v.optional(v.number()),
+    growingSeasonEnd: v.optional(v.number()),
+    // Environment
+    tempMin: v.optional(v.number()),
+    tempMax: v.optional(v.number()),
+    tempOptimalMin: v.optional(v.number()),
+    tempOptimalMax: v.optional(v.number()),
+    humidityMin: v.optional(v.number()),
+    humidityMax: v.optional(v.number()),
+    sunlight: v.optional(v.string()),
+    sunlightHoursMin: v.optional(v.number()),
+    sunlightHoursMax: v.optional(v.number()),
+    windSensitivity: v.optional(v.string()),
+    droughtTolerance: v.optional(v.string()),
+    waterloggingTolerance: v.optional(v.string()),
+    // Soil
+    soilPhMin: v.optional(v.number()),
+    soilPhMax: v.optional(v.number()),
+    soilType: v.optional(v.string()),
+    fertilityDemand: v.optional(v.string()),
+    fertilizerType: v.optional(v.string()),
+    fertilizerFrequencyDays: v.optional(v.number()),
+    commonDeficiencies: v.optional(v.array(v.string())),
+    // Spacing
+    spacingPlantCm: v.optional(v.number()),
+    spacingRowCm: v.optional(v.number()),
+    maxHeightCm: v.optional(v.number()),
+    maxSpreadCm: v.optional(v.number()),
+    trellisRequired: v.optional(v.boolean()),
+    pruningRequired: v.optional(v.boolean()),
+    pruningFrequencyDays: v.optional(v.number()),
+    // Water
+    water: v.optional(v.string()),
+    waterFrequencyDays: v.optional(v.number()),
+    waterAmountMl: v.optional(v.number()),
+    criticalDroughtStages: v.optional(v.array(v.string())),
+    // Companion & Rotation
+    companionPlants: v.optional(v.array(v.string())),
+    antagonistPlants: v.optional(v.array(v.string())),
+    rotationFamily: v.optional(v.string()),
+    rotationYears: v.optional(v.number()),
+    // Pest & Disease
+    commonPests: v.optional(v.array(pestDiseaseValidator)),
+    commonDiseases: v.optional(v.array(pestDiseaseValidator)),
+    typhoonResistance: v.optional(v.string()),
+    typhoonPrep: v.optional(v.string()),
+    // Harvest
+    harvestMaturitySigns: v.optional(v.string()),
+    harvestMethod: v.optional(v.string()),
+    harvestCadence: v.optional(v.string()),
+    yieldPerPlant: v.optional(v.string()),
+    storageNotes: v.optional(v.string()),
+    shelfLifeDays: v.optional(v.number()),
+    // Growth Stages
+    growthStages: v.optional(v.array(growthStageValidator)),
+    // Growing Guide
+    growingGuide: v.optional(growingGuideValidator),
+    // Meta
+    lastAiEnriched: v.optional(v.number()),
+    source: v.optional(v.string()),
+  },
+  handler: async (ctx, { cropId, ...fields }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) throw new Error("Crop not found");
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+
+    await ctx.db.patch(cropId, updates);
+    return ctx.db.get(cropId);
+  },
+});
+
 // === Seed Defaults ===
 
 export const seedDefaults = mutation({

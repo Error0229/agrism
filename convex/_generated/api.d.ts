@@ -9,6 +9,7 @@
  */
 
 import type * as _helpers from "../_helpers.js";
+import type * as cropEnrichment from "../cropEnrichment.js";
 import type * as crops from "../crops.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
@@ -28,6 +29,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
+  cropEnrichment: typeof cropEnrichment;
   crops: typeof crops;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;
