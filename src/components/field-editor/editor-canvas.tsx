@@ -533,39 +533,53 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       ];
     }
 
-    // SAT helper: get perpendicular axes from polygon edges
-    function getAxes(poly: { x: number; y: number }[]): { x: number; y: number }[] {
-      const axes: { x: number; y: number }[] = [];
-      for (let i = 0; i < poly.length; i++) {
-        const p1 = poly[i];
-        const p2 = poly[(i + 1) % poly.length];
-        const edgeX = p2.x - p1.x;
-        const edgeY = p2.y - p1.y;
-        const len = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
-        if (len > 0) axes.push({ x: -edgeY / len, y: edgeX / len });
-      }
-      return axes;
+    // --- Concave-safe polygon overlap (SAT only works for convex shapes) ---
+
+    // Check if two line segments (p1-p2) and (p3-p4) intersect
+    function segmentsIntersect(
+      p1: { x: number; y: number }, p2: { x: number; y: number },
+      p3: { x: number; y: number }, p4: { x: number; y: number },
+    ): boolean {
+      const d1x = p2.x - p1.x, d1y = p2.y - p1.y;
+      const d2x = p4.x - p3.x, d2y = p4.y - p3.y;
+      const cross = d1x * d2y - d1y * d2x;
+      if (Math.abs(cross) < 1e-10) return false; // parallel
+      const dx = p3.x - p1.x, dy = p3.y - p1.y;
+      const t = (dx * d2y - dy * d2x) / cross;
+      const u = (dx * d1y - dy * d1x) / cross;
+      return t > 0 && t < 1 && u > 0 && u < 1;
     }
 
-    // SAT helper: project polygon onto axis, return min/max
-    function projectPoly(poly: { x: number; y: number }[], axis: { x: number; y: number }): { min: number; max: number } {
-      let min = Infinity, max = -Infinity;
-      for (const p of poly) {
-        const dot = p.x * axis.x + p.y * axis.y;
-        if (dot < min) min = dot;
-        if (dot > max) max = dot;
+    // Ray-casting point-in-polygon (works for concave polygons)
+    function pointInPolygon(pt: { x: number; y: number }, poly: { x: number; y: number }[]): boolean {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if ((yi > pt.y) !== (yj > pt.y) &&
+            pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi) {
+          inside = !inside;
+        }
       }
-      return { min, max };
+      return inside;
     }
 
+    // Two (possibly concave) polygons overlap if:
+    //  1) any edge of one crosses any edge of the other, OR
+    //  2) any vertex of one lies inside the other (handles containment)
     function polygonsOverlap(poly1: { x: number; y: number }[], poly2: { x: number; y: number }[]): boolean {
-      const axes = [...getAxes(poly1), ...getAxes(poly2)];
-      for (const axis of axes) {
-        const proj1 = projectPoly(poly1, axis);
-        const proj2 = projectPoly(poly2, axis);
-        if (proj1.max <= proj2.min || proj2.max <= proj1.min) return false;
+      // Check edge intersections
+      for (let i = 0; i < poly1.length; i++) {
+        const a1 = poly1[i], a2 = poly1[(i + 1) % poly1.length];
+        for (let j = 0; j < poly2.length; j++) {
+          const b1 = poly2[j], b2 = poly2[(j + 1) % poly2.length];
+          if (segmentsIntersect(a1, a2, b1, b2)) return true;
+        }
       }
-      return true;
+      // Check containment (a vertex of one inside the other)
+      if (pointInPolygon(poly1[0], poly2)) return true;
+      if (pointInPolygon(poly2[0], poly1)) return true;
+      return false;
     }
 
     for (let i = 0; i < cropItems.length; i++) {
