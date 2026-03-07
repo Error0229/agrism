@@ -340,7 +340,7 @@ function cleanNulls(obj: Record<string, unknown>): Record<string, unknown> {
   return cleaned;
 }
 
-function cleanArrayItems<T extends Record<string, unknown>>(items: T[]): Record<string, unknown>[] {
+function cleanArrayItems(items: Record<string, unknown>[]): Record<string, unknown>[] {
   return items.map((item) => cleanNulls(item));
 }
 
@@ -405,8 +405,8 @@ function mergeResults(
     criticalDroughtStages: pass3.criticalDroughtStages?.length ? pass3.criticalDroughtStages : undefined,
 
     // Pass 4 — Pest + Disease + Typhoon
-    commonPests: pass4.commonPests?.length ? cleanArrayItems(pass4.commonPests) : undefined,
-    commonDiseases: pass4.commonDiseases?.length ? cleanArrayItems(pass4.commonDiseases) : undefined,
+    commonPests: pass4.commonPests?.length ? cleanArrayItems(pass4.commonPests as unknown as Record<string, unknown>[]) : undefined,
+    commonDiseases: pass4.commonDiseases?.length ? cleanArrayItems(pass4.commonDiseases as unknown as Record<string, unknown>[]) : undefined,
     typhoonResistance: pass4.typhoonResistance,
     typhoonPrep: pass4.typhoonPrep,
 
@@ -423,7 +423,7 @@ function mergeResults(
     shelfLifeDays: pass5.shelfLifeDays,
 
     // Pass 6 — Growth Stages
-    growthStages: pass6.growthStages?.length ? cleanArrayItems(pass6.growthStages) : undefined,
+    growthStages: pass6.growthStages?.length ? cleanArrayItems(pass6.growthStages as unknown as Record<string, unknown>[]) : undefined,
 
     // Pass 7 — Growing Guide
     growingGuide: {
@@ -448,6 +448,11 @@ export const enrichCrop = action({
     cropId: v.id("crops"),
   },
   handler: async (ctx, { cropId }): Promise<{ success: boolean; error?: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       throw new Error("OPENROUTER_API_KEY environment variable is not set");
@@ -509,7 +514,12 @@ export const enrichAllDefaults = action({
     farmId: v.id("farms"),
   },
   handler: async (ctx, { farmId }): Promise<{ total: number; succeeded: number; failed: string[] }> => {
-    // Get all crops for this farm (internal — no auth required)
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get all crops for this farm
     const crops = await ctx.runQuery(internal.crops.listByFarmInternal, { farmId });
     const defaultCrops = crops.filter((c: { isDefault: boolean }) => c.isDefault);
 
