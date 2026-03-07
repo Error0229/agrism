@@ -133,7 +133,7 @@ async function callOpenRouter(
       "X-Title": "Agrism Crop Enrichment",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.5-sonnet",
+      model: "google/gemini-3.1-flash-lite-preview",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
