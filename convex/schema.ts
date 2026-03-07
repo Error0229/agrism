@@ -44,6 +44,14 @@ export default defineSchema({
     growthHabit: v.optional(v.string()), // "bush" | "vine" | "tree" | "upright" | "spreading"
     propagationMethod: v.optional(v.string()), // "seed" | "seedling" | "cutting" | "tuber" | "grafted"
     source: v.optional(v.string()), // "seeded" | "imported" | "custom"
+    lifecycleType: v.optional(
+      v.union(
+        v.literal("seasonal"),
+        v.literal("long_cycle"),
+        v.literal("perennial"),
+        v.literal("orchard")
+      )
+    ),
     // Legacy flat fields (kept for backward compatibility)
     plantingMonths: v.optional(v.array(v.number())),
     harvestMonths: v.optional(v.array(v.number())),
@@ -139,6 +147,7 @@ export default defineSchema({
   plantedCrops: defineTable({
     cropId: v.optional(v.id("crops")),
     fieldId: v.id("fields"),
+    name: v.optional(v.string()), // user-editable region/area name e.g. "區域 1"
     plantedDate: v.optional(v.string()),
     harvestedDate: v.optional(v.string()),
     status: v.union(

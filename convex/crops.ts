@@ -32,6 +32,14 @@ export const create = mutation({
     emoji: v.optional(v.string()),
     color: v.optional(v.string()),
     category: v.string(),
+    lifecycleType: v.optional(
+      v.union(
+        v.literal("seasonal"),
+        v.literal("long_cycle"),
+        v.literal("perennial"),
+        v.literal("orchard")
+      )
+    ),
     plantingMonths: v.optional(v.array(v.number())),
     harvestMonths: v.optional(v.array(v.number())),
     growthDays: v.optional(v.number()),
@@ -82,6 +90,14 @@ export const update = mutation({
     emoji: v.optional(v.string()),
     color: v.optional(v.string()),
     category: v.optional(v.string()),
+    lifecycleType: v.optional(
+      v.union(
+        v.literal("seasonal"),
+        v.literal("long_cycle"),
+        v.literal("perennial"),
+        v.literal("orchard")
+      )
+    ),
     plantingMonths: v.optional(v.array(v.number())),
     harvestMonths: v.optional(v.array(v.number())),
     growthDays: v.optional(v.number()),
