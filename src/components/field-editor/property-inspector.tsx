@@ -870,7 +870,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       </div>
     ),
     "lifecycle": (
-      <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} />
+      <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} cropLifecycleType={crop?.lifecycleType} />
     ),
     "planning": fieldId ? (
       <RegionPlanningInspector

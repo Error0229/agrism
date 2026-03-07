@@ -110,11 +110,13 @@ function UnknownBadge() {
 interface LifecycleInspectorProps {
   plantedCrop: PlantedCropData;
   cropGrowthDays?: number;
+  cropLifecycleType?: string;
 }
 
 export const LifecycleInspector = React.memo(function LifecycleInspector({
   plantedCrop,
   cropGrowthDays,
+  cropLifecycleType,
 }: LifecycleInspectorProps) {
   const updateLifecycle = useUpdatePlantedCropLifecycle();
   const [saving, setSaving] = useState<string | null>(null);
@@ -175,25 +177,19 @@ export const LifecycleInspector = React.memo(function LifecycleInspector({
           作物資訊
         </SectionHeader>
 
-        {/* Lifecycle type */}
+        {/* Lifecycle type (read-only, from crop definition) */}
         <div className="space-y-1">
           <label className="text-[10px] font-medium text-muted-foreground">生長類型</label>
-          <Select
-            value={plantedCrop.lifecycleType ?? ""}
-            onValueChange={(val) => save("lifecycleType", val)}
-            disabled={saving === "lifecycleType"}
-          >
-            <SelectTrigger className="h-7 w-full text-xs">
-              <SelectValue placeholder="選擇類型" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(LIFECYCLE_TYPE_LABELS).map(([val, label]) => (
-                <SelectItem key={val} value={val}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {cropLifecycleType ? (
+            <div className="flex h-7 items-center rounded-md border border-border/40 bg-muted/20 px-2.5 text-xs text-foreground/80">
+              {LIFECYCLE_TYPE_LABELS[cropLifecycleType] ?? cropLifecycleType}
+            </div>
+          ) : (
+            <div className="flex h-7 items-center gap-1.5 rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 text-[10px] italic text-muted-foreground/60">
+              <HelpCircle className="size-2.5" />
+              未設定 — 請在作物資料中設定
+            </div>
+          )}
         </div>
 
         {/* Current stage with colored pill */}
