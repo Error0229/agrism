@@ -131,12 +131,15 @@ const ROTATION_FAMILY_LABELS: Record<string, string> = {
 
 const GROWTH_STAGE_LABELS: Record<string, string> = {
   germination: '發芽期',
-  seedling: '幼苗期',
+  seedling: '育苗期',
   vegetative: '營養生長期',
   flowering: '開花期',
   fruiting: '結果期',
-  harvest: '採收期',
+  harvest: '收穫期',
+  harvest_ready: '可採收',
   dormant: '休眠期',
+  mature: '成熟期',
+  transplant: '移植期',
 }
 
 const MONTH_NAMES = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
@@ -384,15 +387,16 @@ export default function CropDetailPage({
   const hasGuide = crop.growingGuide && (crop.growingGuide.howToPlant || crop.growingGuide.howToCare || crop.growingGuide.warnings || crop.growingGuide.localNotes)
 
   // Count how many fields are populated vs total possible
-  const totalFields = 60
-  const populatedFields = Object.entries(crop).filter(([k, v]) => {
-    if (['_id', '_creationTime', 'farmId', 'isDefault'].includes(k)) return false
+  const excludedKeys = new Set(['_id', '_creationTime', 'farmId', 'isDefault'])
+  const allKeys = Object.keys(crop).filter(k => !excludedKeys.has(k))
+  const populatedFields = allKeys.filter((k) => {
+    const v = (crop as Record<string, unknown>)[k]
     if (v === undefined || v === null) return false
     if (Array.isArray(v) && v.length === 0) return false
-    if (typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(x => !x)) return false
+    if (typeof v === 'object' && !Array.isArray(v) && Object.values(v as Record<string, unknown>).every(x => !x)) return false
     return true
   }).length
-  const completeness = Math.round((populatedFields / totalFields) * 100)
+  const completeness = Math.min(100, Math.round((populatedFields / allKeys.length) * 100))
 
   async function handleDelete() {
     if (!confirm('確定要刪除此作物嗎？')) return
