@@ -329,29 +329,40 @@ export const create = mutation({
       const predecessor = await ctx.db.get(args.predecessorPlantedCropId);
       if (predecessor) {
         // Check if predecessor crop is perennial/orchard
-        let predLifecycleType: string | undefined = predecessor.lifecycleType;
-        if (!predLifecycleType && predecessor.cropId) {
-          const predCrop = await ctx.db.get(predecessor.cropId);
-          if (predCrop) predLifecycleType = predCrop.lifecycleType;
-        }
+        const predCrop = predecessor.cropId ? await ctx.db.get(predecessor.cropId) : null;
+        const predLifecycleType = predecessor.lifecycleType ?? predCrop?.lifecycleType;
         if (predLifecycleType === "perennial" || predLifecycleType === "orchard") {
           throw new Error("多年生作物區域無法規劃輪作");
         }
 
         // Auto-fill start window from predecessor's estimated end
         if (!startWindowEarliest && !startWindowLatest) {
-          // Build occupancy to find predecessor's end window
-          const occupancy = await buildFieldOccupancy(ctx, args.fieldId);
-          const predEntry = occupancy.find(
-            (e) => e.sourceId === args.predecessorPlantedCropId,
-          );
-          if (predEntry) {
-            if (predEntry.endWindow.earliest !== undefined) {
-              startWindowEarliest = new Date(predEntry.endWindow.earliest).toISOString();
+          let endEarliest = predecessor.endWindowEarliest;
+          let endLatest = predecessor.endWindowLatest;
+
+          // If not set, estimate from planting date + growth days
+          if (!endEarliest && !endLatest) {
+            const growthDays = predecessor.customGrowthDays ?? predCrop?.growthDays ?? DEFAULT_GROWTH_DAYS;
+            const growthMs = growthDays * DAY_MS;
+
+            const plantedTs = predecessor.plantedDate
+              ? new Date(predecessor.plantedDate).getTime()
+              : undefined;
+            const startTs = plantedTs ?? predecessor.plantStartEarliest;
+
+            if (startTs) {
+              endEarliest = startTs + growthMs;
+              endLatest = predecessor.plantStartLatest
+                ? predecessor.plantStartLatest + growthMs
+                : endEarliest;
             }
-            if (predEntry.endWindow.latest !== undefined) {
-              startWindowLatest = new Date(predEntry.endWindow.latest).toISOString();
-            }
+          }
+
+          if (endEarliest !== undefined) {
+            startWindowEarliest = new Date(endEarliest).toISOString().slice(0, 10);
+          }
+          if (endLatest !== undefined) {
+            startWindowLatest = new Date(endLatest).toISOString().slice(0, 10);
           }
         }
       }

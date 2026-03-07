@@ -42,7 +42,7 @@ export function SeasonPlannerPanel({
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [planRegionId, setPlanRegionId] = useState<string | undefined>();
   const [planCellContext, setPlanCellContext] = useState<CellContext | undefined>();
-  const [predecessorPlantedCropId, setPredecessorPlantedCropId] = useState<string | undefined>();
+  const [predecessorPlantedCropId, setPredecessorPlantedCropId] = useState<Id<"plantedCrops"> | undefined>();
   const [currentOccupant, setCurrentOccupant] = useState<{ cropName?: string; estimatedEnd?: string } | undefined>();
   const [editingPlan, setEditingPlan] = useState<
     | {
@@ -63,7 +63,7 @@ export function SeasonPlannerPanel({
     (_regionId?: string, _plantedCropId?: string, _cellContext?: CellContext, _predecessorId?: string) => {
       setPlanRegionId(_plantedCropId);
       setPlanCellContext(_cellContext);
-      setPredecessorPlantedCropId(_predecessorId);
+      setPredecessorPlantedCropId(_predecessorId as Id<"plantedCrops"> | undefined);
       setEditingPlan(undefined);
 
       // Find the current occupant info for predecessor display
@@ -131,7 +131,7 @@ export function SeasonPlannerPanel({
         regionId={planRegionId}
         existingPlan={editingPlan}
         initialCellContext={planCellContext}
-        predecessorPlantedCropId={predecessorPlantedCropId as Id<"plantedCrops"> | undefined}
+        predecessorPlantedCropId={predecessorPlantedCropId}
         currentOccupant={currentOccupant}
       />
     </div>

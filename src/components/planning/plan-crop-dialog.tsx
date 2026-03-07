@@ -154,6 +154,8 @@ export function PlanCropDialog({
   const isEditing = !!existingPlan;
 
   // --- Form state ---
+  const currentYear = String(new Date().getFullYear());
+
   const [step, setStep] = useState<"crop" | "details">(isEditing ? "details" : "crop");
   const [search, setSearch] = useState("");
   const [selectedCropId, setSelectedCropId] = useState<string | undefined>(
@@ -163,20 +165,38 @@ export function PlanCropDialog({
     existingPlan?.cropName ?? "",
   );
 
-  const currentYear = String(new Date().getFullYear());
-  const parsedStart = parseWindowToMonthJun(existingPlan?.startWindowEarliest);
+  const [startYear, setStartYear] = useState(currentYear);
+  const [startMonth, setStartMonth] = useState("");
+  const [startJun, setStartJun] = useState("");
 
-  const [startYear, setStartYear] = useState(parsedStart?.year ?? initialCellContext?.year ?? currentYear);
-  const [startMonth, setStartMonth] = useState(parsedStart?.month ?? initialCellContext?.month ?? "");
-  const [startJun, setStartJun] = useState(parsedStart?.jun ?? initialCellContext?.jun ?? "");
+  const [endYear, setEndYear] = useState(currentYear);
+  const [endMonth, setEndMonth] = useState("");
+  const [endJun, setEndJun] = useState("");
 
-  const parsedEnd = parseWindowToMonthJun(existingPlan?.endWindowEarliest);
-  const [endYear, setEndYear] = useState(parsedEnd?.year ?? currentYear);
-  const [endMonth, setEndMonth] = useState(parsedEnd?.month ?? "");
-  const [endJun, setEndJun] = useState(parsedEnd?.jun ?? "");
-
-  const [notes, setNotes] = useState(existingPlan?.notes ?? "");
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Reset form state when dialog opens with new context
+  React.useEffect(() => {
+    if (open) {
+      setStep(existingPlan ? "details" : "crop");
+      setSearch("");
+      setSelectedCropId(existingPlan?.cropId ?? undefined);
+      setSelectedCropName(existingPlan?.cropName ?? "");
+
+      const parsedS = parseWindowToMonthJun(existingPlan?.startWindowEarliest);
+      setStartYear(parsedS?.year ?? initialCellContext?.year ?? currentYear);
+      setStartMonth(parsedS?.month ?? initialCellContext?.month ?? "");
+      setStartJun(parsedS?.jun ?? initialCellContext?.jun ?? "");
+
+      const parsedE = parseWindowToMonthJun(existingPlan?.endWindowEarliest);
+      setEndYear(parsedE?.year ?? currentYear);
+      setEndMonth(parsedE?.month ?? "");
+      setEndJun(parsedE?.jun ?? "");
+
+      setNotes(existingPlan?.notes ?? "");
+    }
+  }, [open, existingPlan?._id, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year]);
 
   // Overlap detection
   const overlapStartTs = useMemo(() => {
@@ -372,24 +392,10 @@ export function PlanCropDialog({
   }, [existingPlan, cancelPlanning, onOpenChange]);
 
   const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        // Reset state
-        setStep(isEditing ? "details" : "crop");
-        setSearch("");
-        if (!isEditing) {
-          setSelectedCropId(undefined);
-          setSelectedCropName("");
-          setStartMonth("");
-          setStartJun("");
-          setEndMonth("");
-          setEndJun("");
-          setNotes("");
-        }
-      }
-      onOpenChange(open);
+    (nextOpen: boolean) => {
+      onOpenChange(nextOpen);
     },
-    [isEditing, onOpenChange],
+    [onOpenChange],
   );
 
   // Year options
