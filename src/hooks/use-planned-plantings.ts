@@ -27,6 +27,30 @@ export function useFieldOccupancy(fieldId: Id<"fields"> | undefined) {
   );
 }
 
+export function useCheckOverlap(
+  fieldId: Id<"fields"> | undefined,
+  startEarliest: number | undefined,
+  endLatest: number | undefined,
+  excludePlanId?: Id<"plannedPlantings">,
+) {
+  return useQuery(
+    api.plannedPlantings.checkOverlap,
+    fieldId && (startEarliest || endLatest)
+      ? { fieldId, startEarliest, endLatest, excludePlanId }
+      : "skip",
+  );
+}
+
+export function useSuccessionChain(
+  fieldId: Id<"fields"> | undefined,
+  plantedCropId: Id<"plantedCrops"> | undefined,
+) {
+  return useQuery(
+    api.plannedPlantings.getSuccessionChain,
+    fieldId && plantedCropId ? { fieldId, plantedCropId } : "skip",
+  );
+}
+
 // --- Mutations ---
 
 export function useCreatePlannedPlanting() {

@@ -23,6 +23,142 @@ async function resolvePlannedPlantingFarmId(
   return { farmId: pp.farmId, pp };
 }
 
+type OccupancyEntry = {
+  regionId: string | undefined;
+  type: "current" | "planned";
+  sourceId: string;
+  cropId: string | undefined;
+  cropName: string | undefined;
+  startWindow: { earliest: number | undefined; latest: number | undefined };
+  endWindow: { earliest: number | undefined; latest: number | undefined };
+  isPerennial: boolean;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_GROWTH_DAYS = 90;
+
+async function buildFieldOccupancy(
+  ctx: QueryCtx | MutationCtx,
+  fieldId: Id<"fields">,
+): Promise<OccupancyEntry[]> {
+  // Fetch current planted crops
+  const plantedCrops = await ctx.db
+    .query("plantedCrops")
+    .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+    .collect();
+
+  // Fetch planned plantings (non-cancelled)
+  const plannedPlantings = await ctx.db
+    .query("plannedPlantings")
+    .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+    .collect();
+  const activePlans = plannedPlantings.filter(
+    (p) => p.planningState !== "cancelled",
+  );
+
+  // Batch-fetch all unique crop IDs to avoid N+1 queries
+  const cropIdSet = new Set<Id<"crops">>();
+  for (const pc of plantedCrops) {
+    if (pc.cropId && pc.status !== "removed") cropIdSet.add(pc.cropId);
+  }
+  for (const pp of activePlans) {
+    if (pp.cropId && !pp.cropName) cropIdSet.add(pp.cropId);
+  }
+  const cropMap = new Map<string, { name: string; growthDays?: number; lifecycleType?: string }>();
+  await Promise.all(
+    [...cropIdSet].map(async (cropId) => {
+      const crop = await ctx.db.get(cropId);
+      if (crop) cropMap.set(cropId, {
+        name: crop.name,
+        growthDays: crop.growthDays,
+        lifecycleType: crop.lifecycleType,
+      });
+    }),
+  );
+
+  const occupancy: OccupancyEntry[] = [];
+
+  // Build occupancy from current planted crops
+  for (const pc of plantedCrops) {
+    if (pc.status === "removed") continue;
+
+    const crop = pc.cropId ? cropMap.get(pc.cropId) : undefined;
+    const lifecycleType = crop?.lifecycleType ?? pc.lifecycleType;
+    const isPerennial =
+      lifecycleType === "perennial" || lifecycleType === "orchard";
+
+    const cropName = crop?.name;
+
+    // Calculate estimated end dates if not explicitly set and not perennial
+    let endEarliest = pc.endWindowEarliest;
+    let endLatest = pc.endWindowLatest;
+    if (!isPerennial && !endEarliest && !endLatest) {
+      const growthDays = pc.customGrowthDays ?? crop?.growthDays ?? DEFAULT_GROWTH_DAYS;
+      const growthMs = growthDays * DAY_MS;
+      const plantedTs = pc.plantedDate
+        ? new Date(pc.plantedDate).getTime()
+        : undefined;
+      const startTs = plantedTs ?? pc.plantStartEarliest;
+      if (startTs) {
+        endEarliest = startTs + growthMs;
+        endLatest = startTs + growthMs;
+      }
+      if (pc.plantStartLatest) {
+        endLatest = pc.plantStartLatest + growthMs;
+      }
+    }
+
+    occupancy.push({
+      regionId: undefined,
+      type: "current",
+      sourceId: pc._id,
+      cropId: pc.cropId ?? undefined,
+      cropName,
+      startWindow: {
+        earliest: pc.plantStartEarliest ?? (pc.plantedDate ? new Date(pc.plantedDate).getTime() : undefined),
+        latest: pc.plantStartLatest,
+      },
+      endWindow: {
+        earliest: isPerennial ? undefined : endEarliest,
+        latest: isPerennial ? undefined : endLatest,
+      },
+      isPerennial,
+    });
+  }
+
+  // Build occupancy from planned plantings
+  for (const pp of activePlans) {
+    const cropName = pp.cropName ?? (pp.cropId ? cropMap.get(pp.cropId)?.name : undefined);
+
+    occupancy.push({
+      regionId: pp.regionId,
+      type: "planned",
+      sourceId: pp._id,
+      cropId: pp.cropId ?? undefined,
+      cropName,
+      startWindow: {
+        earliest: pp.startWindowEarliest
+          ? new Date(pp.startWindowEarliest).getTime()
+          : undefined,
+        latest: pp.startWindowLatest
+          ? new Date(pp.startWindowLatest).getTime()
+          : undefined,
+      },
+      endWindow: {
+        earliest: pp.endWindowEarliest
+          ? new Date(pp.endWindowEarliest).getTime()
+          : undefined,
+        latest: pp.endWindowLatest
+          ? new Date(pp.endWindowLatest).getTime()
+          : undefined,
+      },
+      isPerennial: false,
+    });
+  }
+
+  return occupancy;
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -58,140 +194,103 @@ export const getFieldOccupancy = query({
   handler: async (ctx, { fieldId }) => {
     const farmId = await resolveFieldFarmId(ctx, fieldId);
     await requireFarmMembership(ctx, farmId);
+    return buildFieldOccupancy(ctx, fieldId);
+  },
+});
 
-    // Fetch current planted crops
-    const plantedCrops = await ctx.db
-      .query("plantedCrops")
-      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+export const checkOverlap = query({
+  args: {
+    fieldId: v.id("fields"),
+    startEarliest: v.optional(v.number()),
+    endLatest: v.optional(v.number()),
+    excludePlanId: v.optional(v.id("plannedPlantings")),
+  },
+  handler: async (ctx, { fieldId, startEarliest, endLatest, excludePlanId }) => {
+    const farmId = await resolveFieldFarmId(ctx, fieldId);
+    await requireFarmMembership(ctx, farmId);
 
-    // Fetch planned plantings (non-cancelled)
-    const plannedPlantings = await ctx.db
+    const occupancy = await buildFieldOccupancy(ctx, fieldId);
+
+    // Filter entries that overlap with the given time window
+    // Overlap condition: entry.start < proposed.end AND entry.end > proposed.start
+    return occupancy.filter((entry) => {
+      // Exclude the entry matching excludePlanId
+      if (excludePlanId && entry.sourceId === excludePlanId) return false;
+
+      // Perennial entries always overlap (they never end)
+      if (entry.isPerennial) {
+        // A perennial occupies from its start onward indefinitely
+        const entryStart = entry.startWindow.earliest;
+        if (entryStart !== undefined && endLatest !== undefined && entryStart >= endLatest) {
+          return false; // perennial starts after our proposed window ends
+        }
+        return true;
+      }
+
+      // Use earliest known start and latest known end for overlap check
+      const entryStart = entry.startWindow.earliest;
+      const entryEnd = entry.endWindow.latest ?? entry.endWindow.earliest;
+
+      // If either entry has no timing info, we can't determine overlap — skip
+      if (entryStart === undefined && entryEnd === undefined) return false;
+
+      // Check overlap: entry.start < proposed.end AND entry.end > proposed.start
+      const startsBeforeEnd =
+        entryStart === undefined || endLatest === undefined || entryStart < endLatest;
+      const endsAfterStart =
+        entryEnd === undefined || startEarliest === undefined || entryEnd > startEarliest;
+
+      return startsBeforeEnd && endsAfterStart;
+    });
+  },
+});
+
+export const getSuccessionChain = query({
+  args: {
+    fieldId: v.id("fields"),
+    plantedCropId: v.id("plantedCrops"),
+  },
+  handler: async (ctx, { fieldId, plantedCropId }) => {
+    const farmId = await resolveFieldFarmId(ctx, fieldId);
+    await requireFarmMembership(ctx, farmId);
+
+    // Get all planned plantings for this field
+    const allPlans = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
       .collect();
-    const activePlans = plannedPlantings.filter(
-      (p) => p.planningState !== "cancelled",
-    );
+    const activePlans = allPlans.filter((p) => p.planningState !== "cancelled");
 
-    type OccupancyEntry = {
-      regionId: string | undefined;
-      type: "current" | "planned";
-      sourceId: string;
-      cropId: string | undefined;
-      cropName: string | undefined;
-      startWindow: { earliest: number | undefined; latest: number | undefined };
-      endWindow: { earliest: number | undefined; latest: number | undefined };
-      isPerennial: boolean;
-    };
+    // Build chain: find all plans linked to this plantedCropId via predecessor links
+    const chain: typeof activePlans = [];
+    const visited = new Set<string>();
 
-    // Batch-fetch all unique crop IDs to avoid N+1 queries
-    const cropIdSet = new Set<Id<"crops">>();
-    for (const pc of plantedCrops) {
-      if (pc.cropId && pc.status !== "removed") cropIdSet.add(pc.cropId);
-    }
-    for (const pp of activePlans) {
-      if (pp.cropId && !pp.cropName) cropIdSet.add(pp.cropId);
-    }
-    const cropMap = new Map<string, { name: string; growthDays?: number; lifecycleType?: string }>();
-    await Promise.all(
-      [...cropIdSet].map(async (cropId) => {
-        const crop = await ctx.db.get(cropId);
-        if (crop) cropMap.set(cropId, {
-          name: crop.name,
-          growthDays: crop.growthDays,
-          lifecycleType: crop.lifecycleType,
-        });
-      }),
-    );
+    // Find direct successors of the plantedCropId
+    const queue: string[] = [plantedCropId];
+    const sourceType: Map<string, "plantedCrop" | "plan"> = new Map();
+    sourceType.set(plantedCropId, "plantedCrop");
 
-    const occupancy: OccupancyEntry[] = [];
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
 
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    const DEFAULT_GROWTH_DAYS = 90;
+      for (const plan of activePlans) {
+        if (visited.has(plan._id)) continue;
 
-    // Build occupancy from current planted crops
-    for (const pc of plantedCrops) {
-      if (pc.status === "removed") continue;
+        const isSuccessor =
+          (sourceType.get(currentId) === "plantedCrop" && plan.predecessorPlantedCropId === currentId) ||
+          (sourceType.get(currentId) === "plan" && plan.predecessorPlanId === currentId);
 
-      const crop = pc.cropId ? cropMap.get(pc.cropId) : undefined;
-      // Read lifecycleType from crop first, fall back to plantedCrop for backward compat
-      const lifecycleType = crop?.lifecycleType ?? pc.lifecycleType;
-      const isPerennial =
-        lifecycleType === "perennial" || lifecycleType === "orchard";
-
-      const cropName = crop?.name;
-
-      // Calculate estimated end dates if not explicitly set and not perennial
-      let endEarliest = pc.endWindowEarliest;
-      let endLatest = pc.endWindowLatest;
-      if (!isPerennial && !endEarliest && !endLatest) {
-        const growthDays = pc.customGrowthDays ?? crop?.growthDays ?? DEFAULT_GROWTH_DAYS;
-        const growthMs = growthDays * DAY_MS;
-        // Derive from plantedDate or start window
-        const plantedTs = pc.plantedDate
-          ? new Date(pc.plantedDate).getTime()
-          : undefined;
-        const startTs = plantedTs ?? pc.plantStartEarliest;
-        if (startTs) {
-          endEarliest = startTs + growthMs;
-          endLatest = startTs + growthMs;
-        }
-        // If we also have plantStartLatest, use it for endLatest
-        if (pc.plantStartLatest) {
-          endLatest = pc.plantStartLatest + growthMs;
+        if (isSuccessor) {
+          chain.push(plan);
+          sourceType.set(plan._id, "plan");
+          queue.push(plan._id);
         }
       }
-
-      occupancy.push({
-        regionId: undefined,
-        type: "current",
-        sourceId: pc._id,
-        cropId: pc.cropId ?? undefined,
-        cropName,
-        startWindow: {
-          earliest: pc.plantStartEarliest ?? (pc.plantedDate ? new Date(pc.plantedDate).getTime() : undefined),
-          latest: pc.plantStartLatest,
-        },
-        endWindow: {
-          earliest: isPerennial ? undefined : endEarliest,
-          latest: isPerennial ? undefined : endLatest,
-        },
-        isPerennial,
-      });
     }
 
-    // Build occupancy from planned plantings
-    for (const pp of activePlans) {
-      const cropName = pp.cropName ?? (pp.cropId ? cropMap.get(pp.cropId)?.name : undefined);
-
-      occupancy.push({
-        regionId: pp.regionId,
-        type: "planned",
-        sourceId: pp._id,
-        cropId: pp.cropId ?? undefined,
-        cropName,
-        startWindow: {
-          earliest: pp.startWindowEarliest
-            ? new Date(pp.startWindowEarliest).getTime()
-            : undefined,
-          latest: pp.startWindowLatest
-            ? new Date(pp.startWindowLatest).getTime()
-            : undefined,
-        },
-        endWindow: {
-          earliest: pp.endWindowEarliest
-            ? new Date(pp.endWindowEarliest).getTime()
-            : undefined,
-          latest: pp.endWindowLatest
-            ? new Date(pp.endWindowLatest).getTime()
-            : undefined,
-        },
-        isPerennial: false,
-      });
-    }
-
-    return occupancy;
+    return chain;
   },
 });
 
@@ -221,6 +320,43 @@ export const create = mutation({
     if (!field || field.farmId !== args.farmId) {
       throw new Error("田區不屬於此農場");
     }
+
+    let startWindowEarliest = args.startWindowEarliest;
+    let startWindowLatest = args.startWindowLatest;
+
+    // Perennial guard & auto-predecessor timing
+    if (args.predecessorPlantedCropId) {
+      const predecessor = await ctx.db.get(args.predecessorPlantedCropId);
+      if (predecessor) {
+        // Check if predecessor crop is perennial/orchard
+        let predLifecycleType: string | undefined = predecessor.lifecycleType;
+        if (!predLifecycleType && predecessor.cropId) {
+          const predCrop = await ctx.db.get(predecessor.cropId);
+          if (predCrop) predLifecycleType = predCrop.lifecycleType;
+        }
+        if (predLifecycleType === "perennial" || predLifecycleType === "orchard") {
+          throw new Error("多年生作物區域無法規劃輪作");
+        }
+
+        // Auto-fill start window from predecessor's estimated end
+        if (!startWindowEarliest && !startWindowLatest) {
+          // Build occupancy to find predecessor's end window
+          const occupancy = await buildFieldOccupancy(ctx, args.fieldId);
+          const predEntry = occupancy.find(
+            (e) => e.sourceId === args.predecessorPlantedCropId,
+          );
+          if (predEntry) {
+            if (predEntry.endWindow.earliest !== undefined) {
+              startWindowEarliest = new Date(predEntry.endWindow.earliest).toISOString();
+            }
+            if (predEntry.endWindow.latest !== undefined) {
+              startWindowLatest = new Date(predEntry.endWindow.latest).toISOString();
+            }
+          }
+        }
+      }
+    }
+
     const now = Date.now();
     const id = await ctx.db.insert("plannedPlantings", {
       farmId: args.farmId,
@@ -229,8 +365,8 @@ export const create = mutation({
       cropId: args.cropId,
       cropName: args.cropName,
       planningState: "draft",
-      startWindowEarliest: args.startWindowEarliest,
-      startWindowLatest: args.startWindowLatest,
+      startWindowEarliest,
+      startWindowLatest,
       endWindowEarliest: args.endWindowEarliest,
       endWindowLatest: args.endWindowLatest,
       predecessorPlantedCropId: args.predecessorPlantedCropId,
