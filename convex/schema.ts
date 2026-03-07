@@ -323,11 +323,11 @@ export default defineSchema({
     predecessorPlantedCropId: v.optional(v.id("plantedCrops")),
     predecessorPlanId: v.optional(v.id("plannedPlantings")),
     notes: v.optional(v.string()),
-    confidence: v.union(
+    confidence: v.optional(v.union(
       v.literal("high"),
       v.literal("medium"),
       v.literal("low")
-    ),
+    )),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

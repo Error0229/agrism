@@ -8,7 +8,6 @@ import {
   Clock,
   HelpCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { OccupancyEntry } from "./season-board";
@@ -25,7 +24,6 @@ interface RegionPlanningInspectorProps {
     plantedDate?: string;
     endWindowEarliest?: number;
     endWindowLatest?: number;
-    timelineConfidence?: string;
   };
   occupancy: OccupancyEntry[];
   onPlanNext: () => void;
@@ -70,14 +68,6 @@ export function RegionPlanningInspector({
     plantedCrop.endWindowLatest,
   );
 
-  const confidenceLabel = currentEntry?.confidence
-    ? currentEntry.confidence === "high"
-      ? "高"
-      : currentEntry.confidence === "medium"
-        ? "中"
-        : "低"
-    : null;
-
   return (
     <div className="space-y-3">
       {/* Section header */}
@@ -120,9 +110,6 @@ export function RegionPlanningInspector({
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <Clock className="size-2.5" />
             預估結束: <span className="font-medium text-foreground/80">{estimatedEnd}</span>
-            {confidenceLabel && (
-              <span className="text-muted-foreground/60">({confidenceLabel}確定性)</span>
-            )}
           </div>
         )}
 
@@ -160,16 +147,6 @@ export function RegionPlanningInspector({
                       {startStr}
                     </span>
                   )}
-                </div>
-                <div className={cn(
-                  "rounded px-1 py-0.5 text-[9px] font-medium",
-                  entry.confidence === "high"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : entry.confidence === "medium"
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      : "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400",
-                )}>
-                  {entry.confidence === "high" ? "高" : entry.confidence === "medium" ? "中" : "低"}
                 </div>
               </button>
             );

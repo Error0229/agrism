@@ -82,7 +82,6 @@ export const getFieldOccupancy = query({
       cropName: string | undefined;
       startWindow: { earliest: number | undefined; latest: number | undefined };
       endWindow: { earliest: number | undefined; latest: number | undefined };
-      confidence: "high" | "medium" | "low";
       isPerennial: boolean;
     };
 
@@ -158,7 +157,6 @@ export const getFieldOccupancy = query({
           earliest: isPerennial ? undefined : endEarliest,
           latest: isPerennial ? undefined : endLatest,
         },
-        confidence: pc.timelineConfidence ?? "low",
         isPerennial,
       });
     }
@@ -189,7 +187,6 @@ export const getFieldOccupancy = query({
             ? new Date(pp.endWindowLatest).getTime()
             : undefined,
         },
-        confidence: pp.confidence,
         isPerennial: false,
       });
     }
@@ -201,12 +198,6 @@ export const getFieldOccupancy = query({
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
-
-const confidenceValidator = v.union(
-  v.literal("high"),
-  v.literal("medium"),
-  v.literal("low"),
-);
 
 export const create = mutation({
   args: {
@@ -222,7 +213,6 @@ export const create = mutation({
     predecessorPlantedCropId: v.optional(v.id("plantedCrops")),
     predecessorPlanId: v.optional(v.id("plannedPlantings")),
     notes: v.optional(v.string()),
-    confidence: v.optional(confidenceValidator),
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, args.farmId);
@@ -246,7 +236,6 @@ export const create = mutation({
       predecessorPlantedCropId: args.predecessorPlantedCropId,
       predecessorPlanId: args.predecessorPlanId,
       notes: args.notes,
-      confidence: args.confidence ?? "medium",
       createdAt: now,
       updatedAt: now,
     });
@@ -267,7 +256,6 @@ export const update = mutation({
     predecessorPlantedCropId: v.optional(v.id("plantedCrops")),
     predecessorPlanId: v.optional(v.id("plannedPlantings")),
     notes: v.optional(v.string()),
-    confidence: v.optional(confidenceValidator),
   },
   handler: async (ctx, { plannedPlantingId, ...patch }) => {
     const { farmId } = await resolvePlannedPlantingFarmId(ctx, plannedPlantingId);
