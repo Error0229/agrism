@@ -644,11 +644,11 @@ export const generateDailyTasks = mutation({
       )
       .collect();
 
-    // ----- 7. Fetch planned plantings for the farm -----
+    // ----- 7. Fetch planned plantings for the farm (bounded) -----
     const plannedPlantings = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(500);
 
     // ----- 8. Run all rules -----
     const allCandidates: TaskCandidate[] = [

@@ -354,7 +354,12 @@ export const saveDraftCrop = internalMutation({
     category: v.string(),
     isDefault: v.boolean(),
     importStatus: v.optional(v.string()),
-    fieldMeta: v.optional(v.any()),
+    fieldMeta: v.optional(v.record(v.string(), v.object({
+      confidence: v.optional(v.string()),
+      sources: v.optional(v.array(v.string())),
+      origin: v.optional(v.string()),
+      lastVerified: v.optional(v.string()),
+    }))),
     source: v.optional(v.string()),
     // Identity
     scientificName: v.optional(v.string()),

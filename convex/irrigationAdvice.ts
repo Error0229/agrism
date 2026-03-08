@@ -63,8 +63,13 @@ export const generateIrrigationAdvice = action({
 
     let weatherData;
     try {
-      const resp = await fetch(weatherUrl);
-      weatherData = await resp.json();
+      const resp = await fetch(weatherUrl, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) {
+        console.error(`Open-Meteo API error: ${resp.status} ${resp.statusText}`);
+        weatherData = null;
+      } else {
+        weatherData = await resp.json();
+      }
     } catch {
       weatherData = null;
     }

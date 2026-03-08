@@ -33,9 +33,14 @@ export const checkWeatherAndReplan = action({
 
     let forecast;
     try {
-      const resp = await fetch(weatherUrl);
+      const resp = await fetch(weatherUrl, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) {
+        console.error(`Open-Meteo API error: ${resp.status} ${resp.statusText}`);
+        throw new Error("無法取得天氣資料");
+      }
       forecast = await resp.json();
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.message === "無法取得天氣資料") throw e;
       throw new Error("無法取得天氣資料");
     }
 

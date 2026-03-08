@@ -272,6 +272,7 @@ export const evaluateSuitability = query({
     await requireFarmMembership(ctx, field.farmId);
     const crop = await ctx.db.get(cropId);
     if (!crop) throw new Error("作物不存在");
+    if (crop.farmId !== field.farmId) throw new Error("作物與田區不屬於同一農場");
 
     return computeSuitability(crop, field);
   },

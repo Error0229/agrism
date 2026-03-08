@@ -142,6 +142,7 @@ async function callOpenRouter(
       max_tokens: 4096,
       response_format: { type: "json_object" },
     }),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!response.ok) {
@@ -160,7 +161,12 @@ async function callOpenRouter(
 function parseJsonResponse<T>(raw: string): T {
   // Strip markdown code fences if present
   const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-  return JSON.parse(cleaned) as T;
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    console.error("Failed to parse AI JSON response:", cleaned);
+    throw new Error("AI 回應格式錯誤，請重試");
+  }
 }
 
 // === Individual pass functions ===

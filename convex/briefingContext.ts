@@ -71,12 +71,11 @@ export const buildFarmContext = internalQuery({
       .collect();
     recentWeather.sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
 
-    // Get active tasks
-    const tasks = await ctx.db
+    // Get active tasks (use compound index to fetch only incomplete tasks)
+    const pendingTasks = await ctx.db
       .query("tasks")
-      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .withIndex("by_farmId_completed", (q) => q.eq("farmId", farmId).eq("completed", false))
       .collect();
-    const pendingTasks = tasks.filter((t) => !t.completed);
 
     // Get planned plantings
     const plans = await ctx.db
@@ -85,18 +84,18 @@ export const buildFarmContext = internalQuery({
       .collect();
     const activePlans = plans.filter((p) => p.planningState !== "cancelled");
 
-    // Get recent dismissed/snoozed recommendations (last 30 days)
+    // Get recent dismissed/snoozed recommendations (last 30 days) using index
     const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
-    const allRecommendations = await ctx.db
-      .query("recommendations")
-      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
-    const recentFeedback = allRecommendations
-      .filter(
-        (r) =>
-          (r.status === "dismissed" || r.status === "snoozed") &&
-          r.createdAt >= thirtyDaysAgo
-      )
+    const [dismissedRecs, snoozedRecs] = await Promise.all([
+      ctx.db.query("recommendations")
+        .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "dismissed"))
+        .collect(),
+      ctx.db.query("recommendations")
+        .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "snoozed"))
+        .collect(),
+    ]);
+    const recentFeedback = [...dismissedRecs, ...snoozedRecs]
+      .filter((r) => r.createdAt >= thirtyDaysAgo)
       .map((r) => ({
         type: r.type,
         title: r.title,

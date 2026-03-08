@@ -152,7 +152,12 @@ export default defineSchema({
 
     // === Import Review (issue #89/#90) ===
     importStatus: v.optional(v.string()),  // "pending_review" | "approved" | undefined
-    fieldMeta: v.optional(v.any()),  // Record<string, { confidence?: string, sources?: string[], origin?: string, lastVerified?: number }>
+    fieldMeta: v.optional(v.record(v.string(), v.object({
+      confidence: v.optional(v.string()),
+      sources: v.optional(v.array(v.string())),
+      origin: v.optional(v.string()),
+      lastVerified: v.optional(v.string()),
+    }))),
   }).index("by_farmId", ["farmId"]),
 
   cropTemplates: defineTable({

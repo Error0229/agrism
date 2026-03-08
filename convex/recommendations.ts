@@ -11,17 +11,17 @@ export const getActive = query({
   handler: async (ctx, { farmId }) => {
     await requireFarmMembership(ctx, farmId);
     const now = Date.now();
-    const all = await ctx.db
-      .query("recommendations")
-      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+    const [newRecs, acceptedRecs] = await Promise.all([
+      ctx.db.query("recommendations")
+        .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "new"))
+        .collect(),
+      ctx.db.query("recommendations")
+        .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "accepted"))
+        .collect(),
+    ]);
 
-    return all
-      .filter(
-        (r) =>
-          (r.status === "new" || r.status === "accepted") &&
-          (!r.expiresAt || r.expiresAt > now)
-      )
+    return [...newRecs, ...acceptedRecs]
+      .filter((r) => !r.expiresAt || r.expiresAt > now)
       .sort((a, b) => {
         const priorityOrder = { high: 0, medium: 1, low: 2 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
@@ -36,10 +36,11 @@ export const getHistory = query({
   },
   handler: async (ctx, { farmId, limit }) => {
     await requireFarmMembership(ctx, farmId);
+    const bound = limit ?? 100;
     const all = await ctx.db
       .query("recommendations")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(bound * 3); // over-fetch to account for filtering
 
     const historical = all
       .filter(
@@ -50,7 +51,7 @@ export const getHistory = query({
       )
       .sort((a, b) => b.createdAt - a.createdAt);
 
-    return limit ? historical.slice(0, limit) : historical;
+    return historical.slice(0, bound);
   },
 });
 
