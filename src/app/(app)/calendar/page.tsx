@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import {
   addMonths,
   subMonths,
@@ -24,6 +24,8 @@ import {
   Check,
   Clock,
   Wrench,
+  ListChecks,
+  Loader2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -39,6 +41,7 @@ import {
 
 import { useFarmId } from '@/hooks/use-farm-id'
 import { useTasks, useToggleTask, useDeleteTask } from '@/hooks/use-tasks'
+import { useGenerateDailyTasks } from '@/hooks/use-daily-tasks'
 import { useCrops } from '@/hooks/use-crops'
 import { useFields } from '@/hooks/use-fields'
 import { TaskType, TaskDifficulty } from '@/lib/types/enums'
@@ -88,6 +91,8 @@ export default function CalendarPage() {
   const fields = useFields(farmId) ?? []
   const toggleTask = useToggleTask()
   const deleteTask = useDeleteTask()
+  const generateDailyTasks = useGenerateDailyTasks()
+  const [generatingTasks, setGeneratingTasks] = useState(false)
 
   // ── Calendar state ────────────────────────────────────────────────
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
@@ -192,9 +197,48 @@ export default function CalendarPage() {
     return field?.name ?? null
   }
 
+  const handleGenerateDailyTasks = useCallback(async () => {
+    if (!farmId || generatingTasks) return
+    setGeneratingTasks(true)
+    try {
+      const result = await generateDailyTasks({ farmId })
+      const generated = (result as { generated: number })?.generated ?? 0
+      if (generated > 0) {
+        toast.success(`已生成 ${generated} 項任務`)
+      } else {
+        toast.info('目前無需生成新任務')
+      }
+    } catch {
+      toast.error('生成任務失敗')
+    } finally {
+      setGeneratingTasks(false)
+    }
+  }, [farmId, generatingTasks, generateDailyTasks])
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">種植行事曆</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">種植行事曆</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGenerateDailyTasks}
+          disabled={generatingTasks}
+          className="gap-1.5"
+        >
+          {generatingTasks ? (
+            <>
+              <Loader2 className="size-3.5 animate-spin" />
+              生成中...
+            </>
+          ) : (
+            <>
+              <ListChecks className="size-3.5" />
+              自動生成今日任務
+            </>
+          )}
+        </Button>
+      </div>
 
       {/* ── Month Calendar Grid ─────────────────────────────────── */}
       <Card>

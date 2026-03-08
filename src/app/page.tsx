@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
 import { useTasks, useToggleTask } from '@/hooks/use-tasks'
+import { useGenerateDailyTasks } from '@/hooks/use-daily-tasks'
 import { useFields } from '@/hooks/use-fields'
 import {
   TASK_TYPE_LABELS,
@@ -37,6 +38,7 @@ import {
   ChevronDown,
   History,
   CloudRain,
+  ListChecks,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
@@ -92,6 +94,8 @@ export default function DashboardPage() {
   const allTasks = useTasks(farmId)
   const fieldsData = useFields(farmId)
   const toggleTask = useToggleTask()
+  const generateDailyTasks = useGenerateDailyTasks()
+  const [generatingTasks, setGeneratingTasks] = useState(false)
 
   const tasksLoading = allTasks === undefined
   const fieldsLoading = fieldsData === undefined
@@ -225,6 +229,24 @@ export default function DashboardPage() {
       toast.error('天氣檢查失敗')
     } finally {
       setWeatherReplanLoading(false)
+    }
+  }
+
+  const handleGenerateDailyTasks = async () => {
+    if (!farmId || generatingTasks) return
+    setGeneratingTasks(true)
+    try {
+      const result = await generateDailyTasks({ farmId })
+      const generated = (result as { generated: number })?.generated ?? 0
+      if (generated > 0) {
+        toast.success(`已生成 ${generated} 項任務`)
+      } else {
+        toast.info('目前無需生成新任務')
+      }
+    } catch {
+      toast.error('生成任務失敗')
+    } finally {
+      setGeneratingTasks(false)
     }
   }
 
@@ -385,6 +407,27 @@ export default function DashboardPage() {
             <CheckCircle2 className="size-5 text-green-600" />
             今日任務
           </CardTitle>
+          <div className="flex justify-end -mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateDailyTasks}
+              disabled={generatingTasks}
+              className="gap-1.5"
+            >
+              {generatingTasks ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <ListChecks className="size-3.5" />
+                  自動生成今日任務
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {tasksLoading ? (

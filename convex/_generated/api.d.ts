@@ -14,6 +14,7 @@ import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
 import type * as cropImport from "../cropImport.js";
 import type * as crops from "../crops.js";
+import type * as dailyTaskGeneration from "../dailyTaskGeneration.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
 import type * as fields from "../fields.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   cropEnrichment: typeof cropEnrichment;
   cropImport: typeof cropImport;
   crops: typeof crops;
+  dailyTaskGeneration: typeof dailyTaskGeneration;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;
   fields: typeof fields;
