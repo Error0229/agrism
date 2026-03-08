@@ -3,7 +3,7 @@
 import { use, useState, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCropById, useDeleteCrop, useUpdateCrop } from '@/hooks/use-crops'
+import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { CropEditForm } from '@/components/crops/crop-edit-form'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
@@ -1152,6 +1152,8 @@ export default function CropDetailPage({
             </span>
           </div>
         )}
+
+        </>}
       </div>
     </TooltipProvider>
   )

@@ -15,6 +15,12 @@
 - **#98** Crop Detail Page Redesign — 60+ field schema, AI enrichment (7-pass), dense detail page, rich list cards, full seed data
 - **#88** Occupancy and Succession Planning — overlap detection, succession chains, auto-predecessor, perennial guards
 - **#92** Crop-Field Suitability Engine — 5 constraint checks, suitability display in crop detail + planning
+- **#93** AI Daily Briefing — recommendation schema, context builder, dashboard cards, AI generation
+- **#94** Recommendation Feedback Loop — dismiss reason, history view, AI learning from feedback
+- **#95** Weather-Triggered Replan — 7-day forecast, weather-specific proposals, dashboard button
+- **#96** Irrigation Advisor — (in progress)
+- **#97** Pest Triage Assistant — (in progress)
+- Crop Detail Inline Editing — edit mode with all 60+ fields
 - Inspector redesign (split area/crop, simplified dates)
 - Sidebar polish (drag-reorder, scroll fix, handle positioning)
 - Unit tests (47+ total across 9+ files)
@@ -22,7 +28,6 @@
 ## Upcoming (from GitHub issues)
 - **#89** Evidence-Backed Crop Import (depends on #86 ✅, partially superseded by #98)
 - **#90** Crop Import Review Workflow (depends on #86 ✅)
-- **#93-#97** AI Layer (Daily Briefing, Feedback Loop, Weather Replan, Irrigation, Pest Triage)
 
 ## Blocked
 (None currently)
