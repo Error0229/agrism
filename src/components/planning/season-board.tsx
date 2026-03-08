@@ -216,6 +216,17 @@ export function SeasonBoard({
     [totalCols, startMonth, startYear],
   );
 
+  // Pre-compute bar positions for all occupancy entries to avoid redundant calls during render
+  const barsBySourceId = useMemo(() => {
+    const map = new Map<string, { startCol: number; endCol: number; isPerennial: boolean } | null>();
+    if (!occupancy) return map;
+    for (const entry of occupancy) {
+      if (map.has(entry.sourceId)) continue;
+      map.set(entry.sourceId, computeBar(entry));
+    }
+    return map;
+  }, [occupancy, computeBar]);
+
   // "Today" marker column
   const todayCol = useMemo(() => {
     const { month, jun, year } = getMonthJun(nowTs);
@@ -266,6 +277,7 @@ export function SeasonBoard({
       </div>
 
       {/* Board grid */}
+      <TooltipProvider>
       <ScrollArea className="flex-1">
         <div className="min-w-[600px]">
           {/* Month headers */}
@@ -333,9 +345,9 @@ export function SeasonBoard({
                   {/* Grid cells with occupancy bars overlaid */}
                   {Array.from({ length: totalCols }, (_, colIdx) => {
                     const isToday = todayCol === colIdx;
-                    // Find entries that cover this column
+                    // Find entries that cover this column (using pre-computed bars)
                     const covering = entries.filter((e) => {
-                      const bar = computeBar(e);
+                      const bar = barsBySourceId.get(e.sourceId);
                       return bar && colIdx >= bar.startCol && colIdx <= bar.endCol;
                     });
 
@@ -353,7 +365,7 @@ export function SeasonBoard({
                         )}
                       >
                         {covering.map((entry) => {
-                          const bar = computeBar(entry);
+                          const bar = barsBySourceId.get(entry.sourceId);
                           if (!bar) return null;
 
                           const isStart = colIdx === bar.startCol;
@@ -361,8 +373,7 @@ export function SeasonBoard({
                           const isPlanned = entry.type === "planned";
 
                           return (
-                            <TooltipProvider key={entry.sourceId}>
-                              <Tooltip>
+                              <Tooltip key={entry.sourceId}>
                                 <TooltipTrigger asChild>
                                   <button
                                     type="button"
@@ -400,7 +411,6 @@ export function SeasonBoard({
                                   </div>
                                 </TooltipContent>
                               </Tooltip>
-                            </TooltipProvider>
                           );
                         })}
 
@@ -457,6 +467,7 @@ export function SeasonBoard({
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
+      </TooltipProvider>
     </div>
   );
 }
