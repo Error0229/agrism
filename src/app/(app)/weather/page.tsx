@@ -25,6 +25,7 @@ import {
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import { useFarmId } from '@/hooks/use-farm-id'
 import { useCreateWeatherLog } from '@/hooks/use-weather-logs'
+import { IrrigationPanel } from '@/components/irrigation/irrigation-panel'
 
 // ---------------------------------------------------------------------------
 // Types matching the weather API response
@@ -368,6 +369,9 @@ export default function WeatherPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Irrigation Panel */}
+      <IrrigationPanel />
 
       {/* Manual Weather Log */}
       <Card>

@@ -374,6 +374,44 @@ export default defineSchema({
     .index("by_farmId", ["farmId"])
     .index("by_fieldId", ["fieldId"]),
 
+  // === Irrigation Zones (issue #96) ===
+  irrigationZones: defineTable({
+    farmId: v.id("farms"),
+    fieldId: v.id("fields"),
+    name: v.string(),
+    linkedRegionIds: v.optional(v.array(v.string())),
+    linkedNodeIds: v.optional(v.array(v.id("utilityNodes"))),
+    lastWateredAt: v.optional(v.number()),
+    skipReason: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_farmId", ["farmId"])
+    .index("by_fieldId", ["fieldId"]),
+
+  // === Pest/Disease Observations (issue #97) ===
+  pestObservations: defineTable({
+    farmId: v.id("farms"),
+    fieldId: v.optional(v.id("fields")),
+    plantedCropId: v.optional(v.id("plantedCrops")),
+    cropId: v.optional(v.id("crops")),
+    observedAt: v.number(),
+    symptoms: v.string(),
+    affectedParts: v.optional(v.array(v.string())),
+    severity: v.union(v.literal("mild"), v.literal("moderate"), v.literal("severe")),
+    spreadRate: v.optional(v.string()),
+    environmentNotes: v.optional(v.string()),
+    triageResults: v.optional(v.array(v.object({
+      possibleCause: v.string(),
+      likelihood: v.string(),
+      reasoning: v.string(),
+      nextChecks: v.string(),
+      treatment: v.string(),
+    }))),
+    triageStatus: v.optional(v.string()),
+    resolution: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  }).index("by_farmId", ["farmId"]).index("by_cropId", ["cropId"]),
+
   // === AI Recommendations (issue #93) ===
   recommendations: defineTable({
     farmId: v.id("farms"),
