@@ -513,6 +513,60 @@ export const enrichCrop = action({
   },
 });
 
+// === Internal version of enrichCrop (no auth checks, for trusted internal callers) ===
+
+export const enrichCropInternal = internalAction({
+  args: {
+    cropId: v.id("crops"),
+  },
+  handler: async (ctx, { cropId }): Promise<{ success: boolean; error?: string }> => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENROUTER_API_KEY environment variable is not set");
+    }
+
+    const crop = await ctx.runQuery(internal.crops.getByIdInternal, { cropId });
+    if (!crop) {
+      throw new Error("Crop not found");
+    }
+
+    const cropName = crop.name;
+    const category = crop.category;
+    const location = "花蓮縣 (Hualien County, subtropical, humid, typhoon season Jun-Oct, mild winter, sea level to 200m)";
+
+    try {
+      const [pass1, pass2, pass3] = await Promise.all([
+        runPass1(apiKey, cropName, category, location),
+        runPass2(apiKey, cropName, category, location),
+        runPass3(apiKey, cropName, category, location),
+      ]);
+
+      const [pass4, pass5] = await Promise.all([
+        runPass4(apiKey, cropName, category, location),
+        runPass5(apiKey, cropName, category, location),
+      ]);
+
+      const pass6 = await runPass6(apiKey, cropName, category, location, pass1.growthDays);
+
+      const previousDataSummary = JSON.stringify({ pass1, pass2, pass3, pass4, pass5, pass6 }, null, 2);
+      const pass7 = await runPass7(apiKey, cropName, category, location, previousDataSummary);
+
+      const enrichmentData = mergeResults(pass1, pass2, pass3, pass4, pass5, pass6, pass7);
+
+      await ctx.runMutation(internal.crops.applyEnrichment, {
+        cropId,
+        ...enrichmentData,
+      } as never);
+
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Enrichment failed for crop ${cropName}:`, message);
+      return { success: false, error: message };
+    }
+  },
+});
+
 // === Batch enrichment for seeding all default crops ===
 
 export const enrichAllDefaults = action({
@@ -600,7 +654,7 @@ export const enrichAllDefaultsInternal = internalAction({
 
     for (const crop of defaultCrops) {
       try {
-        const result = await ctx.runAction(api.cropEnrichment.enrichCrop, {
+        const result = await ctx.runAction(internal.cropEnrichment.enrichCropInternal, {
           cropId: crop._id,
         });
         if (result.success) {
