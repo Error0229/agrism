@@ -1,127 +1,181 @@
 # 花蓮蔬果種植指南（Agrism）
 
-花蓮在地化農務管理 Web App，面向小型家庭菜園到進階農友。  
-目前以繁體中文（zh-TW）為主介面，重點是「規劃決策 + 在地天氣 + 可回溯農務紀錄」。
+花蓮在地化農務管理 Web App，面向小型家庭菜園到進階農友。
+繁體中文（zh-TW）為主介面，核心圍繞「智慧規劃 + 在地天氣 + 可回溯農務紀錄 + AI 農業顧問」。
 
 ## 產品重點
 
-- 作物資料庫：內建作物、自訂作物、作物模板
-- 田區規劃：2D 畫布、事件溯源時間軸、空間衝突檢查
-- 任務規劃：自動任務生成、週任務優先排序、工時瓶頸預警
-- 收成預估：區間式預估（最早/可能/最晚）與信心度
-- 農場管理：收成、財務、土壤剖面、土壤改良、天氣與輪作建議
-- 自動化建議：依天氣異常規則產生可確認的調整建議與重規劃觸發
-- 外部整合：天氣、氣候/行情/感測器適配器（目前為 mock 路徑）
-- AI 助手：OpenRouter + Vercel AI SDK
+- **作物資料庫**：60+ 欄位的作物知識 Schema v3，AI 七階段自動補全，證據式作物匯入（4-pass AI 研究 + 審核流程）
+- **田區規劃**：2D 互動畫布（react-konva）、田區列表、設施與管線網路
+- **季節規劃**：田區優先季節規劃板（Field-First Season Planner）、佔用與接茬規劃、重疊偵測
+- **作物生命週期**：成長階段追蹤、模糊種植日期支援、作物詳情頁（專業佈局 + 行內編輯）
+- **任務系統**：規則式每日任務生成（7 條確定性規則）、行事曆時間軸
+- **農場紀錄**：收成日誌、財務報表、土壤剖面／改良／筆記、天氣觀測
+- **適地適種引擎**：作物-田區適配性檢查（5 項約束條件）
+- **AI 每日簡報**：推薦引擎 + 回饋迴路（確認／延後／駁回 + 學習機制）
+- **天氣重規劃**：7 日預報觸發調整建議
+- **灌溉顧問**：灌溉區域管理 + AI 澆水建議
+- **病蟲害分診**：症狀觀察記錄 + AI 診斷分析
+- **農場地理設定**：台灣縣市鄉鎮選擇器、地理感知農藝設定檔（Geography-Keyed Hierarchy）
+- **AI 助手**：OpenRouter + Vercel AI SDK，花蓮在地化系統提示（颱風季、亞熱帶氣候、有機實務）
 
 ## 技術棧
 
-- Next.js 16（App Router）
-- React 19 + TypeScript 5（strict）
-- Tailwind CSS v4 + shadcn/ui
-- react-konva（田區畫布）
-- Recharts（統計圖表）
-- Vitest（單元測試）
-- Auth.js + Neon（目前用於 auth/planner API 路徑）
-- 前端狀態：React Context + localStorage
+| 類別 | 技術 |
+| --- | --- |
+| 框架 | Next.js 16（App Router）、React 19、TypeScript 5（strict） |
+| 資料庫 | [Convex](https://convex.dev)（即時資料庫，21 張表，定義於 `convex/schema.ts`） |
+| 認證 | [Clerk](https://clerk.com)（`@clerk/nextjs`）+ Convex 整合 |
+| 伺服端狀態 | Convex `useQuery` / `useMutation`（即時響應） |
+| UI 狀態 | Zustand（田區編輯器：工具、縮放、選取、復原/重做） |
+| 樣式 | Tailwind CSS v4 + shadcn/ui（New York 風格） |
+| 畫布 | react-konva |
+| 表單 | react-hook-form + zod 驗證 |
+| 圖表 | Recharts |
+| 圖示 | lucide-react |
+| 拖放 | @dnd-kit |
+| Markdown | react-markdown + @tailwindcss/typography |
+| AI | @openrouter/ai-sdk-provider + Vercel AI SDK |
+| 單元測試 | Vitest |
+| E2E 測試 | Playwright |
+
+## 路由
+
+已認證路由使用 `(app)` route group，透過 Clerk middleware 保護。
+
+| 路由 | 說明 |
+| --- | --- |
+| `/` | 儀表板（統計、今日任務、天氣） |
+| `/calendar` | 種植行事曆與任務管理 |
+| `/crops` | 作物資料庫瀏覽 |
+| `/crops/[cropId]` | 作物詳情（專業佈局 + 行內編輯 + 範圍標記 + 來源檢視） |
+| `/fields` | 田區列表與新增 |
+| `/fields/[fieldId]` | 互動式田區編輯器畫布 |
+| `/records/harvest` | 收成日誌管理 |
+| `/records/finance` | 財務紀錄（收入/支出） |
+| `/records/soil` | 土壤剖面、改良紀錄、筆記 |
+| `/records/pest` | 病蟲害觀察紀錄 |
+| `/weather` | 天氣資料與手動觀測記錄 |
+| `/ai` | AI 農務助手對話介面 |
+| `/settings` | 帳號設定、農場地理位置、資料匯出/匯入 |
+
+### API 路徑
+
+| 路徑 | 說明 |
+| --- | --- |
+| `/api/chat` | 串流 AI 對話（OpenRouter） |
+| `/api/weather` | 花蓮天氣資料 |
+
+## 資料庫 Schema
+
+使用 Convex 即時資料庫，共 21 張表，定義於 `convex/schema.ts`：
+
+- **認證**：`farms`、`farmMembers`
+- **作物**：`crops`（60+ 欄位）、`cropTemplates`、`cropTemplateItems`
+- **田區**：`fields`（含內嵌 fieldContexts + soilProfiles）、`plantedCrops`（含生命週期）、`facilities`、`utilityNodes`、`utilityEdges`
+- **任務**：`tasks`
+- **紀錄**：`harvestLogs`、`financeRecords`、`soilAmendments`、`soilNotes`、`weatherLogs`
+- **規劃**：`plannedPlantings`
+- **灌溉**：`irrigationZones`
+- **病蟲害**：`pestObservations`
+- **AI 建議**：`recommendations`
+
+## Convex 後端模組
+
+後端函數位於 `convex/` 目錄，包含：
+
+`farms` · `fields` · `crops` · `cropEnrichment` · `cropImport` · `tasks` · `dailyTaskGeneration` · `harvest` · `finance` · `soil` · `weather` · `weatherReplan` · `plannedPlantings` · `suitability` · `irrigationZones` · `irrigationAdvice` · `pestObservations` · `pestTriage` · `recommendations` · `briefingContext` · `briefingGeneration` · `dataTransfer`
 
 ## 開發環境
 
-## 需求
+### 需求
 
 - Bun 1.3+
-- Node.js 20+（供部分工具鏈）
+- Node.js 20+（部分工具鏈需要）
+- Convex CLI（`bun add -g convex`）
 
-## 安裝與啟動
+### 安裝與啟動
 
 ```bash
 bun install
-bun run dev
 ```
 
-預設網址：`http://localhost:3000`
-
-## 常用指令
+啟動開發伺服器與 Convex 後端（需分別在兩個終端執行）：
 
 ```bash
-bun run dev
-bun run build
-bun run lint
-bun test
-bunx tsc --noEmit
+bun run dev       # Next.js 開發伺服器（預設 http://localhost:3000）
+bun run convex    # Convex 開發伺服器
+```
+
+### 常用指令
+
+```bash
+bun run dev          # Next.js 開發伺服器（Turbopack）
+bun run build        # 正式環境建置
+bun run lint         # ESLint 檢查
+bun run test         # Vitest 單元測試
+bun run test:e2e     # Playwright E2E 測試（使用 port 3099）
+bun run convex       # Convex 開發伺服器
 ```
 
 ## 環境變數
 
-建立 `.env.local`（或 `.env`）並填入：
+建立 `.env.local` 並填入：
 
 ```bash
+# Convex
+CONVEX_DEPLOYMENT=...
+NEXT_PUBLIC_CONVEX_URL=...
+
+# Clerk 認證
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+CLERK_SECRET_KEY=...
+
+# AI 功能
 OPENROUTER_API_KEY=...
-DATABASE_URL=...
-NEXTAUTH_SECRET=...
 ```
 
-說明：
+| 變數 | 說明 |
+| --- | --- |
+| `CONVEX_DEPLOYMENT` | Convex 部署識別碼 |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex 部署 URL |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk 公開金鑰 |
+| `CLERK_SECRET_KEY` | Clerk 私密金鑰 |
+| `OPENROUTER_API_KEY` | OpenRouter API 金鑰（AI 助手、作物補全、每日簡報等） |
 
-- `OPENROUTER_API_KEY`：AI 助手與作物 AI 補全路徑需要
-- `DATABASE_URL`：Neon Postgres（auth/planner server route）
-- `NEXTAUTH_SECRET`：Auth.js session/JWT 穩定性需要
+## 架構概覽
 
-## 路由
+### 狀態管理
 
-- `/` 儀表板
-- `/calendar` 行事曆與任務時間軸
-- `/crops` 作物資料庫
-- `/crops/[cropId]` 作物詳情
-- `/field-planner` 田區視覺規劃
-- `/farm-management` 收成/財務/土壤/天氣/輪作/資料匯入匯出
-- `/ai-assistant` AI 農務助手
-- `/auth/login` 登入頁
+- **伺服端狀態**：Convex `useQuery` / `useMutation`，即時響應，自動同步
+- **UI 狀態**：Zustand store（`src/lib/store/field-editor-store.ts`）— 田區編輯器工具、縮放、平移、網格、選取、復原/重做
+- **認證 context**：`useFarmId()` 透過 Convex 查詢解析農場
 
-## API 路徑
+### 關鍵 Hooks
 
-- `/api/chat` 串流 AI 對話
-- `/api/crop-info` 作物 AI 補全
-- `/api/weather` 花蓮天氣 + 警示 + 信心度
-- `/api/integration/overview` 外部資料整合總覽（氣候/行情/感測 mock）
-- `/api/planner/*` 田區事件儲存與時間軸查詢
-- `/api/auth/*` 登入註冊與 session
+`useFarmId` · `useFields` · `useCrops` · `useTasks` · `useHarvestLogs` · `useFinanceRecords` · `useSoilProfile` · `useWeatherLogs`
 
-## 架構摘要
+### 型別系統
 
-## 前端狀態層
+- `src/lib/types/domain.ts` — 核心領域型別（Crop、Field、Task 等）
+- `src/lib/types/enums.ts` — 所有列舉（CropCategory、TaskType、PlotType 等）
+- `src/lib/types/labels.ts` — 列舉的 zh-TW 標籤對應
 
-- `src/lib/store/fields-context.tsx`：田區與事件流
-- `src/lib/store/tasks-context.tsx`：任務與工時正規化
-- `src/lib/store/custom-crops-context.tsx`：自訂作物與模板
-- `src/lib/store/farm-management-context.tsx`：收成/財務/土壤/天氣等紀錄
+### 關鍵設計模式
 
-## 領域邏輯層
+- 頁面預設為 Server Component，互動元件使用 `"use client"` 指令
+- 田區編輯器使用 Command Pattern 實作復原/重做
+- `cn()` 工具函數合併 clsx + tailwind-merge
+- Middleware 使用 Clerk `clerkMiddleware` 保護路由
+- Convex mutations 使用 validators 進行輸入驗證
+- 路徑別名：`@/*` → `./src/*`
 
-- 作物 schema：`src/lib/data/crop-schema.ts`
-- 任務排序與工時：`src/lib/utils/task-prioritizer.ts`、`src/lib/utils/workload-forecast.ts`
-- 收成預估：`src/lib/utils/harvest-forecast.ts`
-- 天氣警示/自動化規則：`src/lib/weather/severe-alerts.ts`、`src/lib/automation/rules.ts`
-- 資料轉移：`src/lib/utils/farm-data-transfer.ts`
+## 測試
 
-## 整合層
-
-- 天氣 provider：`src/lib/weather/providers/*`
-- 外部資料 adapter：`src/lib/integration/*`
-
-## 測試策略（現況）
-
-- 以 Vitest 為主的單元測試
-- 覆蓋：schema/migration、規劃邏輯、天氣信心、自動化規則、資料轉移、整合適配器
-- 目前尚未配置 E2E 測試框架
+- **單元測試**：Vitest — 8 個測試檔案，涵蓋生命週期檢查、農場地理設定、台灣地理資料、整合正規化/服務、規劃網格、天氣信心度
+- **E2E 測試**：Playwright — 6 個測試檔案，涵蓋認證流程、田區編輯器、表單互動、導航、側邊欄
 
 ## 專案管理
 
-- 工作規範：`AGENTS.md`
-- 設計與里程碑文件：`docs/plans/`
+- 開發規範：`CLAUDE.md`
 - CI：`.github/workflows/ci.yml`
-
-## 注意事項
-
-- 本專案目前仍以 localStorage 為主要資料儲存（非完整後端資料庫系統）
-- API 失敗時設計為可降級，不應阻斷核心在地規劃流程
