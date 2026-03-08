@@ -162,6 +162,14 @@ export function RecommendationCard({ recommendation: rec }: RecommendationCardPr
         <div className="flex items-center gap-2 min-w-0">
           <Icon className="size-4 shrink-0 text-muted-foreground" />
           <span className="text-sm font-semibold truncate flex-1">{rec.title}</span>
+          {rec.type === 'weather' && (
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 bg-sky-100 text-sky-700 border-sky-200"
+            >
+              天氣觸發
+            </Badge>
+          )}
           <Badge
             variant="outline"
             className={cn('text-[10px] px-1.5 py-0', priority.className)}

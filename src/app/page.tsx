@@ -36,12 +36,15 @@ import {
   Sparkles,
   ChevronDown,
   History,
+  CloudRain,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import {
   useActiveRecommendations,
   useRecommendationHistory,
   useGenerateBriefing,
+  useCheckWeatherReplan,
 } from '@/hooks/use-recommendations'
 import { RecommendationCard } from '@/components/recommendations/recommendation-card'
 import {
@@ -96,7 +99,9 @@ export default function DashboardPage() {
   const recommendations = useActiveRecommendations(farmId)
   const recommendationHistory = useRecommendationHistory(farmId)
   const generateBriefing = useGenerateBriefing()
+  const checkWeatherReplan = useCheckWeatherReplan()
   const [briefingLoading, setBriefingLoading] = useState(false)
+  const [weatherReplanLoading, setWeatherReplanLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const recommendationsLoading = recommendations === undefined
 
@@ -205,6 +210,24 @@ export default function DashboardPage() {
     }
   }
 
+  const handleCheckWeather = async () => {
+    if (!farmId || weatherReplanLoading) return
+    setWeatherReplanLoading(true)
+    try {
+      const result = await checkWeatherReplan({ farmId })
+      const count = (result as { count: number })?.count ?? 0
+      if (count > 0) {
+        toast.success(`已生成 ${count} 個天氣建議`)
+      } else {
+        toast.info('天氣正常，無需調整')
+      }
+    } catch {
+      toast.error('天氣檢查失敗')
+    } finally {
+      setWeatherReplanLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -224,7 +247,26 @@ export default function DashboardPage() {
             <BrainCircuit className="size-5 text-violet-600" />
             今日農務建議
           </CardTitle>
-          <div className="flex justify-end -mt-6">
+          <div className="flex justify-end -mt-6 gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={handleCheckWeather}
+              disabled={weatherReplanLoading}
+            >
+              {weatherReplanLoading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  檢查天氣中...
+                </>
+              ) : (
+                <>
+                  <CloudRain className="size-3.5" />
+                  天氣檢查
+                </>
+              )}
+            </Button>
             <Button
               size="sm"
               variant="outline"

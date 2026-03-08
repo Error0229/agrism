@@ -34,3 +34,7 @@ export function useCompleteRecommendation() {
 export function useGenerateBriefing() {
   return useAction(api.briefingGeneration.generateBriefing);
 }
+
+export function useCheckWeatherReplan() {
+  return useAction(api.weatherReplan.checkWeatherAndReplan);
+}

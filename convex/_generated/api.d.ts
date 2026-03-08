@@ -24,6 +24,7 @@ import type * as soil from "../soil.js";
 import type * as suitability from "../suitability.js";
 import type * as tasks from "../tasks.js";
 import type * as weather from "../weather.js";
+import type * as weatherReplan from "../weatherReplan.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   suitability: typeof suitability;
   tasks: typeof tasks;
   weather: typeof weather;
+  weatherReplan: typeof weatherReplan;
 }>;
 
 /**
