@@ -8,6 +8,7 @@ import { CropEditForm } from '@/components/crops/crop-edit-form'
 import { CropImportReview } from '@/components/crops/crop-import-review'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
+import { Markdown } from '@/components/ui/markdown'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -1138,8 +1139,8 @@ export default function CropDetailPage({
                     <ChevronDown className="size-3.5 text-muted-foreground ml-auto transition-transform group-data-[state=closed]/guide:rotate-[-90deg]" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="mt-2 pl-6 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                      {content}
+                    <div className="mt-2 pl-6 text-muted-foreground">
+                      <Markdown>{content}</Markdown>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
