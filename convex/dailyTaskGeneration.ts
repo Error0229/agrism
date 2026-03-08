@@ -606,11 +606,25 @@ export const generateDailyTasks = mutation({
       fieldId: pc.fieldId,
     }));
 
-    // ----- 4. Fetch all tasks for this farm (both complete and incomplete) -----
+    // ----- 4. Fetch incomplete tasks for this farm (used for duplicate detection) -----
     const allTasks = await ctx.db
       .query("tasks")
-      .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", false)
+      )
       .collect();
+
+    // Also fetch recently completed tasks (today) for dedup of same-day completions
+    const completedTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", true)
+      )
+      .order("desc")
+      .take(100);
+
+    // Merge for duplicate detection
+    allTasks.push(...completedTasks);
 
     // ----- 5. Fetch irrigation zones for the farm -----
     const irrigationZones = await ctx.db
@@ -618,16 +632,17 @@ export const generateDailyTasks = mutation({
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
       .collect();
 
-    // ----- 6. Fetch recent weather logs (last 7 days) -----
-    const allWeatherLogs = await ctx.db
-      .query("weatherLogs")
-      .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+    // ----- 6. Fetch recent weather logs (last 7 days) using date index -----
+    const sevenDaysAgoDate = new Date();
+    sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
+    const sevenDaysAgo = sevenDaysAgoDate.toISOString().split("T")[0]!;
 
-    const recentWeatherLogs = allWeatherLogs.filter((log) => {
-      const daysAgo = daysBetween(log.date, today);
-      return daysAgo >= 0 && daysAgo <= 7;
-    });
+    const recentWeatherLogs = await ctx.db
+      .query("weatherLogs")
+      .withIndex("by_farmId_date", (q) =>
+        q.eq("farmId", args.farmId).gte("date", sevenDaysAgo)
+      )
+      .collect();
 
     // ----- 7. Fetch planned plantings for the farm -----
     const plannedPlantings = await ctx.db

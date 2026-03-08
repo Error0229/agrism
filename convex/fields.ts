@@ -23,7 +23,8 @@ export const list = query({
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
       .collect();
 
-    return Promise.all(
+    // Fetch all sub-entities per field in parallel
+    const fieldSubEntities = await Promise.all(
       rows.map(async (field) => {
         const [plantedCrops, facilities, utilityNodes, utilityEdges] =
           await Promise.all([
@@ -44,24 +45,38 @@ export const list = query({
               .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
               .collect(),
           ]);
-
-        // Resolve crop data for each plantedCrop
-        const plantedCropsWithCrop = await Promise.all(
-          plantedCrops.map(async (pc) => {
-            const crop = pc.cropId ? await ctx.db.get(pc.cropId) : null;
-            return { ...pc, crop };
-          })
-        );
-
-        return {
-          ...field,
-          plantedCrops: plantedCropsWithCrop,
-          facilities,
-          utilityNodes,
-          utilityEdges,
-        };
+        return { field, plantedCrops, facilities, utilityNodes, utilityEdges };
       })
     );
+
+    // Batch-fetch all unique crop IDs across all fields to avoid N+1
+    const allPlantedCrops = fieldSubEntities.flatMap((e) => e.plantedCrops);
+    const cropIdSet = new Set<string>();
+    for (const pc of allPlantedCrops) {
+      if (pc.cropId) cropIdSet.add(pc.cropId as string);
+    }
+    const cropMap = new Map<string, NonNullable<Awaited<ReturnType<typeof ctx.db.get<"crops">>>>>();
+    await Promise.all(
+      Array.from(cropIdSet).map(async (cropId) => {
+        const crop = await ctx.db.get(cropId as Id<"crops">);
+        if (crop) cropMap.set(cropId, crop);
+      })
+    );
+
+    return fieldSubEntities.map(({ field, plantedCrops, facilities, utilityNodes, utilityEdges }) => {
+      const plantedCropsWithCrop = plantedCrops.map((pc) => {
+        const crop = pc.cropId ? (cropMap.get(pc.cropId as string) ?? null) : null;
+        return { ...pc, crop };
+      });
+
+      return {
+        ...field,
+        plantedCrops: plantedCropsWithCrop,
+        facilities,
+        utilityNodes,
+        utilityEdges,
+      };
+    });
   },
 });
 
@@ -92,12 +107,23 @@ export const getById = query({
           .collect(),
       ]);
 
-    const plantedCropsWithCrop = await Promise.all(
-      plantedCrops.map(async (pc) => {
-        const crop = pc.cropId ? await ctx.db.get(pc.cropId) : null;
-        return { ...pc, crop };
+    // Batch-fetch all unique crop IDs to avoid N+1
+    const cropIdSet = new Set<string>();
+    for (const pc of plantedCrops) {
+      if (pc.cropId) cropIdSet.add(pc.cropId as string);
+    }
+    const cropMap = new Map<string, NonNullable<Awaited<ReturnType<typeof ctx.db.get<"crops">>>>>();
+    await Promise.all(
+      Array.from(cropIdSet).map(async (cropId) => {
+        const crop = await ctx.db.get(cropId as Id<"crops">);
+        if (crop) cropMap.set(cropId, crop);
       })
     );
+
+    const plantedCropsWithCrop = plantedCrops.map((pc) => {
+      const crop = pc.cropId ? (cropMap.get(pc.cropId as string) ?? null) : null;
+      return { ...pc, crop };
+    });
 
     return {
       ...field,
@@ -106,6 +132,62 @@ export const getById = query({
       utilityNodes,
       utilityEdges,
     };
+  },
+});
+
+export const listSummary = query({
+  args: { farmId: v.id("farms") },
+  handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
+    const fields = await ctx.db
+      .query("fields")
+      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .collect();
+
+    // Fetch all planted crops across all fields
+    const fieldPlantedCrops = await Promise.all(
+      fields.map((field) =>
+        ctx.db
+          .query("plantedCrops")
+          .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
+          .collect()
+      )
+    );
+    const allPlantedCrops = fieldPlantedCrops.flat();
+
+    // Batch-fetch all unique crop IDs
+    const cropIdSet = new Set<string>();
+    for (const pc of allPlantedCrops) {
+      if (pc.cropId) cropIdSet.add(pc.cropId as string);
+    }
+    const cropMap = new Map<string, { name: string; emoji?: string; growthDays?: number }>();
+    await Promise.all(
+      Array.from(cropIdSet).map(async (cropId) => {
+        const crop = await ctx.db.get(cropId as Id<"crops">);
+        if (crop) cropMap.set(cropId, { name: crop.name, emoji: crop.emoji, growthDays: crop.growthDays });
+      })
+    );
+
+    return fields.map((field, i) => {
+      const plantedCrops = fieldPlantedCrops[i]!;
+      return {
+        _id: field._id,
+        name: field.name,
+        plantedCrops: plantedCrops.map((pc) => {
+          const crop = pc.cropId ? cropMap.get(pc.cropId as string) : undefined;
+          return {
+            _id: pc._id,
+            cropId: pc.cropId,
+            cropName: crop?.name ?? "未知",
+            cropEmoji: crop?.emoji ?? "",
+            status: pc.status,
+            plantedDate: pc.plantedDate,
+            customGrowthDays: pc.customGrowthDays,
+            growthDays: crop?.growthDays ?? 0,
+          };
+        }),
+      };
+    });
   },
 });
 

@@ -294,7 +294,9 @@ export default defineSchema({
     effortMinutes: v.optional(v.number()),
     difficulty: v.optional(v.string()),
     requiredTools: v.optional(v.array(v.string())),
-  }).index("by_farmId", ["farmId"]),
+  })
+    .index("by_farmId", ["farmId"])
+    .index("by_farmId_completed", ["farmId", "completed"]),
 
   // === Records ===
   harvestLogs: defineTable({
@@ -345,7 +347,9 @@ export default defineSchema({
     rainfallMm: v.optional(v.number()),
     condition: v.optional(v.string()),
     notes: v.optional(v.string()),
-  }).index("by_farmId", ["farmId"]),
+  })
+    .index("by_farmId", ["farmId"])
+    .index("by_farmId_date", ["farmId", "date"]),
 
   // === Planned Plantings (issue #87) ===
   plannedPlantings: defineTable({

@@ -57,20 +57,19 @@ export const buildFarmContext = internalQuery({
       })
     );
 
-    // Get recent weather (last 7 days)
-    const weatherLogs = await ctx.db
-      .query("weatherLogs")
-      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+    // Get recent weather (last 7 days) using date index
     const now = new Date();
     const sevenDaysAgo = new Date(
       now.getTime() - 7 * 24 * 60 * 60 * 1000
     );
     const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
-    const recentWeather = weatherLogs
-      .filter((w) => w.date >= sevenDaysAgoStr)
-      .sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0))
-      .slice(-7);
+    const recentWeather = await ctx.db
+      .query("weatherLogs")
+      .withIndex("by_farmId_date", (q) =>
+        q.eq("farmId", farmId).gte("date", sevenDaysAgoStr)
+      )
+      .collect();
+    recentWeather.sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
 
     // Get active tasks
     const tasks = await ctx.db

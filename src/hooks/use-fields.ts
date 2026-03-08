@@ -10,6 +10,10 @@ export function useFields(farmId: Id<"farms"> | undefined) {
   return useQuery(api.fields.list, farmId ? { farmId } : "skip");
 }
 
+export function useFieldsSummary(farmId: Id<"farms"> | undefined) {
+  return useQuery(api.fields.listSummary, farmId ? { farmId } : "skip");
+}
+
 export function useFieldById(fieldId: Id<"fields"> | undefined) {
   return useQuery(api.fields.getById, fieldId ? { fieldId } : "skip");
 }

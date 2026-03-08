@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
 import { useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { useGenerateDailyTasks } from '@/hooks/use-daily-tasks'
-import { useFields } from '@/hooks/use-fields'
+import { useFieldsSummary } from '@/hooks/use-fields'
 import {
   TASK_TYPE_LABELS,
   TASK_DIFFICULTY_LABELS,
@@ -92,7 +92,7 @@ interface WeatherData {
 export default function DashboardPage() {
   const { farmId, isLoading: farmLoading } = useFarmIdWithStatus()
   const allTasks = useTasks(farmId)
-  const fieldsData = useFields(farmId)
+  const fieldsData = useFieldsSummary(farmId)
   const toggleTask = useToggleTask()
   const generateDailyTasks = useGenerateDailyTasks()
   const [generatingTasks, setGeneratingTasks] = useState(false)
@@ -185,10 +185,9 @@ export default function DashboardPage() {
   // ---- Growing crops ----
   const growingEntries = (fieldsData ?? []).flatMap((field) =>
     field.plantedCrops
-      .filter((entry) => entry.status === 'growing' && entry.crop != null)
+      .filter((entry) => entry.status === 'growing' && entry.cropName !== '未知')
       .map((entry) => ({
         ...entry,
-        crop: entry.crop!,
         fieldName: field.name,
       })),
   )
@@ -536,11 +535,11 @@ export default function DashboardPage() {
               {growingEntries.map((entry) => {
                 const plantedDate = new Date(entry.plantedDate ?? "2000-01-01")
                 const daysSincePlanted = differenceInDays(new Date(), plantedDate)
-                const growthDays =
+                const totalGrowthDays =
                   entry.customGrowthDays ??
-                  entry.crop.growthDays ??
+                  entry.growthDays ??
                   90
-                const daysToHarvest = Math.max(0, growthDays - daysSincePlanted)
+                const daysToHarvest = Math.max(0, totalGrowthDays - daysSincePlanted)
 
                 return (
                   <div
@@ -549,10 +548,10 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-lg">
-                        {entry.crop.emoji ?? '🌱'}
+                        {entry.cropEmoji || '🌱'}
                       </span>
                       <span className="text-sm font-medium truncate">
-                        {entry.crop.name}
+                        {entry.cropName}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
