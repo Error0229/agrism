@@ -373,4 +373,32 @@ export default defineSchema({
   })
     .index("by_farmId", ["farmId"])
     .index("by_fieldId", ["fieldId"]),
+
+  // === AI Recommendations (issue #93) ===
+  recommendations: defineTable({
+    farmId: v.id("farms"),
+    type: v.string(), // "care" | "harvest" | "weather" | "planning" | "pest" | "general"
+    title: v.string(),
+    summary: v.string(),
+    recommendedAction: v.string(),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    confidence: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    reasoning: v.string(),
+    sourceSignals: v.array(v.string()),
+    status: v.union(
+      v.literal("new"),
+      v.literal("accepted"),
+      v.literal("snoozed"),
+      v.literal("dismissed"),
+      v.literal("completed")
+    ),
+    relatedCropId: v.optional(v.id("crops")),
+    relatedFieldId: v.optional(v.id("fields")),
+    relatedPlantedCropId: v.optional(v.id("plantedCrops")),
+    dismissReason: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_farmId", ["farmId"])
+    .index("by_farmId_status", ["farmId", "status"]),
 });

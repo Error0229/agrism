@@ -9,6 +9,8 @@
  */
 
 import type * as _helpers from "../_helpers.js";
+import type * as briefingContext from "../briefingContext.js";
+import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
 import type * as crops from "../crops.js";
 import type * as dataTransfer from "../dataTransfer.js";
@@ -17,6 +19,7 @@ import type * as fields from "../fields.js";
 import type * as finance from "../finance.js";
 import type * as harvest from "../harvest.js";
 import type * as plannedPlantings from "../plannedPlantings.js";
+import type * as recommendations from "../recommendations.js";
 import type * as soil from "../soil.js";
 import type * as suitability from "../suitability.js";
 import type * as tasks from "../tasks.js";
@@ -30,6 +33,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
+  briefingContext: typeof briefingContext;
+  briefingGeneration: typeof briefingGeneration;
   cropEnrichment: typeof cropEnrichment;
   crops: typeof crops;
   dataTransfer: typeof dataTransfer;
@@ -38,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   finance: typeof finance;
   harvest: typeof harvest;
   plannedPlantings: typeof plannedPlantings;
+  recommendations: typeof recommendations;
   soil: typeof soil;
   suitability: typeof suitability;
   tasks: typeof tasks;
