@@ -20,14 +20,15 @@
 - **#95** Weather-Triggered Replan — 7-day forecast, weather-specific proposals, dashboard button
 - **#96** Irrigation Advisor — zone CRUD, AI watering advice, irrigation panel on weather page
 - **#97** Pest Triage Assistant — observation CRUD, AI diagnosis, pest page with triage results
+- **#89** Evidence-Backed Crop Import — 4-pass AI research with per-field confidence, fieldMeta, draft status
+- **#90** Crop Import Review Workflow — review page with confidence badges, edit-before-save, required field gating
 - Crop Detail Inline Editing — edit mode with all 60+ fields
 - Inspector redesign (split area/crop, simplified dates)
 - Sidebar polish (drag-reorder, scroll fix, handle positioning)
 - Unit tests (47+ total across 9+ files)
 
-## In Progress
-- **#89** Evidence-Backed Crop Import — 4-pass AI research with confidence, fieldMeta, draft status
-- **#90** Crop Import Review Workflow — review page with confidence badges, edit-before-save, required field gating
+## Upcoming
+(All GitHub issues #83-#98, #89, #90 are implemented)
 
 ## Blocked
 (None currently)
