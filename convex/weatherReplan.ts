@@ -13,6 +13,12 @@ export const checkWeatherAndReplan = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("未登入，無法執行此操作");
 
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId,
+    });
+
     // 1. Get farm context (reuse from briefingContext)
     const context = await ctx.runQuery(
       internal.briefingContext.buildFarmContext,

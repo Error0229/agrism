@@ -464,6 +464,12 @@ export const enrichCrop = action({
       throw new Error("Crop not found");
     }
 
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId: crop.farmId,
+    });
+
     const cropName = crop.name;
     const category = crop.category;
     const location = "花蓮縣 (Hualien County, subtropical, humid, typhoon season Jun-Oct, mild winter, sea level to 200m)";
@@ -518,6 +524,12 @@ export const enrichAllDefaults = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId,
+    });
 
     // Get all crops for this farm
     const crops = await ctx.runQuery(internal.crops.listByFarmInternal, { farmId });

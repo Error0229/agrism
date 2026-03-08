@@ -22,6 +22,12 @@ export const generateBriefing = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("未登入，無法執行此操作");
 
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId,
+    });
+
     // Get farm context via internal query
     const context = await ctx.runQuery(
       internal.briefingContext.buildFarmContext,

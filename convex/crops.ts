@@ -441,11 +441,47 @@ export const saveDraftCrop = internalMutation({
   },
 });
 
+// Allowlist of fields that can be overridden during import review.
+// Explicitly blocks farmId, isDefault, importStatus, source, and other
+// security-sensitive fields from being set via overrides.
+const importOverridesValidator = v.optional(v.object({
+  name: v.optional(v.string()),
+  scientificName: v.optional(v.string()),
+  aliases: v.optional(v.array(v.string())),
+  category: v.optional(v.string()),
+  lifecycleType: v.optional(v.string()),
+  propagationMethod: v.optional(v.string()),
+  plantingMonths: v.optional(v.array(v.number())),
+  harvestMonths: v.optional(v.array(v.number())),
+  growthDays: v.optional(v.number()),
+  daysToGermination: v.optional(v.number()),
+  tempMin: v.optional(v.number()),
+  tempMax: v.optional(v.number()),
+  tempOptimalMin: v.optional(v.number()),
+  tempOptimalMax: v.optional(v.number()),
+  sunlight: v.optional(v.string()),
+  water: v.optional(v.string()),
+  windSensitivity: v.optional(v.string()),
+  soilPhMin: v.optional(v.number()),
+  soilPhMax: v.optional(v.number()),
+  soilType: v.optional(v.string()),
+  fertilizerType: v.optional(v.string()),
+  spacingPlantCm: v.optional(v.number()),
+  spacingRowCm: v.optional(v.number()),
+  maxHeightCm: v.optional(v.number()),
+  harvestMaturitySigns: v.optional(v.string()),
+  harvestMethod: v.optional(v.string()),
+  yieldPerPlant: v.optional(v.string()),
+  companionPlants: v.optional(v.array(v.string())),
+  antagonistPlants: v.optional(v.array(v.string())),
+  rotationFamily: v.optional(v.string()),
+}));
+
 export const approveImport = mutation({
   args: {
     cropId: v.id("crops"),
-    // Optional field overrides from user review edits
-    overrides: v.optional(v.any()),
+    // Optional field overrides from user review edits (allowlisted fields only)
+    overrides: importOverridesValidator,
   },
   handler: async (ctx, { cropId, overrides }) => {
     const crop = await ctx.db.get(cropId);

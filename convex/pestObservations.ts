@@ -21,6 +21,9 @@ export const list = query({
 export const listByCrop = query({
   args: { cropId: v.id("crops") },
   handler: async (ctx, args) => {
+    const crop = await ctx.db.get(args.cropId);
+    if (!crop) return [];
+    await requireFarmMembership(ctx, crop.farmId);
     const results = await ctx.db
       .query("pestObservations")
       .withIndex("by_cropId", (q) => q.eq("cropId", args.cropId))
@@ -32,7 +35,10 @@ export const listByCrop = query({
 export const getById = query({
   args: { observationId: v.id("pestObservations") },
   handler: async (ctx, args) => {
-    return ctx.db.get(args.observationId);
+    const obs = await ctx.db.get(args.observationId);
+    if (!obs) return null;
+    await requireFarmMembership(ctx, obs.farmId);
+    return obs;
   },
 });
 

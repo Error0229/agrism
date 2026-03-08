@@ -475,6 +475,12 @@ export const importCropWithEvidence = action({
       throw new Error("未登入，無法執行此操作");
     }
 
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId,
+    });
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       throw new Error("OPENROUTER_API_KEY 環境變數未設定");

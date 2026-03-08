@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireFarmMembership } from "./_helpers";
 
 // ---------------------------------------------------------------------------
@@ -178,19 +179,25 @@ export const importFarmData = mutation({
     // Import soil amendments
     if (Array.isArray(data.soilAmendments) && data.soilAmendments.length > 0) {
       try {
+        let importedCount = 0;
         for (const amendment of data.soilAmendments) {
           // We need a fieldId — skip if not present since we can't map without field context
           if (!amendment.fieldId) continue;
+          // Validate that the fieldId belongs to this farm
+          const fieldId_ = amendment.fieldId as Id<"fields">;
+          const field = await ctx.db.get(fieldId_);
+          if (!field || field.farmId !== farmId) continue;
           await ctx.db.insert("soilAmendments", {
-            fieldId: amendment.fieldId,
+            fieldId: fieldId_,
             date: String(amendment.date ?? ""),
             amendmentType: String(amendment.amendmentType ?? ""),
             quantity: Number(amendment.quantity ?? 0),
             unit: String(amendment.unit ?? "kg"),
             notes: amendment.notes ? String(amendment.notes) : undefined,
           });
+          importedCount++;
         }
-        results.imported.push(`soilAmendments (${data.soilAmendments.length})`);
+        results.imported.push(`soilAmendments (${importedCount})`);
       } catch (e) {
         results.errors.push(`soilAmendments: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -199,16 +206,22 @@ export const importFarmData = mutation({
     // Import soil notes
     if (Array.isArray(data.soilNotes) && data.soilNotes.length > 0) {
       try {
+        let importedCount = 0;
         for (const note of data.soilNotes) {
           if (!note.fieldId) continue;
+          // Validate that the fieldId belongs to this farm
+          const fieldId_ = note.fieldId as Id<"fields">;
+          const field = await ctx.db.get(fieldId_);
+          if (!field || field.farmId !== farmId) continue;
           await ctx.db.insert("soilNotes", {
-            fieldId: note.fieldId,
+            fieldId: fieldId_,
             date: String(note.date ?? ""),
             content: String(note.content ?? ""),
             ph: note.ph ? Number(note.ph) : undefined,
           });
+          importedCount++;
         }
-        results.imported.push(`soilNotes (${data.soilNotes.length})`);
+        results.imported.push(`soilNotes (${importedCount})`);
       } catch (e) {
         results.errors.push(`soilNotes: ${e instanceof Error ? e.message : String(e)}`);
       }

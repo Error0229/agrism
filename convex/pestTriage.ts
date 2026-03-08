@@ -16,6 +16,12 @@ export const triageObservation = action({
     });
     if (!obs) throw new Error("找不到觀察紀錄");
 
+    // Verify farm membership
+    await ctx.runQuery(internal.farms.verifyMembership, {
+      clerkUserId: identity.subject,
+      farmId: obs.farmId,
+    });
+
     // Fetch crop data if available
     let cropData: Record<string, unknown> | null = null;
     if (obs.cropId) {

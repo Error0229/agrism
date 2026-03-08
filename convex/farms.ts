@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireFarmMembership } from "./_helpers";
@@ -66,6 +66,25 @@ export const ensureFarm = mutation({
 
     const farm = await ctx.db.get(farmId);
     return { farm, role: "owner" as const };
+  },
+});
+
+/**
+ * Internal query to verify farm membership from actions.
+ * Actions cannot use requireFarmMembership (needs QueryCtx), so they
+ * call this via ctx.runQuery(internal.farms.verifyMembership, ...).
+ */
+export const verifyMembership = internalQuery({
+  args: { clerkUserId: v.string(), farmId: v.id("farms") },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("farmMembers")
+      .withIndex("by_farmId_clerkUserId", (q) =>
+        q.eq("farmId", args.farmId).eq("clerkUserId", args.clerkUserId)
+      )
+      .first();
+    if (!membership) throw new Error("無權限存取此農場資料");
+    return membership;
   },
 });
 
