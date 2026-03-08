@@ -13,15 +13,18 @@ import {
   Bug,
   Lightbulb,
   Check,
+  CheckCircle,
   Clock,
   X,
   ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
 import {
   useAcceptRecommendation,
   useSnoozeRecommendation,
   useDismissRecommendation,
+  useCompleteRecommendation,
 } from '@/hooks/use-recommendations'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -90,10 +93,13 @@ const BORDER_COLORS: Record<string, string> = {
 
 export function RecommendationCard({ recommendation: rec }: RecommendationCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showDismissInput, setShowDismissInput] = useState(false)
+  const [dismissReason, setDismissReason] = useState('')
 
   const accept = useAcceptRecommendation()
   const snooze = useSnoozeRecommendation()
   const dismiss = useDismissRecommendation()
+  const complete = useCompleteRecommendation()
 
   const Icon = TYPE_ICONS[rec.type] ?? Lightbulb
   const priority = PRIORITY_CONFIG[rec.priority]
@@ -117,10 +123,28 @@ export function RecommendationCard({ recommendation: rec }: RecommendationCardPr
     }
   }
 
-  const handleDismiss = async () => {
+  const handleComplete = async () => {
     try {
-      await dismiss({ recommendationId: rec._id })
+      await complete({ recommendationId: rec._id })
+      toast.success('已標記完成')
+    } catch {
+      toast.error('操作失敗')
+    }
+  }
+
+  const handleDismissClick = () => {
+    setShowDismissInput(true)
+  }
+
+  const handleDismissConfirm = async () => {
+    try {
+      await dismiss({
+        recommendationId: rec._id,
+        reason: dismissReason.trim() || undefined,
+      })
       toast.success('已忽略')
+      setShowDismissInput(false)
+      setDismissReason('')
     } catch {
       toast.error('操作失敗')
     }
@@ -210,6 +234,15 @@ export function RecommendationCard({ recommendation: rec }: RecommendationCardPr
             size="sm"
             variant="outline"
             className="h-7 text-xs gap-1"
+            onClick={handleComplete}
+          >
+            <CheckCircle className="size-3" />
+            已完成
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1"
             onClick={handleSnooze}
           >
             <Clock className="size-3" />
@@ -219,12 +252,43 @@ export function RecommendationCard({ recommendation: rec }: RecommendationCardPr
             size="sm"
             variant="ghost"
             className="h-7 text-xs gap-1 text-muted-foreground"
-            onClick={handleDismiss}
+            onClick={handleDismissClick}
           >
             <X className="size-3" />
             忽略
           </Button>
         </div>
+
+        {/* Dismiss reason input */}
+        {showDismissInput && (
+          <div className="flex items-center gap-2 pt-1">
+            <Input
+              placeholder="忽略原因（選填）"
+              value={dismissReason}
+              onChange={(e) => setDismissReason(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleDismissConfirm()
+              }}
+              className="h-7 text-xs flex-1"
+              autoFocus
+              onBlur={() => {
+                // Small delay to allow button click to register
+                setTimeout(() => {
+                  if (showDismissInput) handleDismissConfirm()
+                }, 150)
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs shrink-0"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleDismissConfirm}
+            >
+              確認忽略
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

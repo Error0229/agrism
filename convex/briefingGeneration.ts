@@ -51,7 +51,10 @@ export const generateBriefing = action({
 - 考慮花蓮的亞熱帶氣候、颱風季節
 - 優先建議急迫性高的事項
 - 如果資料不足，降低信心度
-- 所有文字使用繁體中文`;
+- 所有文字使用繁體中文
+
+以下是農民最近忽略或延後的建議，避免重複類似建議：
+${JSON.stringify(context.recentFeedback ?? [])}`;
 
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",

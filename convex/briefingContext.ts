@@ -86,6 +86,25 @@ export const buildFarmContext = internalQuery({
       .collect();
     const activePlans = plans.filter((p) => p.planningState !== "cancelled");
 
+    // Get recent dismissed/snoozed recommendations (last 30 days)
+    const thirtyDaysAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    const allRecommendations = await ctx.db
+      .query("recommendations")
+      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .collect();
+    const recentFeedback = allRecommendations
+      .filter(
+        (r) =>
+          (r.status === "dismissed" || r.status === "snoozed") &&
+          r.createdAt >= thirtyDaysAgo
+      )
+      .map((r) => ({
+        type: r.type,
+        title: r.title,
+        status: r.status,
+        dismissReason: r.dismissReason,
+      }));
+
     return {
       farm: {
         name: farm.name,
@@ -134,6 +153,7 @@ export const buildFarmContext = internalQuery({
         state: p.planningState,
         startWindow: p.startWindowEarliest,
       })),
+      recentFeedback,
     };
   },
 });

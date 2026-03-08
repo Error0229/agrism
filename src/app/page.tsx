@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
@@ -33,10 +34,13 @@ import {
   Wind,
   BrainCircuit,
   Sparkles,
+  ChevronDown,
+  History,
 } from 'lucide-react'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import {
   useActiveRecommendations,
+  useRecommendationHistory,
   useGenerateBriefing,
 } from '@/hooks/use-recommendations'
 import { RecommendationCard } from '@/components/recommendations/recommendation-card'
@@ -90,8 +94,10 @@ export default function DashboardPage() {
   const fieldsLoading = fieldsData === undefined
 
   const recommendations = useActiveRecommendations(farmId)
+  const recommendationHistory = useRecommendationHistory(farmId)
   const generateBriefing = useGenerateBriefing()
   const [briefingLoading, setBriefingLoading] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const recommendationsLoading = recommendations === undefined
 
   const [weather, setWeather] = useState<WeatherData | null>(null)
@@ -261,6 +267,72 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ================================================================
+          Section 0b: Recommendation History
+          ================================================================ */}
+      {recommendationHistory && recommendationHistory.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(!historyOpen)}
+              className="flex items-center gap-2 w-full text-left"
+            >
+              <History className="size-5 text-muted-foreground" />
+              <CardTitle className="text-lg flex-1">歷史建議</CardTitle>
+              <Badge variant="secondary" className="text-xs">
+                {recommendationHistory.length}
+              </Badge>
+              <ChevronDown
+                className={cn(
+                  'size-4 text-muted-foreground transition-transform duration-200',
+                  historyOpen && 'rotate-180',
+                )}
+              />
+            </button>
+          </CardHeader>
+          <div
+            className={cn(
+              'grid transition-all duration-200 ease-in-out',
+              historyOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+            )}
+          >
+            <div className="overflow-hidden">
+              <CardContent className="pt-0 pb-3">
+                <div className="space-y-2">
+                  {recommendationHistory.slice(0, 10).map((rec) => (
+                    <div
+                      key={rec._id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <span className="flex-1 truncate">{rec.title}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'text-[10px] px-1.5 py-0 shrink-0',
+                          rec.status === 'completed' && 'bg-sky-100 text-sky-700 border-sky-200',
+                          rec.status === 'dismissed' && 'bg-rose-100 text-rose-700 border-rose-200',
+                          rec.status === 'snoozed' && 'bg-amber-100 text-amber-700 border-amber-200',
+                          rec.status === 'accepted' && 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                        )}
+                      >
+                        {rec.status === 'completed' && '已完成'}
+                        {rec.status === 'accepted' && '已接受'}
+                        {rec.status === 'snoozed' && '已延後'}
+                        {rec.status === 'dismissed' && '已忽略'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {format(new Date(rec.createdAt), 'M/d')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ================================================================
           Section 1: Today's Tasks
