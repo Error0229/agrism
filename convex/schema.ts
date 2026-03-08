@@ -149,6 +149,10 @@ export default defineSchema({
     // === Meta ===
     lastAiEnriched: v.optional(v.number()),
     aiEnrichmentNotes: v.optional(v.string()),
+
+    // === Import Review (issue #89/#90) ===
+    importStatus: v.optional(v.string()),  // "pending_review" | "approved" | undefined
+    fieldMeta: v.optional(v.any()),  // Record<string, { confidence?: string, sources?: string[], origin?: string, lastVerified?: number }>
   }).index("by_farmId", ["farmId"]),
 
   cropTemplates: defineTable({

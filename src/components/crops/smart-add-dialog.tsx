@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCreateCrop } from '@/hooks/use-crops'
-import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
+import { useImportCropWithEvidence } from '@/hooks/use-crop-import'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -33,16 +32,17 @@ interface SmartAddDialogProps {
 }
 
 export function SmartAddDialog({ farmId, open, onOpenChange }: SmartAddDialogProps) {
-  const createCrop = useCreateCrop()
-  const { enrich } = useEnrichCrop()
+  const importCrop = useImportCropWithEvidence()
   const router = useRouter()
 
   const [name, setName] = useState('')
+  const [variety, setVariety] = useState('')
   const [category, setCategory] = useState<string>('')
   const [isPending, setIsPending] = useState(false)
 
   function resetForm() {
     setName('')
+    setVariety('')
     setCategory('')
   }
 
@@ -55,23 +55,22 @@ export function SmartAddDialog({ farmId, open, onOpenChange }: SmartAddDialogPro
 
     setIsPending(true)
     try {
-      const newCrop = await createCrop({
+      const result = await importCrop({
         farmId,
         name,
         category: category as CropCategoryType,
+        ...(variety ? { variety } : {}),
       })
-      if (!newCrop) {
+
+      if (!result?.cropId) {
         toast.error('建立作物失敗')
         return
       }
 
-      // Fire-and-forget AI enrichment
-      enrich(newCrop._id)
-
-      toast.success('已建立作物，AI 正在補充知識...')
+      toast.success('AI 資料匯入完成，請審核確認')
       resetForm()
       onOpenChange(false)
-      router.push(`/crops/${newCrop._id}`)
+      router.push(`/crops/${result.cropId}?review=true`)
     } catch {
       toast.error('建立作物失敗')
     } finally {
@@ -95,7 +94,7 @@ export function SmartAddDialog({ farmId, open, onOpenChange }: SmartAddDialogPro
           </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          輸入作物名稱與分類，AI 將自動補充完整的種植知識。
+          輸入作物名稱與分類，AI 將自動研究並匯入完整的種植知識，匯入後可審核確認。
         </p>
         <div className="space-y-4">
           <div className="space-y-1">
@@ -105,6 +104,14 @@ export function SmartAddDialog({ farmId, open, onOpenChange }: SmartAddDialogPro
               onChange={(e) => setName(e.target.value)}
               placeholder="例：番茄、芥藍菜"
               autoFocus
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium">品種</label>
+            <Input
+              value={variety}
+              onChange={(e) => setVariety(e.target.value)}
+              placeholder="例：牛番茄、聖女小番茄（選填）"
             />
           </div>
           <div className="space-y-1">
@@ -132,7 +139,7 @@ export function SmartAddDialog({ farmId, open, onOpenChange }: SmartAddDialogPro
             ) : (
               <Sparkles className="size-4" />
             )}
-            {isPending ? '建立中...' : '建立並自動補充知識'}
+            {isPending ? 'AI 正在研究作物資料...' : '建立並自動研究知識'}
           </Button>
         </div>
       </DialogContent>

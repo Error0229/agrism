@@ -18,16 +18,16 @@
 - **#93** AI Daily Briefing — recommendation schema, context builder, dashboard cards, AI generation
 - **#94** Recommendation Feedback Loop — dismiss reason, history view, AI learning from feedback
 - **#95** Weather-Triggered Replan — 7-day forecast, weather-specific proposals, dashboard button
-- **#96** Irrigation Advisor — (in progress)
-- **#97** Pest Triage Assistant — (in progress)
+- **#96** Irrigation Advisor — zone CRUD, AI watering advice, irrigation panel on weather page
+- **#97** Pest Triage Assistant — observation CRUD, AI diagnosis, pest page with triage results
 - Crop Detail Inline Editing — edit mode with all 60+ fields
 - Inspector redesign (split area/crop, simplified dates)
 - Sidebar polish (drag-reorder, scroll fix, handle positioning)
 - Unit tests (47+ total across 9+ files)
 
-## Upcoming (from GitHub issues)
-- **#89** Evidence-Backed Crop Import (depends on #86 ✅, partially superseded by #98)
-- **#90** Crop Import Review Workflow (depends on #86 ✅)
+## In Progress
+- **#89** Evidence-Backed Crop Import — 4-pass AI research with confidence, fieldMeta, draft status
+- **#90** Crop Import Review Workflow — review page with confidence badges, edit-before-save, required field gating
 
 ## Blocked
 (None currently)

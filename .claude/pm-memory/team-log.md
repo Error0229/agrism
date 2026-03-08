@@ -1,21 +1,33 @@
 # PM Team Log
 
-## In Progress: Issue #93 — AI Daily Briefing (2026-03-08)
-- Backend done: recommendations table, context builder, AI generation
-- Frontend: dashboard briefing cards (in progress)
+## In Progress: Issues #89/#90 — Evidence-Backed Crop Import + Review (2026-03-08)
+- Backend agent: schema changes (fieldMeta, importStatus), cropImport.ts, approve/reject mutations
+- Frontend agent: smart-add dialog enhancement, crop import review component, hooks
 
-### #93 Commits
+## Completed: Issues #96/#97 — Irrigation + Pest Triage (2026-03-08)
+### #96 Commits
+- `eae2e13` — feat: irrigation zone management with AI-powered watering advice (#96)
+
+### #97 Commits
+- `ba18243` — feat: pest and disease triage assistant with AI diagnosis (#97)
+
+### Features
+- Irrigation: zone CRUD, mark watered/skipped, AI watering advice, panel on weather page
+- Pest: observation CRUD with severity/affected parts, AI triage (3-5 possible causes), resolve workflow
+- Both use OpenRouter `google/gemini-3.1-flash-lite-preview` model
+
+## Completed: Issues #93-#95 — AI Briefing + Feedback + Weather Replan (2026-03-08)
+### Commits
 - `5e0819b` — feat: AI daily briefing with recommendation engine (#93)
-
-## Also Completed: Crop Detail Editing (2026-03-08)
+- `117afd1` — feat: daily briefing cards on dashboard with AI generation (#93)
 - `27c2e4d` — feat: inline crop editing on detail page
+- `6529e3a` — feat: recommendation feedback loop with history and AI learning (#94)
+- `bf58c7d` — feat: weather-triggered replan proposals with 7-day forecast (#95)
 
-## Also Completed: Issue #92 — Crop-Field Suitability Engine (2026-03-08)
-### #92 Commits
+## Completed: Issue #92 — Crop-Field Suitability Engine (2026-03-08)
+### Commits
 - `bd98b0b` — feat: crop-field suitability engine with matching rules (#92)
 - `67c58e1` — feat: suitability display in crop detail and planning views (#92)
-
-### Cosmetic Fixes
 - `a10d0fd` — fix: growth stage labels and completeness percentage on crop detail (#98)
 
 ## Previous: Issue #88 — Occupancy and Succession Planning (2026-03-08)

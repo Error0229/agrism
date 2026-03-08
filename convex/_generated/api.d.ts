@@ -12,6 +12,7 @@ import type * as _helpers from "../_helpers.js";
 import type * as briefingContext from "../briefingContext.js";
 import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
+import type * as cropImport from "../cropImport.js";
 import type * as crops from "../crops.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   briefingContext: typeof briefingContext;
   briefingGeneration: typeof briefingGeneration;
   cropEnrichment: typeof cropEnrichment;
+  cropImport: typeof cropImport;
   crops: typeof crops;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;

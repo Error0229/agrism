@@ -2,9 +2,10 @@
 
 import { use, useState, Fragment } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { CropEditForm } from '@/components/crops/crop-edit-form'
+import { CropImportReview } from '@/components/crops/crop-import-review'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { Badge } from '@/components/ui/badge'
@@ -337,6 +338,8 @@ export default function CropDetailPage({
   const deleteCrop = useDeleteCrop()
   const { enrich, isEnriching } = useEnrichCrop()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isReviewMode = searchParams.get('review') === 'true'
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState(false)
 
@@ -373,6 +376,13 @@ export default function CropDetailPage({
         <p className="text-muted-foreground">找不到此作物</p>
       </div>
     )
+  }
+
+  // Show import review UI when in review mode with a pending import
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (isReviewMode && (crop as any).importStatus === 'pending_review') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return <CropImportReview crop={crop as any} />
   }
 
   const plantingMonths = crop.plantingMonths ?? []

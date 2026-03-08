@@ -128,10 +128,12 @@ export const list = query({
   args: { farmId: v.id("farms") },
   handler: async (ctx, { farmId }) => {
     await requireFarmMembership(ctx, farmId);
-    return ctx.db
+    const all = await ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
       .collect();
+    // Filter out crops pending review — they should not appear in the main crop list
+    return all.filter((c) => c.importStatus !== "pending_review");
   },
 });
 
@@ -166,6 +168,32 @@ export const listAllFarmsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
     return ctx.db.query("farms").collect();
+  },
+});
+
+// === Import Review Queries (issue #89/#90) ===
+
+/** Get a single crop by ID without filtering by importStatus (for the review page). */
+export const getPendingImport = query({
+  args: { cropId: v.id("crops") },
+  handler: async (ctx, { cropId }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) return null;
+    await requireFarmMembership(ctx, crop.farmId);
+    return crop;
+  },
+});
+
+/** List all crops with importStatus === "pending_review" for a farm. */
+export const listPendingImports = query({
+  args: { farmId: v.id("farms") },
+  handler: async (ctx, { farmId }) => {
+    await requireFarmMembership(ctx, farmId);
+    const all = await ctx.db
+      .query("crops")
+      .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
+      .collect();
+    return all.filter((c) => c.importStatus === "pending_review");
   },
 });
 
@@ -314,6 +342,168 @@ export const applyEnrichment = internalMutation({
 
     await ctx.db.patch(cropId, updates);
     return ctx.db.get(cropId);
+  },
+});
+
+// === Import Review (issue #89/#90) ===
+
+export const saveDraftCrop = internalMutation({
+  args: {
+    farmId: v.id("farms"),
+    name: v.string(),
+    category: v.string(),
+    isDefault: v.boolean(),
+    importStatus: v.optional(v.string()),
+    fieldMeta: v.optional(v.any()),
+    source: v.optional(v.string()),
+    // Identity
+    scientificName: v.optional(v.string()),
+    variety: v.optional(v.string()),
+    aliases: v.optional(v.array(v.string())),
+    emoji: v.optional(v.string()),
+    color: v.optional(v.string()),
+    lifecycleType: v.optional(v.string()),
+    propagationMethod: v.optional(v.string()),
+    // Timing
+    plantingMonths: v.optional(v.array(v.number())),
+    harvestMonths: v.optional(v.array(v.number())),
+    growthDays: v.optional(v.number()),
+    daysToGermination: v.optional(v.number()),
+    daysToTransplant: v.optional(v.number()),
+    daysToFlowering: v.optional(v.number()),
+    harvestWindowDays: v.optional(v.number()),
+    growingSeasonStart: v.optional(v.number()),
+    growingSeasonEnd: v.optional(v.number()),
+    // Environment
+    tempMin: v.optional(v.number()),
+    tempMax: v.optional(v.number()),
+    tempOptimalMin: v.optional(v.number()),
+    tempOptimalMax: v.optional(v.number()),
+    humidityMin: v.optional(v.number()),
+    humidityMax: v.optional(v.number()),
+    sunlight: v.optional(v.string()),
+    sunlightHoursMin: v.optional(v.number()),
+    sunlightHoursMax: v.optional(v.number()),
+    windSensitivity: v.optional(v.string()),
+    droughtTolerance: v.optional(v.string()),
+    waterloggingTolerance: v.optional(v.string()),
+    // Soil
+    soilPhMin: v.optional(v.number()),
+    soilPhMax: v.optional(v.number()),
+    soilType: v.optional(v.string()),
+    organicMatterPreference: v.optional(v.string()),
+    fertilityDemand: v.optional(v.string()),
+    fertilizerType: v.optional(v.string()),
+    fertilizerFrequencyDays: v.optional(v.number()),
+    commonDeficiencies: v.optional(v.array(v.string())),
+    // Spacing
+    spacingPlantCm: v.optional(v.number()),
+    spacingRowCm: v.optional(v.number()),
+    maxHeightCm: v.optional(v.number()),
+    maxSpreadCm: v.optional(v.number()),
+    trellisRequired: v.optional(v.boolean()),
+    pruningRequired: v.optional(v.boolean()),
+    pruningFrequencyDays: v.optional(v.number()),
+    pruningMonths: v.optional(v.array(v.number())),
+    // Water
+    water: v.optional(v.string()),
+    waterFrequencyDays: v.optional(v.number()),
+    waterAmountMl: v.optional(v.number()),
+    criticalDroughtStages: v.optional(v.array(v.string())),
+    // Companion & rotation
+    companionPlants: v.optional(v.array(v.string())),
+    antagonistPlants: v.optional(v.array(v.string())),
+    rotationFamily: v.optional(v.string()),
+    rotationYears: v.optional(v.number()),
+    // Pest & disease
+    commonPests: v.optional(v.array(pestDiseaseValidator)),
+    commonDiseases: v.optional(v.array(pestDiseaseValidator)),
+    typhoonResistance: v.optional(v.string()),
+    typhoonPrep: v.optional(v.string()),
+    // Harvest
+    harvestMaturitySigns: v.optional(v.string()),
+    harvestMethod: v.optional(v.string()),
+    harvestCadence: v.optional(v.string()),
+    yieldPerPlant: v.optional(v.string()),
+    storageNotes: v.optional(v.string()),
+    shelfLifeDays: v.optional(v.number()),
+    // Growth stages
+    growthStages: v.optional(v.array(growthStageValidator)),
+    // Growing guide
+    growingGuide: v.optional(growingGuideValidator),
+    // Meta
+    lastAiEnriched: v.optional(v.number()),
+    aiEnrichmentNotes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const id = await ctx.db.insert("crops", args as never);
+    return id;
+  },
+});
+
+export const approveImport = mutation({
+  args: {
+    cropId: v.id("crops"),
+    // Optional field overrides from user review edits
+    overrides: v.optional(v.any()),
+  },
+  handler: async (ctx, { cropId, overrides }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) {
+      throw new Error("找不到此作物");
+    }
+    if (crop.importStatus !== "pending_review") {
+      throw new Error("此作物不在待審核狀態");
+    }
+
+    await requireFarmMembership(ctx, crop.farmId);
+
+    // Build updates
+    const updates: Record<string, unknown> = {
+      importStatus: "approved",
+    };
+
+    // Apply any user overrides
+    if (overrides && typeof overrides === "object") {
+      const fieldMeta = (crop.fieldMeta as Record<string, Record<string, unknown>> | undefined) ?? {};
+      const now = Date.now();
+
+      for (const [key, value] of Object.entries(overrides as Record<string, unknown>)) {
+        if (value !== undefined) {
+          updates[key] = value;
+          // Mark user-edited fields in fieldMeta
+          fieldMeta[key] = {
+            ...(fieldMeta[key] || {}),
+            origin: "user",
+            lastVerified: now,
+          };
+        }
+      }
+
+      updates.fieldMeta = fieldMeta;
+    }
+
+    await ctx.db.patch(cropId, updates);
+    return ctx.db.get(cropId);
+  },
+});
+
+export const rejectImport = mutation({
+  args: {
+    cropId: v.id("crops"),
+  },
+  handler: async (ctx, { cropId }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) {
+      throw new Error("找不到此作物");
+    }
+    if (crop.importStatus !== "pending_review") {
+      throw new Error("此作物不在待審核狀態");
+    }
+
+    await requireFarmMembership(ctx, crop.farmId);
+
+    await ctx.db.delete(cropId);
   },
 });
 
