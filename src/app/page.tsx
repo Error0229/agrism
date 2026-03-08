@@ -31,8 +31,15 @@ import {
   Clock,
   Cloud,
   Wind,
+  BrainCircuit,
+  Sparkles,
 } from 'lucide-react'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
+import {
+  useActiveRecommendations,
+  useGenerateBriefing,
+} from '@/hooks/use-recommendations'
+import { RecommendationCard } from '@/components/recommendations/recommendation-card'
 import {
   isToday,
   isBefore,
@@ -81,6 +88,11 @@ export default function DashboardPage() {
 
   const tasksLoading = allTasks === undefined
   const fieldsLoading = fieldsData === undefined
+
+  const recommendations = useActiveRecommendations(farmId)
+  const generateBriefing = useGenerateBriefing()
+  const [briefingLoading, setBriefingLoading] = useState(false)
+  const recommendationsLoading = recommendations === undefined
 
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(true)
@@ -175,6 +187,18 @@ export default function DashboardPage() {
     }
   }
 
+  const handleGenerateBriefing = async () => {
+    if (!farmId || briefingLoading) return
+    setBriefingLoading(true)
+    try {
+      await generateBriefing({ farmId })
+    } catch {
+      // ignore
+    } finally {
+      setBriefingLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -184,6 +208,59 @@ export default function DashboardPage() {
           {format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}
         </p>
       </div>
+
+      {/* ================================================================
+          Section 0: AI Daily Briefing
+          ================================================================ */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <BrainCircuit className="size-5 text-violet-600" />
+            今日農務建議
+          </CardTitle>
+          <div className="flex justify-end -mt-6">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={handleGenerateBriefing}
+              disabled={briefingLoading}
+            >
+              {briefingLoading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  AI 分析中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5" />
+                  生成建議
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {recommendationsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : !recommendations || recommendations.length === 0 ? (
+            <div className="py-6 text-center text-muted-foreground">
+              <Sparkles className="mx-auto size-8 mb-2" />
+              <p>目前沒有建議，點擊上方按鈕生成今日建議</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recommendations.map((rec) => (
+                <RecommendationCard key={rec._id} recommendation={rec} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ================================================================
           Section 1: Today's Tasks
