@@ -11,6 +11,7 @@ import {
   ClipboardList,
   DollarSign,
   Layers,
+  Bug,
   CloudSun,
   Bot,
   Settings,
@@ -39,6 +40,7 @@ const recordNavItems = [
   { name: "收成紀錄", icon: ClipboardList, href: "/records/harvest" },
   { name: "財務管理", icon: DollarSign, href: "/records/finance" },
   { name: "土壤管理", icon: Layers, href: "/records/soil" },
+  { name: "病蟲害觀察", icon: Bug, href: "/records/pest" },
 ];
 
 const toolNavItems = [
