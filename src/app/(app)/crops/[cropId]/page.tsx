@@ -3,7 +3,8 @@
 import { use, useState, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
+import { useCropById, useDeleteCrop, useUpdateCrop } from '@/hooks/use-crops'
+import { CropEditForm } from '@/components/crops/crop-edit-form'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +48,7 @@ import {
   Sun,
   Thermometer,
   Timer,
+  Pencil,
   Trash2,
   TreePine,
   Waves,
@@ -336,6 +338,7 @@ export default function CropDetailPage({
   const { enrich, isEnriching } = useEnrichCrop()
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   if (crop === undefined) {
     return (
@@ -512,6 +515,15 @@ export default function CropDetailPage({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="gap-1.5 text-xs"
+                  onClick={() => setEditing(true)}
+                >
+                  <Pencil className="size-3.5" />
+                  編輯
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="gap-1.5 text-xs border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 hover:text-violet-800"
                   disabled={isEnriching}
                   onClick={async () => {
@@ -545,6 +557,18 @@ export default function CropDetailPage({
             </div>
           </div>
         </div>
+
+        {/* ===== EDIT MODE ===== */}
+        {editing && (
+          <CropEditForm
+            crop={crop}
+            onCancel={() => setEditing(false)}
+            onSaved={() => setEditing(false)}
+          />
+        )}
+
+        {/* ===== READ-ONLY DISPLAY ===== */}
+        {!editing && <>
 
         {/* ===== PLANTING CALENDAR BAR ===== */}
         {hasCalendar && (
