@@ -14,13 +14,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { messages, context }: { messages: UIMessage[]; context?: string } = await req.json();
+  let messages: UIMessage[];
+  let context: string | undefined;
+  try {
+    const body = await req.json();
+    messages = body.messages;
+    context = body.context;
+  } catch {
+    return NextResponse.json({ error: "請求格式錯誤" }, { status: 400 });
+  }
 
-  const result = streamText({
-    model: openrouter("openai/gpt-4o"),
-    system: systemPrompt + (context ? `\n\n使用者目前的種植資料:\n${context}` : ""),
-    messages: await convertToModelMessages(messages),
-  });
+  if (!messages || !Array.isArray(messages)) {
+    return NextResponse.json({ error: "缺少 messages 參數" }, { status: 400 });
+  }
 
-  return result.toUIMessageStreamResponse();
+  try {
+    const result = streamText({
+      model: openrouter("openai/gpt-4o"),
+      system: systemPrompt + (context ? `\n\n使用者目前的種植資料:\n${context}` : ""),
+      messages: await convertToModelMessages(messages),
+    });
+
+    return result.toUIMessageStreamResponse();
+  } catch {
+    return NextResponse.json({ error: "AI 服務暫時無法使用，請稍後再試" }, { status: 500 });
+  }
 }

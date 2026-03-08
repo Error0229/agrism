@@ -96,7 +96,13 @@ export const triageObservation = action({
       .replace(/```json\s*/g, "")
       .replace(/```\s*/g, "")
       .trim();
-    const parsed = JSON.parse(cleaned);
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.error("Failed to parse AI response:", content);
+      throw new Error("AI 回應格式錯誤，請重試");
+    }
     const results: Array<Record<string, unknown>> = parsed.results || [];
 
     const VALID_LIKELIHOODS = new Set(["high", "medium", "low"]);
