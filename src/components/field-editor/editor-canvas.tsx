@@ -435,7 +435,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       // Handle unassigned regions (crop is null)
       const crop = pc.crop;
       const areaName = pc.name || `區域 ${idx + 1}`;
-      const cropLabel = crop ? `${crop.emoji} ${crop.name}` : "未指定作物";
+      const cropLabel = crop ? `${crop.emoji || ""} ${crop.name}`.trim() : "未指定作物";
       items.push({
         id: pc._id,
         kind: "crop",
