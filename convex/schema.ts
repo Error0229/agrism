@@ -150,6 +150,12 @@ export default defineSchema({
     lastAiEnriched: v.optional(v.number()),
     aiEnrichmentNotes: v.optional(v.string()),
 
+    // === Deprecated (legacy seed data compat, will be removed) ===
+    fertilizerIntervalDays: v.optional(v.number()),
+    needsPruning: v.optional(v.boolean()),
+    hualienNotes: v.optional(v.string()),
+    pestControl: v.optional(v.array(v.string())),
+
     // === Import Review (issue #89/#90) ===
     importStatus: v.optional(v.string()),  // "pending_review" | "approved" | undefined
     fieldMeta: v.optional(v.record(v.string(), v.object({
