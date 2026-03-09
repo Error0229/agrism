@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CropAvatar } from "@/components/crops/crop-avatar";
 import {
   LIFECYCLE_TYPE_LABELS,
   STAGE_LABELS,
@@ -32,6 +33,8 @@ export interface OnboardingResult {
 interface ExistingPlantingOnboardProps {
   cropName: string;
   cropEmoji?: string;
+  cropImageUrl?: string;
+  cropThumbnailUrl?: string;
   onComplete: (result: OnboardingResult) => void;
   onBack: () => void;
 }
@@ -59,6 +62,8 @@ const LIFECYCLE_ICONS: Record<string, React.ReactNode> = {
 export function ExistingPlantingOnboard({
   cropName,
   cropEmoji,
+  cropImageUrl,
+  cropThumbnailUrl,
   onComplete,
   onBack,
 }: ExistingPlantingOnboardProps) {
@@ -104,7 +109,13 @@ export function ExistingPlantingOnboard({
         >
           <ChevronRight className="size-4 rotate-180" />
         </button>
-        <span className="text-lg">{cropEmoji}</span>
+        <CropAvatar
+          name={cropName}
+          emoji={cropEmoji}
+          imageUrl={cropImageUrl}
+          thumbnailUrl={cropThumbnailUrl}
+          size="sm"
+        />
         <span className="text-sm font-medium">{cropName}</span>
       </div>
 

@@ -104,7 +104,7 @@ async function callOpenRouter(
       "X-Title": "Agrism Crop Import",
     },
     body: JSON.stringify({
-      model: "google/gemini-3.1-flash-lite-preview",
+      model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -262,7 +262,7 @@ type FieldMeta = Record<string, {
   confidence?: string;
   sources?: string[];
   origin?: string;
-  lastVerified?: number;
+  lastVerified?: string;
 }>;
 
 function extractValue<T>(field: FieldWithConfidence<T> | undefined): T | null {
@@ -278,7 +278,7 @@ function setMeta(
   meta: FieldMeta,
   fieldName: string,
   confidence: string,
-  now: number,
+  now: string,
 ): void {
   meta[fieldName] = {
     confidence,
@@ -297,9 +297,87 @@ function cleanNulls(obj: Record<string, unknown>): Record<string, unknown> {
   return cleaned;
 }
 
+// Fields that saveDraftCrop expects as v.number() or v.optional(v.number()).
+// AI responses often return these as strings (e.g. "7.0" instead of 7.0).
+const NUMERIC_FIELDS = new Set([
+  // Timing
+  "growthDays", "daysToGermination", "daysToTransplant", "daysToFlowering",
+  "harvestWindowDays", "growingSeasonStart", "growingSeasonEnd",
+  // Environment
+  "tempMin", "tempMax", "tempOptimalMin", "tempOptimalMax",
+  "humidityMin", "humidityMax", "sunlightHoursMin", "sunlightHoursMax",
+  // Soil
+  "soilPhMin", "soilPhMax", "fertilizerFrequencyDays",
+  // Spacing
+  "spacingPlantCm", "spacingRowCm", "maxHeightCm", "maxSpreadCm",
+  "pruningFrequencyDays",
+  // Water
+  "waterFrequencyDays", "waterAmountMl",
+  // Companion & rotation
+  "rotationYears",
+  // Harvest
+  "shelfLifeDays",
+  // Meta
+  "lastAiEnriched",
+]);
+
+// Array fields that saveDraftCrop expects as v.array(v.number()).
+const NUMERIC_ARRAY_FIELDS = new Set([
+  "plantingMonths", "harvestMonths", "pruningMonths",
+]);
+
+/**
+ * Coerce string values to numbers for fields that Convex validators expect
+ * as v.number(). The AI often returns "7.0" instead of 7.0.
+ */
+function coerceNumbers(data: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...data };
+  for (const key of NUMERIC_FIELDS) {
+    if (typeof result[key] === "string") {
+      const num = Number(result[key]);
+      if (!isNaN(num)) {
+        result[key] = num;
+      } else {
+        delete result[key];
+      }
+    }
+  }
+  for (const key of NUMERIC_ARRAY_FIELDS) {
+    if (Array.isArray(result[key])) {
+      result[key] = (result[key] as unknown[]).map((item) => {
+        if (typeof item === "string") {
+          const num = Number(item);
+          return isNaN(num) ? item : num;
+        }
+        return item;
+      }).filter((item) => typeof item === "number" && !isNaN(item));
+    }
+  }
+  return result;
+}
+
 function cleanArrayItems(items: Record<string, unknown>[]): Record<string, unknown>[] {
   return items.map((item) => cleanNulls(item));
 }
+
+/** Pick only allowed keys from each object in an array, then strip nulls. */
+function pickArrayFields(
+  items: Record<string, unknown>[],
+  allowedKeys: string[],
+): Record<string, unknown>[] {
+  return items.map((item) => {
+    const picked: Record<string, unknown> = {};
+    for (const key of allowedKeys) {
+      if (key in item && item[key] !== null && item[key] !== undefined) {
+        picked[key] = item[key];
+      }
+    }
+    return picked;
+  });
+}
+
+const PEST_DISEASE_KEYS = ["name", "symptoms", "organicTreatment", "triggerConditions"];
+const GROWING_GUIDE_KEYS = ["howToPlant", "howToCare", "warnings", "localNotes"];
 
 function mergeImportResults(
   name: string,
@@ -311,13 +389,14 @@ function mergeImportResults(
   pass3: Pass3Result,
   pass4: Pass4Result,
 ): { cropData: Record<string, unknown>; fieldMeta: FieldMeta } {
-  const now = Date.now();
+  const nowStr = new Date().toISOString();
+  const nowMs = Date.now();
   const fieldMeta: FieldMeta = {};
 
   // Helper to set a field value + its metadata
   const set = (fieldName: string, value: unknown, confidence: string) => {
     if (value !== null && value !== undefined) {
-      setMeta(fieldMeta, fieldName, confidence, now);
+      setMeta(fieldMeta, fieldName, confidence, nowStr);
     }
   };
 
@@ -437,10 +516,10 @@ function mergeImportResults(
 
     // Pass 3
     commonPests: commonPests?.length
-      ? cleanArrayItems(commonPests as unknown as Record<string, unknown>[])
+      ? pickArrayFields(commonPests as unknown as Record<string, unknown>[], PEST_DISEASE_KEYS)
       : undefined,
     commonDiseases: commonDiseases?.length
-      ? cleanArrayItems(commonDiseases as unknown as Record<string, unknown>[])
+      ? pickArrayFields(commonDiseases as unknown as Record<string, unknown>[], PEST_DISEASE_KEYS)
       : undefined,
     harvestMaturitySigns,
     companionPlants: companionPlants?.length ? companionPlants : undefined,
@@ -459,7 +538,7 @@ function mergeImportResults(
       : undefined,
 
     // Meta
-    lastAiEnriched: now,
+    lastAiEnriched: nowMs,
     fieldMeta,
   });
 
@@ -518,8 +597,14 @@ export const importCropWithEvidence = action({
         pass4,
       );
 
+      // Coerce any string-typed numeric values from the AI response
+      const coercedCropData = coerceNumbers(cropData);
+
       // Save to database via internal mutation (in crops.ts)
-      const cropId = await ctx.runMutation(internal.crops.saveDraftCrop, cropData as never);
+      // Type assertion needed: cropData is built with correct fields but
+      // cleanNulls returns Record<string, unknown>, losing type info.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cropId = await ctx.runMutation(internal.crops.saveDraftCrop, coercedCropData as any);
 
       return { success: true, cropId };
     } catch (error) {

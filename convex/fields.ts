@@ -3,6 +3,7 @@ import { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireFarmMembership } from "./_helpers";
+import { resolveCropMedia } from "../shared/crop-media";
 
 async function resolveFieldFarmId(ctx: QueryCtx | MutationCtx, fieldId: Id<"fields">) {
   const field = await ctx.db.get(fieldId);
@@ -160,11 +161,29 @@ export const listSummary = query({
     for (const pc of allPlantedCrops) {
       if (pc.cropId) cropIdSet.add(pc.cropId as string);
     }
-    const cropMap = new Map<string, { name: string; emoji?: string; growthDays?: number }>();
+    const cropMap = new Map<
+      string,
+      {
+        name: string;
+        emoji?: string;
+        growthDays?: number;
+        imageUrl?: string;
+        thumbnailUrl?: string;
+      }
+    >();
     await Promise.all(
       Array.from(cropIdSet).map(async (cropId) => {
         const crop = await ctx.db.get(cropId as Id<"crops">);
-        if (crop) cropMap.set(cropId, { name: crop.name, emoji: crop.emoji, growthDays: crop.growthDays });
+        if (crop) {
+          const media = resolveCropMedia(crop);
+          cropMap.set(cropId, {
+            name: crop.name,
+            emoji: media.emoji,
+            growthDays: crop.growthDays,
+            imageUrl: media.imageUrl,
+            thumbnailUrl: media.thumbnailUrl,
+          });
+        }
       })
     );
 
@@ -179,7 +198,9 @@ export const listSummary = query({
             _id: pc._id,
             cropId: pc.cropId,
             cropName: crop?.name ?? "未知",
-            cropEmoji: crop?.emoji ?? "",
+            cropEmoji: crop?.emoji ?? "🌱",
+            cropImageUrl: crop?.imageUrl ?? "",
+            cropThumbnailUrl: crop?.thumbnailUrl ?? "",
             status: pc.status,
             plantedDate: pc.plantedDate,
             customGrowthDays: pc.customGrowthDays,

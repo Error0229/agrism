@@ -1,6 +1,8 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { requireFarmMembership } from "./_helpers";
+import { withDefaultCropMedia } from "../shared/crop-media";
 
 // === Shared validators for the new crop schema ===
 
@@ -33,6 +35,11 @@ const optionalCropFields = {
   variety: v.optional(v.string()),
   aliases: v.optional(v.array(v.string())),
   emoji: v.optional(v.string()),
+  imageUrl: v.optional(v.string()),
+  thumbnailUrl: v.optional(v.string()),
+  imageSourceUrl: v.optional(v.string()),
+  imageAuthor: v.optional(v.string()),
+  imageLicense: v.optional(v.string()),
   color: v.optional(v.string()),
   lifecycleType: v.optional(v.string()),
   propagationMethod: v.optional(v.string()),
@@ -171,6 +178,42 @@ export const listAllFarmsInternal = internalQuery({
   },
 });
 
+export const listAllCropsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("crops").collect();
+  },
+});
+
+export const clearImageFields = internalMutation({
+  args: { cropId: v.id("crops") },
+  handler: async (ctx, { cropId }) => {
+    await ctx.db.patch(cropId, {
+      imageUrl: undefined,
+      thumbnailUrl: undefined,
+      imageSourceUrl: undefined,
+      imageAuthor: undefined,
+      imageLicense: undefined,
+    });
+  },
+});
+
+export const applyCropImage = internalMutation({
+  args: {
+    cropId: v.id("crops"),
+    imageUrl: v.string(),
+    thumbnailUrl: v.string(),
+    imageSourceUrl: v.string(),
+    imageAuthor: v.string(),
+    imageLicense: v.string(),
+  },
+  handler: async (ctx, { cropId, ...imageFields }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) return;
+    await ctx.db.patch(cropId, imageFields);
+  },
+});
+
 // === Import Review Queries (issue #89/#90) ===
 
 /** Get a single crop by ID without filtering by importStatus (for the review page). */
@@ -212,6 +255,10 @@ export const create = mutation({
       ...args,
       isDefault: false,
     });
+    // Auto-fetch image from Wikimedia if the crop has a scientificName and no imageUrl
+    if (args.scientificName && !args.imageUrl) {
+      await ctx.scheduler.runAfter(0, internal.cropImageLookup.fetchCropImage, { cropId: id });
+    }
     return ctx.db.get(id);
   },
 });
@@ -366,6 +413,11 @@ export const saveDraftCrop = internalMutation({
     variety: v.optional(v.string()),
     aliases: v.optional(v.array(v.string())),
     emoji: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
+    imageSourceUrl: v.optional(v.string()),
+    imageAuthor: v.optional(v.string()),
+    imageLicense: v.optional(v.string()),
     color: v.optional(v.string()),
     lifecycleType: v.optional(v.string()),
     propagationMethod: v.optional(v.string()),
@@ -507,7 +559,7 @@ export const approveImport = mutation({
     // Apply any user overrides
     if (overrides && typeof overrides === "object") {
       const fieldMeta = (crop.fieldMeta as Record<string, Record<string, unknown>> | undefined) ?? {};
-      const now = Date.now();
+      const now = new Date().toISOString();
 
       for (const [key, value] of Object.entries(overrides as Record<string, unknown>)) {
         if (value !== undefined) {
@@ -525,7 +577,14 @@ export const approveImport = mutation({
     }
 
     await ctx.db.patch(cropId, updates);
-    return ctx.db.get(cropId);
+
+    // Auto-fetch image from Wikimedia if the crop has a scientificName and no imageUrl
+    const updatedCrop = await ctx.db.get(cropId);
+    if (updatedCrop?.scientificName && !updatedCrop.imageUrl) {
+      await ctx.scheduler.runAfter(0, internal.cropImageLookup.fetchCropImage, { cropId });
+    }
+
+    return updatedCrop;
   },
 });
 
@@ -1961,4 +2020,4 @@ const DEFAULT_CROPS = [
     },
     isDefault: true as const,
   },
-];
+].map((crop) => withDefaultCropMedia(crop));

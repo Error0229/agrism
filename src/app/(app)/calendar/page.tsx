@@ -49,7 +49,7 @@ import {
   TASK_TYPE_LABELS,
   TASK_DIFFICULTY_LABELS,
 } from '@/lib/types/labels'
-import { cn } from '@/lib/utils'
+import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { toast } from 'sonner'
 import { AddTaskDialog } from '@/components/calendar/add-task-dialog'
 
@@ -188,7 +188,7 @@ export default function CalendarPage() {
   function getCropName(cropId: string | null) {
     if (!cropId) return null
     const crop = crops.find((c) => c._id === cropId)
-    return crop ? `${crop.emoji ?? ''} ${crop.name}` : null
+    return crop?.name ?? null
   }
 
   function getFieldName(fieldId: string | null) {
@@ -434,7 +434,7 @@ export default function CalendarPage() {
                             task.completed && 'line-through',
                           )}
                         >
-                          {task.title}
+                          {sanitizeTaskTitle(task.title)}
                         </span>
                       </div>
 

@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CROP_CATEGORY_LABELS } from "@/lib/types/labels";
 import type { CropCategory } from "@/lib/types/enums";
+import { CropAvatar } from "@/components/crops/crop-avatar";
+import { resolveCropMedia } from "@/lib/crops/media";
 import {
   ExistingPlantingOnboard,
   type OnboardingResult,
@@ -51,17 +53,15 @@ export function PlantCropDialog({
     id: string;
     name: string;
     emoji?: string;
+    imageUrl?: string;
+    thumbnailUrl?: string;
   } | null>(null);
 
   const filtered = useMemo(() => {
     if (!crops) return [];
     if (!search.trim()) return crops;
     const q = search.trim().toLowerCase();
-    return crops.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.emoji && c.emoji.includes(q)),
-    );
+    return crops.filter((c) => c.name.toLowerCase().includes(q));
   }, [crops, search]);
 
   const handleOpenChange = useCallback(
@@ -75,8 +75,15 @@ export function PlantCropDialog({
     [onOpenChange],
   );
 
-  const handleCropClick = useCallback((crop: { _id: string; name: string; emoji?: string }) => {
-    setSelectedCrop({ id: crop._id, name: crop.name, emoji: crop.emoji });
+  const handleCropClick = useCallback((crop: { _id: string; name: string; emoji?: string; imageUrl?: string; thumbnailUrl?: string; scientificName?: string }) => {
+    const media = resolveCropMedia(crop);
+    setSelectedCrop({
+      id: crop._id,
+      name: crop.name,
+      emoji: media.emoji,
+      imageUrl: media.imageUrl,
+      thumbnailUrl: media.thumbnailUrl,
+    });
   }, []);
 
   const handleOnboardComplete = useCallback(
@@ -107,6 +114,8 @@ export function PlantCropDialog({
             <ExistingPlantingOnboard
               cropName={selectedCrop.name}
               cropEmoji={selectedCrop.emoji}
+              cropImageUrl={selectedCrop.imageUrl}
+              cropThumbnailUrl={selectedCrop.thumbnailUrl}
               onComplete={handleOnboardComplete}
               onBack={handleBack}
             />
@@ -133,14 +142,23 @@ export function PlantCropDialog({
             </div>
 
             <div className="max-h-[50vh] space-y-1 overflow-y-auto">
-              {filtered.map((crop) => (
+              {filtered.map((crop) => {
+                const media = resolveCropMedia(crop);
+                return (
                 <button
                   key={crop._id}
                   type="button"
                   onClick={() => handleCropClick(crop)}
                   className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent"
                 >
-                  <span className="text-lg">{crop.emoji}</span>
+                  <CropAvatar
+                    name={crop.name}
+                    emoji={media.emoji}
+                    imageUrl={media.imageUrl}
+                    thumbnailUrl={media.thumbnailUrl}
+                    color={crop.color}
+                    size="sm"
+                  />
                   <div className="flex-1 space-y-0.5">
                     <p className="text-sm font-medium">{crop.name}</p>
                     <div className="flex items-center gap-2">
@@ -155,7 +173,8 @@ export function PlantCropDialog({
                     </div>
                   </div>
                 </button>
-              ))}
+                );
+              })}
 
               {filtered.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground">

@@ -85,6 +85,8 @@ import { RegionPlanningInspector } from "@/components/planning/region-planning-i
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
 import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
 import { useFarmId } from "@/hooks/use-farm-id";
+import { CropAvatar } from "@/components/crops/crop-avatar";
+import { resolveCropMedia } from "@/lib/crops/media";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 // --- Sortable section helpers ---
@@ -745,6 +747,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
 }) {
   // In Convex, placement data (xM, yM, widthM, heightM) is inlined into plantedCrop
   const { plantedCrop, crop } = item;
+  const media = resolveCropMedia(crop ?? undefined);
   const updatePlantedCrop = useUpdatePlantedCrop();
 
   // Area name editing — use key-derived state
@@ -989,9 +992,14 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       {/* Header — crop identity (pinned, not draggable) */}
       <div className="space-y-2">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/5 text-xl">
-            {crop?.emoji ?? ""}
-          </div>
+          <CropAvatar
+            name={crop?.name ?? "未指定作物"}
+            emoji={media.emoji}
+            imageUrl={media.imageUrl}
+            thumbnailUrl={media.thumbnailUrl}
+            color={crop?.color}
+            size="md"
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{crop?.name ?? "未指定作物"}</p>
             <div className="flex items-center gap-1.5">

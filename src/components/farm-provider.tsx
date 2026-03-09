@@ -9,6 +9,8 @@ import { useAuth } from "@clerk/nextjs";
  * Ensures an authenticated user always has a farm.
  * Calls ensureFarm mutation if getMyFarm returns null.
  * Shows a loading state while the farm is being created.
+ * Note: seedDefaults is called from ensureFarm in convex/farms.ts
+ * via scheduler when a new farm is created — no need to call it here.
  */
 export function FarmProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();

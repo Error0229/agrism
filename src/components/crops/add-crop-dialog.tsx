@@ -44,6 +44,8 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🌱')
+  const [imageUrl, setImageUrl] = useState('')
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [category, setCategory] = useState<string>('')
   const [growthDays, setGrowthDays] = useState('')
   const [plantingMonths, setPlantingMonths] = useState<number[]>([])
@@ -55,6 +57,8 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
   function resetForm() {
     setName('')
     setEmoji('🌱')
+    setImageUrl('')
+    setThumbnailUrl('')
     setCategory('')
     setGrowthDays('')
     setPlantingMonths([])
@@ -88,6 +92,8 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
         farmId,
         name,
         emoji: emoji || undefined,
+        imageUrl: imageUrl || undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
         category: category as CropCategoryType,
         growthDays: growthDays ? parseInt(growthDays) : undefined,
         plantingMonths: plantingMonths.length > 0 ? plantingMonths : undefined,
@@ -135,6 +141,25 @@ export function AddCropDialog({ farmId, open, onOpenChange }: AddCropDialogProps
                   value={emoji}
                   onChange={(e) => setEmoji(e.target.value)}
                   className="w-16 text-center"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">圖片網址</label>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">縮圖網址</label>
+                <Input
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  placeholder="https://..."
                 />
               </div>
             </div>

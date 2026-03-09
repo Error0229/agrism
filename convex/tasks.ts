@@ -175,7 +175,6 @@ export const generateForPlantedCrop = mutation({
     const harvestDate = new Date(plantDate);
     harvestDate.setDate(harvestDate.getDate() + growthDays);
 
-    const emoji = cropData.emoji ?? "";
     const name = cropData.name;
     const fmt = (d: Date) => d.toISOString().split("T")[0]!;
     const preset = (type: string) => TASK_PRESETS[type]!;
@@ -188,7 +187,7 @@ export const generateForPlantedCrop = mutation({
       await ctx.db.insert("tasks", {
         farmId,
         type: "seeding",
-        title: `${emoji} ${name} - 播種`,
+        title: `${name} - 播種`,
         cropId: cropData.id,
         plantedCropId: plantedCropData.id,
         fieldId: plantedCropData.fieldId,
@@ -212,7 +211,7 @@ export const generateForPlantedCrop = mutation({
           await ctx.db.insert("tasks", {
             farmId,
             type: "fertilizing",
-            title: `${emoji} ${name} - 施肥`,
+            title: `${name} - 施肥`,
             cropId: cropData.id,
             plantedCropId: plantedCropData.id,
             fieldId: plantedCropData.fieldId,
@@ -242,7 +241,7 @@ export const generateForPlantedCrop = mutation({
             await ctx.db.insert("tasks", {
               farmId,
               type: "pruning",
-              title: `${emoji} ${name} - 剪枝`,
+              title: `${name} - 剪枝`,
               cropId: cropData.id,
               plantedCropId: plantedCropData.id,
               fieldId: plantedCropData.fieldId,
@@ -265,7 +264,7 @@ export const generateForPlantedCrop = mutation({
       await ctx.db.insert("tasks", {
         farmId,
         type: "harvesting",
-        title: `${emoji} ${name} - 收成`,
+        title: `${name} - 收成`,
         cropId: cropData.id,
         plantedCropId: plantedCropData.id,
         fieldId: plantedCropData.fieldId,
@@ -302,7 +301,7 @@ export const generateForPlantedCrop = mutation({
         await ctx.db.insert("tasks", {
           farmId,
           type: "typhoon_prep",
-          title: `${emoji} ${name} - 防颱`,
+          title: `${name} - 防颱`,
           cropId: cropData.id,
           plantedCropId: plantedCropData.id,
           fieldId: plantedCropData.fieldId,

@@ -6,8 +6,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useCropById, useDeleteCrop } from '@/hooks/use-crops'
 import { CropEditForm } from '@/components/crops/crop-edit-form'
 import { CropImportReview } from '@/components/crops/crop-import-review'
+import { CropAvatar } from '@/components/crops/crop-avatar'
+import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
+import { resolveCropMedia } from '@/lib/crops/media'
 import { Markdown } from '@/components/ui/markdown'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -387,6 +390,7 @@ export default function CropDetailPage({
   }
 
   const plantingMonths = crop.plantingMonths ?? []
+  const media = resolveCropMedia(crop)
   const harvestMonths = crop.harvestMonths ?? []
   const hasCalendar = plantingMonths.length > 0 || harvestMonths.length > 0
   const hasEnvironment = crop.tempMin != null || crop.sunlight || crop.humidityMin != null || crop.windSensitivity || crop.droughtTolerance || crop.waterloggingTolerance
@@ -439,15 +443,15 @@ export default function CropDetailPage({
         <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card to-muted/30 p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              {/* Emoji avatar */}
-              <div
-                className="flex size-16 flex-shrink-0 items-center justify-center rounded-xl text-4xl"
-                style={{
-                  backgroundColor: crop.color ? `${crop.color}18` : undefined,
-                }}
-              >
-                {crop.emoji ?? '🌱'}
-              </div>
+              <CropAvatar
+                name={crop.name}
+                emoji={media.emoji}
+                imageUrl={media.imageUrl}
+                thumbnailUrl={media.thumbnailUrl}
+                color={crop.color}
+                size="xl"
+                priority
+              />
 
               <div className="min-w-0">
                 <h1 className="text-2xl font-bold tracking-tight">{crop.name}</h1>
@@ -490,6 +494,13 @@ export default function CropDetailPage({
                       自訂
                     </Badge>
                   )}
+                </div>
+                <div className="mt-2">
+                  <CropImageAttribution
+                    sourceUrl={media.imageSourceUrl}
+                    author={media.imageAuthor}
+                    license={media.imageLicense}
+                  />
                 </div>
               </div>
             </div>

@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
@@ -49,6 +49,7 @@ import {
   useCheckWeatherReplan,
 } from '@/hooks/use-recommendations'
 import { RecommendationCard } from '@/components/recommendations/recommendation-card'
+import { CropAvatar } from '@/components/crops/crop-avatar'
 import {
   isToday,
   isBefore,
@@ -547,9 +548,13 @@ export default function DashboardPage() {
                     className="rounded-lg border p-3 space-y-1"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {entry.cropEmoji || '🌱'}
-                      </span>
+                      <CropAvatar
+                        name={entry.cropName}
+                        emoji={entry.cropEmoji}
+                        imageUrl={entry.cropImageUrl}
+                        thumbnailUrl={entry.cropThumbnailUrl}
+                        size="sm"
+                      />
                       <span className="text-sm font-medium truncate">
                         {entry.cropName}
                       </span>
@@ -750,7 +755,7 @@ function TaskRow({ task, variant, onToggle }: TaskRowProps) {
         {/* empty — check mark appears on complete */}
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{task.title}</p>
+        <p className="text-sm font-medium truncate">{sanitizeTaskTitle(task.title)}</p>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
           {variant === 'overdue' && task.dueDate && (
             <span className="text-red-600">

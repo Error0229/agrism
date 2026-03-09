@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { CropAvatar } from "@/components/crops/crop-avatar";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { CROP_CATEGORY_LABELS } from "@/lib/types/labels";
 import { cn } from "@/lib/utils";
+import { resolveCropMedia } from "@/lib/crops/media";
 import type { CropCategory } from "@/lib/types/enums";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -269,8 +271,7 @@ export function PlanCropDialog({
       const q = search.trim().toLowerCase();
       list = crops.filter(
         (c) =>
-          c.name.toLowerCase().includes(q) ||
-          (c.emoji && c.emoji.includes(q)),
+          c.name.toLowerCase().includes(q),
       );
     }
     return [...list].sort((a, b) => {
@@ -522,6 +523,7 @@ export function PlanCropDialog({
               )}
               {filtered.map((crop) => {
                 const suit = suitabilityMap.get(crop._id);
+                const media = resolveCropMedia(crop);
                 return (
                   <button
                     key={crop._id}
@@ -529,7 +531,14 @@ export function PlanCropDialog({
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent transition-colors"
                     onClick={() => handleCropSelect(crop._id, crop.name)}
                   >
-                    {crop.emoji && <span className="text-base">{crop.emoji}</span>}
+                    <CropAvatar
+                      name={crop.name}
+                      emoji={media.emoji}
+                      imageUrl={media.imageUrl}
+                      thumbnailUrl={media.thumbnailUrl}
+                      color={crop.color}
+                      size="sm"
+                    />
                     <span className="flex-1 truncate">{crop.name}</span>
                     {suit && (
                       <Badge className={cn("text-[10px] px-1.5 py-0 border-0", SUIT_STYLES[suit.score])}>
