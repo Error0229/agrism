@@ -308,6 +308,11 @@ export function CropEditForm({ crop, onCancel, onSaved }: CropEditFormProps) {
     name: crop.name ?? '',
     variety: crop.variety ?? '',
     aliases: crop.aliases ?? [],
+    imageUrl: crop.imageUrl ?? '',
+    thumbnailUrl: crop.thumbnailUrl ?? '',
+    imageSourceUrl: crop.imageSourceUrl ?? '',
+    imageAuthor: crop.imageAuthor ?? '',
+    imageLicense: crop.imageLicense ?? '',
     category: crop.category ?? '',
     lifecycleType: crop.lifecycleType ?? '',
     propagationMethod: crop.propagationMethod ?? '',
@@ -393,6 +398,7 @@ export function CropEditForm({ crop, onCancel, onSaved }: CropEditFormProps) {
       // Simple string/number fields
       const stringFields = [
         'name', 'variety', 'category', 'lifecycleType', 'propagationMethod',
+        'imageUrl', 'thumbnailUrl', 'imageSourceUrl', 'imageAuthor', 'imageLicense',
         'sunlight', 'windSensitivity', 'droughtTolerance', 'waterloggingTolerance',
         'soilType', 'organicMatterPreference', 'fertilityDemand', 'fertilizerType',
         'water', 'rotationFamily',
@@ -506,6 +512,21 @@ export function CropEditForm({ crop, onCancel, onSaved }: CropEditFormProps) {
           </FieldRow>
           <FieldRow label="別名">
             <TagEditor value={form.aliases} onChange={(v) => set('aliases', v)} placeholder="輸入別名後按 Enter" />
+          </FieldRow>
+          <FieldRow label="圖片網址">
+            <Input value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} className="h-8 text-xs" placeholder="https://..." />
+          </FieldRow>
+          <FieldRow label="縮圖網址">
+            <Input value={form.thumbnailUrl} onChange={(e) => set('thumbnailUrl', e.target.value)} className="h-8 text-xs" placeholder="https://..." />
+          </FieldRow>
+          <FieldRow label="來源頁面">
+            <Input value={form.imageSourceUrl} onChange={(e) => set('imageSourceUrl', e.target.value)} className="h-8 text-xs" placeholder="https://commons.wikimedia.org/..." />
+          </FieldRow>
+          <FieldRow label="圖片作者">
+            <Input value={form.imageAuthor} onChange={(e) => set('imageAuthor', e.target.value)} className="h-8 text-xs" />
+          </FieldRow>
+          <FieldRow label="授權">
+            <Input value={form.imageLicense} onChange={(e) => set('imageLicense', e.target.value)} className="h-8 text-xs" placeholder="CC BY-SA 4.0" />
           </FieldRow>
           <FieldRow label="分類">
             <SelectField

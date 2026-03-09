@@ -39,6 +39,11 @@ export default defineSchema({
     variety: v.optional(v.string()),
     aliases: v.optional(v.array(v.string())),
     emoji: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),
+    imageSourceUrl: v.optional(v.string()),
+    imageAuthor: v.optional(v.string()),
+    imageLicense: v.optional(v.string()),
     color: v.optional(v.string()),
     category: v.string(), // vegetable | fruit | herb | flower | grain | legume
     lifecycleType: v.optional(v.string()), // annual | biennial | perennial | orchard

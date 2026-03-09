@@ -23,7 +23,6 @@ import {
   Sprout,
   Sun,
   Thermometer,
-  Timer,
   Wind,
 } from 'lucide-react'
 import { CropCategory } from '@/lib/types/enums'
@@ -42,6 +41,8 @@ import type {
 import { cn } from '@/lib/utils'
 import { AddCropDialog } from '@/components/crops/add-crop-dialog'
 import { SmartAddDialog } from '@/components/crops/smart-add-dialog'
+import { CropAvatar } from '@/components/crops/crop-avatar'
+import { resolveCropMedia } from '@/lib/crops/media'
 
 const ALL_CATEGORIES = Object.values(CropCategory) as string[]
 
@@ -205,6 +206,8 @@ interface CropCardData {
   name: string
   scientificName?: string | null
   emoji?: string | null
+  imageUrl?: string | null
+  thumbnailUrl?: string | null
   color?: string | null
   category: string
   isDefault?: boolean
@@ -221,6 +224,7 @@ interface CropCardData {
 }
 
 function CropCard({ crop }: { crop: CropCardData }) {
+  const media = resolveCropMedia(crop)
   const plantingMonths = crop.plantingMonths ?? []
   const harvestMonths = crop.harvestMonths ?? []
   const hasCalendar = plantingMonths.length > 0 || harvestMonths.length > 0
@@ -234,16 +238,17 @@ function CropCard({ crop }: { crop: CropCardData }) {
     <Link href={`/crops/${crop._id}`}>
       <div className="group relative rounded-xl border bg-card transition-all hover:shadow-md hover:border-foreground/15 cursor-pointer h-full">
         <div className="p-4">
-          {/* Top row: emoji + name + badges */}
+          {/* Top row: image + name + badges */}
           <div className="flex items-start gap-3">
-            <div
-              className="flex size-11 flex-shrink-0 items-center justify-center rounded-lg text-2xl transition-transform group-hover:scale-105"
-              style={{
-                backgroundColor: crop.color ? `${crop.color}15` : undefined,
-              }}
-            >
-              {crop.emoji ?? '🌱'}
-            </div>
+            <CropAvatar
+              name={crop.name}
+              emoji={media.emoji}
+              imageUrl={media.imageUrl}
+              thumbnailUrl={media.thumbnailUrl}
+              color={crop.color}
+              size="lg"
+              className="transition-transform group-hover:scale-105"
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold truncate">{crop.name}</h3>

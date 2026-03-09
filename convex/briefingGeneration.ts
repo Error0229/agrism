@@ -73,7 +73,7 @@ ${JSON.stringify(context.recentFeedback ?? [])}`;
           "X-Title": "Agrism Daily Briefing",
         },
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-lite-preview",
+          model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: JSON.stringify(context) },

@@ -6,6 +6,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
 
 import { cn } from "@/lib/utils";
+import { resolveCropMedia } from "@/lib/crops/media";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import {
   useUpdateCropPlacement,
@@ -44,6 +45,8 @@ interface CanvasItem {
   label: string;
   areaName?: string; // user-editable region name
   emoji: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
   color: string;
   status: string;
   cropId?: string;
@@ -258,6 +261,47 @@ function useKonvaImage(src: string | null): HTMLImageElement | null {
   return image;
 }
 
+function CanvasCropMarker({
+  x,
+  y,
+  size,
+  imageUrl,
+  emoji,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  imageUrl?: string;
+  emoji: string;
+}) {
+  const image = useKonvaImage(imageUrl ?? null);
+
+  if (image) {
+    return (
+      <KonvaImage
+        x={x - size / 2}
+        y={y - size / 2}
+        width={size}
+        height={size}
+        image={image}
+        listening={false}
+      />
+    );
+  }
+
+  return (
+    <Text
+      x={x - size}
+      y={y - size / 2}
+      width={size * 2}
+      align="center"
+      text={emoji}
+      fontSize={Math.max(16, size * 0.9)}
+      listening={false}
+    />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -435,7 +479,8 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       // Handle unassigned regions (crop is null)
       const crop = pc.crop;
       const areaName = pc.name || `區域 ${idx + 1}`;
-      const cropLabel = crop ? `${crop.emoji || ""} ${crop.name}`.trim() : "未指定作物";
+      const media = resolveCropMedia(crop);
+      const cropLabel = crop?.name ?? "未指定作物";
       items.push({
         id: pc._id,
         kind: "crop",
@@ -445,7 +490,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         heightM: Number(pc.heightM ?? 1),
         label: cropLabel,
         areaName,
-        emoji: crop?.emoji ?? "",
+        emoji: media.emoji,
+        imageUrl: media.imageUrl,
+        thumbnailUrl: media.thumbnailUrl,
         color: crop?.color ?? "#d1d5db",
         status: pc.status,
         cropId: crop?._id,
@@ -1702,16 +1749,25 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                   />
                 )}
 
-                {/* Centered Emoji */}
-                <Text
-                  x={labelX - wPx / 2}
-                  y={labelY - 18}
-                  width={wPx}
-                  align="center"
-                  text={item.emoji}
-                  fontSize={18}
-                  listening={false}
-                />
+                {item.kind === "crop" ? (
+                  <CanvasCropMarker
+                    x={labelX}
+                    y={labelY - 8}
+                    size={Math.min(28, Math.max(18, Math.min(wPx, hPx) * 0.35))}
+                    imageUrl={item.thumbnailUrl ?? item.imageUrl}
+                    emoji={item.emoji}
+                  />
+                ) : (
+                  <Text
+                    x={labelX - wPx / 2}
+                    y={labelY - 18}
+                    width={wPx}
+                    align="center"
+                    text={item.emoji}
+                    fontSize={18}
+                    listening={false}
+                  />
+                )}
 
                 {/* Centered Label */}
                 <Text

@@ -51,6 +51,9 @@ import { CropCategory } from '@/lib/types/enums'
 import { CROP_CATEGORY_LABELS } from '@/lib/types/labels'
 import type { Id } from '../../../convex/_generated/dataModel'
 import type { Crop } from '@/lib/types/domain'
+import { CropAvatar } from '@/components/crops/crop-avatar'
+import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
+import { resolveCropMedia } from '@/lib/crops/media'
 
 // ========== Label maps ==========
 
@@ -529,6 +532,7 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
   const [overrides, setOverrides] = useState<Record<string, unknown>>({})
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
+  const media = resolveCropMedia(crop)
 
   const fieldMeta: FieldMeta = crop.fieldMeta ?? {}
 
@@ -639,9 +643,13 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
       <div className="rounded-2xl border bg-gradient-to-br from-violet-50 via-card to-card p-5 dark:from-violet-950/20">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="flex size-16 flex-shrink-0 items-center justify-center rounded-xl bg-violet-100 text-4xl dark:bg-violet-900/30">
-              {crop.emoji ?? '🌱'}
-            </div>
+            <CropAvatar
+              name={crop.name}
+              emoji={media.emoji}
+              imageUrl={media.imageUrl}
+              thumbnailUrl={media.thumbnailUrl}
+              size="xl"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight">{crop.name}</h1>
@@ -655,6 +663,13 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
               {crop.variety && (
                 <p className="text-xs text-muted-foreground">品種：{crop.variety}</p>
               )}
+              <div className="mt-2">
+                <CropImageAttribution
+                  sourceUrl={media.imageSourceUrl}
+                  author={media.imageAuthor}
+                  license={media.imageLicense}
+                />
+              </div>
             </div>
           </div>
         </div>

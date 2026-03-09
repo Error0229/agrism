@@ -35,6 +35,8 @@ import { TaskType, TaskDifficulty } from '@/lib/types/enums'
 import { TASK_TYPE_LABELS, TASK_DIFFICULTY_LABELS } from '@/lib/types/labels'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { CropAvatar } from '@/components/crops/crop-avatar'
+import { resolveCropMedia } from '@/lib/crops/media'
 
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -147,11 +149,23 @@ export function AddTaskDialog() {
                 <SelectValue placeholder="選擇作物" />
               </SelectTrigger>
               <SelectContent>
-                {crops?.map((crop) => (
-                  <SelectItem key={crop._id} value={crop._id}>
-                    {crop.emoji} {crop.name}
-                  </SelectItem>
-                ))}
+                {crops?.map((crop) => {
+                  const media = resolveCropMedia(crop)
+                  return (
+                    <SelectItem key={crop._id} value={crop._id}>
+                      <div className="flex items-center gap-2">
+                        <CropAvatar
+                          name={crop.name}
+                          emoji={media.emoji}
+                          imageUrl={media.imageUrl}
+                          thumbnailUrl={media.thumbnailUrl}
+                          size="sm"
+                        />
+                        <span>{crop.name}</span>
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>

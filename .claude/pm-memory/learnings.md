@@ -28,9 +28,14 @@
 - ALWAYS ask user before using any LLM model — it costs money
 - User wants to choose the model with best performance/cost ratio
 - Never hardcode a model choice — present options and let user decide
-- Current model choice: `google/gemini-3.1-flash-lite-preview` via OpenRouter (for user-facing AI features)
+- Current model choice: `google/gemini-3-flash-preview` via OpenRouter (for user-facing AI features)
 - For default/seed data: DON'T use external LLM — have Claude agents do web research instead (free, better quality)
 - OpenRouter is for user-triggered features only (e.g., "AI 補充知識" button), not for batch seeding
+
+## Deployment
+- Convex dev server must be running for backend changes to take effect — if user reports "still broken" after code fixes, check if `npx convex dev` is running
+- R2 bucket: agrism-crop-media, public URL: https://media.agrism.catjam.dev
+- R2 env vars: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL (all on Vercel production)
 
 ## PM Process
 - Always use Agent Teams (TeamCreate/TaskCreate/SendMessage) — don't fall back to plain Agent calls

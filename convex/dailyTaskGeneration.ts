@@ -170,10 +170,9 @@ function checkWateringNeeds(
     }
 
     if (!wasRecentlyWatered) {
-      const emoji = crop.emoji || "🌱";
       candidates.push({
         type: "watering",
-        title: `${emoji} ${crop.name} 澆水`,
+        title: `${crop.name} 澆水`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,
@@ -221,10 +220,9 @@ function checkHarvestReady(
 
     // Generate task if harvest is within 7 days (including past-due up to 3 days)
     if (daysUntilHarvest >= -3 && daysUntilHarvest <= 7) {
-      const emoji = crop.emoji || "🌱";
       candidates.push({
         type: "harvesting",
-        title: `${emoji} ${crop.name} 即將可收成`,
+        title: `${crop.name} 即將可收成`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,
@@ -287,10 +285,9 @@ function checkFertilizingSchedule(
     }
 
     if (needsFertilizing) {
-      const emoji = crop.emoji || "🌱";
       candidates.push({
         type: "fertilizing",
-        title: `${emoji} ${crop.name} 施肥`,
+        title: `${crop.name} 施肥`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,
@@ -354,10 +351,9 @@ function checkPestInspection(
     }
 
     if (needsInspection) {
-      const emoji = crop.emoji || "🌱";
       candidates.push({
         type: "pest_control",
-        title: `${emoji} ${crop.name} 病蟲害巡檢`,
+        title: `${crop.name} 病蟲害巡檢`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,
@@ -376,7 +372,7 @@ function checkPestInspection(
 function checkTyphoonPrep(
   growingCrops: GrowingCropInfo[],
   existingTasks: Doc<"tasks">[],
-  today: string
+  _today: string
 ): TaskCandidate[] {
   const candidates: TaskCandidate[] = [];
   const currentMonth = getCurrentMonth();
@@ -402,11 +398,10 @@ function checkTyphoonPrep(
     );
 
     if (!hasTyphoonTaskThisMonth) {
-      const emoji = crop.emoji || "🌱";
       const dueDate = getNextMonday();
       candidates.push({
         type: "typhoon_prep",
-        title: `${emoji} ${crop.name} 防颱準備`,
+        title: `${crop.name} 防颱準備`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,
@@ -449,10 +444,9 @@ function checkPruningSchedule(
     );
 
     if (!hasPruningTaskThisMonth) {
-      const emoji = crop.emoji || "🌱";
       candidates.push({
         type: "pruning",
-        title: `${emoji} ${crop.name} 修剪`,
+        title: `${crop.name} 修剪`,
         cropId: crop._id,
         plantedCropId: plantedCrop._id,
         fieldId,

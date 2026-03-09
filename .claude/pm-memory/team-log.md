@@ -1,6 +1,15 @@
 # PM Team Log
 
-## In Progress: Issues #89/#90 — Evidence-Backed Crop Import + Review (2026-03-08)
+## Completed: Issue #99 — Crop Images from Wikimedia Commons (2026-03-09)
+- **Team**: `agrism-crop-redesign`
+- **Agents used**: backend-crop-media, frontend-crop-media, qa-crop-creation, reviewer-issue99, fixer-critical
+- **R2 config**: bucket=agrism-crop-media, public URL=https://media.agrism.catjam.dev
+- All 16 default crops uploaded to R2 as WebP (3 sizes: thumb 64x64, medium 300x300, large 800px)
+- Auto image lookup for user-added crops via Wikidata SPARQL (convex/cropImageLookup.ts)
+- Review found CRITICAL: largeImageUrl not in schema, seedDefaults on every page load, lastVerified type mismatch in cropImport.ts
+- All CRITICAL/HIGH issues fixed, build passes
+
+## Completed: Issues #89/#90 — Evidence-Backed Crop Import + Review (2026-03-08)
 - Backend agent: schema changes (fieldMeta, importStatus), cropImport.ts, approve/reject mutations
 - Frontend agent: smart-add dialog enhancement, crop import review component, hooks
 

@@ -4,6 +4,8 @@ import React, { useMemo, useState, useCallback } from "react";
 import { CalendarRange, ChevronLeft, ChevronRight, Sprout } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CropAvatar } from "@/components/crops/crop-avatar";
+import { resolveCropMedia } from "@/lib/crops/media";
 import {
   Tooltip,
   TooltipContent,
@@ -29,7 +31,7 @@ type PlantedCropInfo = {
   _id: string;
   name?: string; // user-editable region/area name
   cropId?: string;
-  crop?: { _id: string; name: string; color?: string; emoji?: string } | null;
+  crop?: { _id: string; name: string; color?: string; emoji?: string; imageUrl?: string; thumbnailUrl?: string; scientificName?: string } | null;
   status: string;
   xM: number;
   yM: number;
@@ -135,6 +137,8 @@ export function SeasonBoard({
       plantedCropId: string;
       color?: string;
       emoji?: string;
+      imageUrl?: string;
+      thumbnailUrl?: string;
     }[] = [];
 
     // Group growing/harvested planted crops as rows
@@ -144,13 +148,16 @@ export function SeasonBoard({
       if (pc.status === "removed") continue;
       const cropName = pc.crop?.name;
       if (!cropName) continue; // skip unplanted areas
+      const media = resolveCropMedia(pc.crop);
       rows.push({
         id: pc._id,
         areaName: pc.name || `區域 ${idx + 1}`,
         cropLabel: cropName,
         plantedCropId: pc._id,
         color: pc.crop?.color ?? undefined,
-        emoji: pc.crop?.emoji ?? undefined,
+        emoji: media.emoji,
+        imageUrl: media.imageUrl,
+        thumbnailUrl: media.thumbnailUrl,
       });
     }
 
@@ -336,9 +343,17 @@ export function SeasonBoard({
                 >
                   {/* Region label */}
                   <div className="flex items-center gap-1.5 border-b border-r px-2 py-2 min-h-[40px]">
-                    {row.emoji && <span className="text-base">{row.emoji}</span>}
+                    <CropAvatar
+                      name={row.cropLabel}
+                      emoji={row.emoji}
+                      imageUrl={row.imageUrl}
+                      thumbnailUrl={row.thumbnailUrl}
+                      color={row.color}
+                      size="sm"
+                    />
                     <div className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{row.areaName}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">{row.cropLabel}</span>
                     </div>
                   </div>
 

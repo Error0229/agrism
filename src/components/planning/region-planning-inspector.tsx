@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CropAvatar } from "@/components/crops/crop-avatar";
+import { resolveCropMedia } from "@/lib/crops/media";
 import { useSuccessionChain } from "@/hooks/use-planned-plantings";
 import type { OccupancyEntry } from "./season-board";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -20,7 +22,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 interface RegionPlanningInspectorProps {
   plantedCrop: {
     _id: string;
-    crop?: { name: string; emoji?: string } | null;
+    crop?: { name: string; emoji?: string; imageUrl?: string; thumbnailUrl?: string; scientificName?: string } | null;
     status: string;
     lifecycleType?: string;
     stage?: string;
@@ -74,6 +76,7 @@ export function RegionPlanningInspector({
   const plannedEntries = occupancy.filter((o) => o.type === "planned");
   const currentEntry = currentEntries[0];
   const isPerennial = currentEntry?.isPerennial ?? false;
+  const media = resolveCropMedia(plantedCrop.crop);
 
   const estimatedEnd = formatEndWindow(
     plantedCrop.endWindowEarliest,
@@ -110,9 +113,13 @@ export function RegionPlanningInspector({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          {plantedCrop.crop?.emoji && (
-            <span className="text-sm">{plantedCrop.crop.emoji}</span>
-          )}
+          <CropAvatar
+            name={plantedCrop.crop?.name ?? "未指定作物"}
+            emoji={media.emoji}
+            imageUrl={media.imageUrl}
+            thumbnailUrl={media.thumbnailUrl}
+            size="sm"
+          />
           <span className="text-xs font-medium">
             {plantedCrop.crop?.name ?? "未指定作物"}
           </span>
@@ -180,8 +187,14 @@ export function RegionPlanningInspector({
             {/* Current crop as chain root */}
             <div className="relative">
               <div className="absolute -left-[19px] top-1 size-2.5 rounded-full bg-emerald-500 border-2 border-background" />
-              <span className="text-xs font-medium">
-                {plantedCrop.crop?.emoji && <span className="mr-1">{plantedCrop.crop.emoji}</span>}
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                <CropAvatar
+                  name={plantedCrop.crop?.name ?? "目前作物"}
+                  emoji={media.emoji}
+                  imageUrl={media.imageUrl}
+                  thumbnailUrl={media.thumbnailUrl}
+                  size="sm"
+                />
                 {plantedCrop.crop?.name ?? "目前作物"}
               </span>
             </div>
