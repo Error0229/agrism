@@ -152,8 +152,8 @@ export const generateForPlantedCrop = mutation({
       emoji: v.optional(v.string()),
       category: v.string(),
       growthDays: v.optional(v.number()),
-      fertilizerIntervalDays: v.optional(v.number()),
-      needsPruning: v.optional(v.boolean()),
+      fertilizerFrequencyDays: v.optional(v.number()),
+      pruningRequired: v.optional(v.boolean()),
       pruningMonths: v.optional(v.array(v.number())),
     }),
     plantedCropData: v.object({
@@ -199,10 +199,10 @@ export const generateForPlantedCrop = mutation({
       })
     );
 
-    // 2. Fertilizing — every fertilizerIntervalDays until harvest
-    if (cropData.fertilizerIntervalDays && cropData.fertilizerIntervalDays > 0) {
+    // 2. Fertilizing — every fertilizerFrequencyDays until harvest
+    if (cropData.fertilizerFrequencyDays && cropData.fertilizerFrequencyDays > 0) {
       const fertPreset = preset("fertilizing");
-      const interval = cropData.fertilizerIntervalDays;
+      const interval = cropData.fertilizerFrequencyDays;
       let fertDate = new Date(plantDate);
       fertDate.setDate(fertDate.getDate() + interval);
 
@@ -227,8 +227,8 @@ export const generateForPlantedCrop = mutation({
       }
     }
 
-    // 3. Pruning — every 30 days in pruning months if needsPruning
-    if (cropData.needsPruning && cropData.pruningMonths?.length) {
+    // 3. Pruning — every 30 days in pruning months if pruningRequired
+    if (cropData.pruningRequired && cropData.pruningMonths?.length) {
       const prunePreset = preset("pruning");
       const pruningMonthSet = new Set(cropData.pruningMonths);
       let pruneDate = new Date(plantDate);
