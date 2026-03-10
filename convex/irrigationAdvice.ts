@@ -4,7 +4,7 @@ import { action } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { v } from "convex/values";
 
-const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const _VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_CONFIDENCES = new Set(["high", "medium", "low"]);
 
 export const generateIrrigationAdvice = action({
@@ -35,7 +35,7 @@ export const generateIrrigationAdvice = action({
 
     // 3. Enrich zones with crop info from planted crops
     const allPlantedCropIds = zones.flatMap((z) => z.linkedRegionIds ?? []);
-    const uniqueCropIds = [...new Set(allPlantedCropIds)];
+    const _uniqueCropIds = [...new Set(allPlantedCropIds)];
 
     // Build zone context for AI
     const zoneContext = zones.map((z) => ({

@@ -194,8 +194,8 @@ export function PlanCropDialog({
   const cancelPlanning = useCancelPlannedPlanting();
 
   const fieldSuitabilities = useFieldCropSuitabilities(fieldId, farmId);
-  const suitabilityMap = useMemo(() => {
-    if (!fieldSuitabilities) return new Map<string, { score: string; overallNotes: string }>();
+  const suitabilityMap = useMemo((): Map<string, { score: string; overallNotes: string }> => {
+    if (!fieldSuitabilities) return new Map();
     return new Map(fieldSuitabilities.map((s) => [s.cropId, { score: s.score, overallNotes: s.overallNotes }]));
   }, [fieldSuitabilities]);
 
@@ -244,7 +244,7 @@ export function PlanCropDialog({
 
       setNotes(existingPlan?.notes ?? "");
     }
-  }, [open, existingPlan?._id, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year]);
+  }, [open, existingPlan, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year, currentYear]);
 
   // Overlap detection
   const overlapStartTs = useMemo(() => {

@@ -66,19 +66,19 @@ export default function AiAssistantPage() {
       (cropsData ?? []).map((c: { _id: string; name: string }) => [c._id, c.name]),
     )
 
-    const plantedInfo = (fieldsData ?? []).flatMap((field: any) =>
+    const plantedInfo = (fieldsData ?? []).flatMap((field) =>
       field.plantedCrops
-        .filter((pc: any) => pc.status === 'growing')
-        .map((pc: any) => {
+        .filter((pc) => pc.status === 'growing')
+        .map((pc) => {
           const cropName = (pc.cropId ? cropMap.get(pc.cropId) : null) ?? '未知作物'
           return `- ${cropName}（${field.name}），種植日期：${pc.plantedDate}`
         }),
     )
 
     const pendingTasks = (tasksData ?? [])
-      .filter((t: any) => !t.completed)
+      .filter((t) => !t.completed)
       .slice(0, 10)
-      .map((t: any) => {
+      .map((t) => {
         const cropName = t.cropId ? cropMap.get(t.cropId) : null
         const prefix = cropName ? `${cropName} - ` : ''
         return `- ${prefix}${t.title}，預定：${t.dueDate}`

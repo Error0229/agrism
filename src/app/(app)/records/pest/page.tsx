@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { Id } from '../../../../../convex/_generated/dataModel'
 import { useCrops } from '@/hooks/use-crops'
 import { useFields } from '@/hooks/use-fields'
 import {
@@ -131,7 +132,7 @@ export default function PestObservationsPage() {
     notes: '',
   })
 
-  const cropMap = new Map<string, string>(crops.map((c: any) => [c._id, c.name]))
+  const cropMap = new Map<string, string>(crops.map((c) => [c._id, c.name]))
 
   function resetForm() {
     setForm({
@@ -160,9 +161,9 @@ export default function PestObservationsPage() {
     setSubmitting(true)
     try {
       const id = await createObs({
-        farmId: farmId as any,
-        cropId: form.cropId ? (form.cropId as any) : undefined,
-        fieldId: form.fieldId ? (form.fieldId as any) : undefined,
+        farmId: farmId as Id<"farms">,
+        cropId: form.cropId ? (form.cropId as Id<"crops">) : undefined,
+        fieldId: form.fieldId ? (form.fieldId as Id<"fields">) : undefined,
         symptoms: form.symptoms,
         affectedParts: form.affectedParts.length > 0 ? form.affectedParts : undefined,
         severity: form.severity,
@@ -194,7 +195,7 @@ export default function PestObservationsPage() {
     if (!resolveDialogId || !resolution) return
     try {
       await resolveObs({
-        observationId: resolveDialogId as any,
+        observationId: resolveDialogId as Id<"pestObservations">,
         resolution,
       })
       toast.success('已標記為解決')
@@ -208,7 +209,7 @@ export default function PestObservationsPage() {
   async function handleRetryTriage(obsId: string) {
     setTriaging(obsId)
     try {
-      await triageObs({ observationId: obsId as any })
+      await triageObs({ observationId: obsId as Id<"pestObservations"> })
       toast.success('AI 分析完成')
     } catch {
       toast.error('AI 分析失敗')
@@ -392,7 +393,7 @@ export default function PestObservationsPage() {
                   <SelectValue placeholder="選擇作物" />
                 </SelectTrigger>
                 <SelectContent>
-                  {crops.map((c: any) => (
+                  {crops.map((c) => (
                     <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -405,7 +406,7 @@ export default function PestObservationsPage() {
                   <SelectValue placeholder="選擇田區" />
                 </SelectTrigger>
                 <SelectContent>
-                  {fields.map((f: any) => (
+                  {fields.map((f) => (
                     <SelectItem key={f._id} value={f._id}>{f.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -440,7 +441,7 @@ export default function PestObservationsPage() {
               <Label>嚴重程度</Label>
               <Select
                 value={form.severity}
-                onValueChange={(v) => setForm((f) => ({ ...f, severity: v as any }))}
+                onValueChange={(v) => setForm((f) => ({ ...f, severity: v as 'mild' | 'moderate' | 'severe' }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />

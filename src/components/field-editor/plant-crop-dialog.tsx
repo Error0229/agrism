@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Search } from "lucide-react";
 
 import { useCrops } from "@/hooks/use-crops";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,7 @@ export function PlantCropDialog({
   onSelect,
   rectInfo,
 }: PlantCropDialogProps) {
-  const crops = useCrops(farmId as any);
+  const crops = useCrops(farmId as Id<"farms">);
   const [search, setSearch] = useState("");
   const [selectedCrop, setSelectedCrop] = useState<{
     id: string;

@@ -30,26 +30,20 @@ import {
   ArrowLeft,
   Bug,
   Check,
-  Droplets,
   FlaskConical,
   Leaf,
   Loader2,
-  Move,
   Pencil,
   Ruler,
   Scissors,
   Sprout,
-  Sun,
   Thermometer,
   Timer,
-  TreePine,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { CropCategory } from '@/lib/types/enums'
 import { CROP_CATEGORY_LABELS } from '@/lib/types/labels'
-import type { Id } from '../../../convex/_generated/dataModel'
 import type { Crop } from '@/lib/types/domain'
 import { CropAvatar } from '@/components/crops/crop-avatar'
 import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
@@ -481,7 +475,7 @@ interface PestDiseaseItem {
 }
 
 function PestDiseaseField({
-  fieldKey,
+  fieldKey: _fieldKey,
   label,
   items,
   confidence,
@@ -540,11 +534,9 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
     return fieldMeta[key]?.confidence
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function getDisplayValue(key: string): any {
+  function getDisplayValue(key: string): unknown {
     if (key in overrides) return overrides[key]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (crop as any)[key]
+    return (crop as Record<string, unknown>)[key]
   }
 
   const handleFieldEdit = useCallback((key: string, value: string | number | number[] | string[]) => {
@@ -573,7 +565,7 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
     const hasName = !!name
     const hasCategory = !!category
     const hasLifecycle = !!lifecycleType
-    const hasTiming = (plantingMonths && plantingMonths.length > 0) || (harvestMonths && harvestMonths.length > 0)
+    const hasTiming = (Array.isArray(plantingMonths) && plantingMonths.length > 0) || (Array.isArray(harvestMonths) && harvestMonths.length > 0)
     const hasEnvironment = !!waterNeeds || !!sunlight
 
     return {
@@ -724,7 +716,7 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
           <ArrayField
             fieldKey="aliases"
             label="別名"
-            items={getDisplayValue('aliases')}
+            items={getDisplayValue('aliases') as string[] | undefined}
             confidence={getConfidence('aliases')}
             onEdit={(k, v) => handleFieldEdit(k, v)}
           />
@@ -758,17 +750,17 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
           <MonthField
             fieldKey="plantingMonths"
             label="播種月份"
-            months={getDisplayValue('plantingMonths')}
+            months={getDisplayValue('plantingMonths') as number[] | undefined}
             confidence={getConfidence('plantingMonths')}
-            required={!getDisplayValue('harvestMonths')?.length}
+            required={!(getDisplayValue('harvestMonths') as number[] | undefined)?.length}
             onEdit={(k, v) => handleFieldEdit(k, v)}
           />
           <MonthField
             fieldKey="harvestMonths"
             label="收成月份"
-            months={getDisplayValue('harvestMonths')}
+            months={getDisplayValue('harvestMonths') as number[] | undefined}
             confidence={getConfidence('harvestMonths')}
-            required={!getDisplayValue('plantingMonths')?.length}
+            required={!(getDisplayValue('plantingMonths') as number[] | undefined)?.length}
             onEdit={(k, v) => handleFieldEdit(k, v)}
           />
           <ReviewField
@@ -919,13 +911,13 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
           <PestDiseaseField
             fieldKey="commonPests"
             label="常見害蟲"
-            items={getDisplayValue('commonPests')}
+            items={getDisplayValue('commonPests') as PestDiseaseItem[] | undefined}
             confidence={getConfidence('commonPests')}
           />
           <PestDiseaseField
             fieldKey="commonDiseases"
             label="常見病害"
-            items={getDisplayValue('commonDiseases')}
+            items={getDisplayValue('commonDiseases') as PestDiseaseItem[] | undefined}
             confidence={getConfidence('commonDiseases')}
           />
         </div>
@@ -969,14 +961,14 @@ export function CropImportReview({ crop }: CropImportReviewProps) {
           <ArrayField
             fieldKey="companionPlants"
             label="良伴植物"
-            items={getDisplayValue('companionPlants')}
+            items={getDisplayValue('companionPlants') as string[] | undefined}
             confidence={getConfidence('companionPlants')}
             onEdit={(k, v) => handleFieldEdit(k, v)}
           />
           <ArrayField
             fieldKey="antagonistPlants"
             label="忌避植物"
-            items={getDisplayValue('antagonistPlants')}
+            items={getDisplayValue('antagonistPlants') as string[] | undefined}
             confidence={getConfidence('antagonistPlants')}
             onEdit={(k, v) => handleFieldEdit(k, v)}
           />

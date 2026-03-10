@@ -356,7 +356,7 @@ function coerceNumbers(data: Record<string, unknown>): Record<string, unknown> {
   return result;
 }
 
-function cleanArrayItems(items: Record<string, unknown>[]): Record<string, unknown>[] {
+function _cleanArrayItems(items: Record<string, unknown>[]): Record<string, unknown>[] {
   return items.map((item) => cleanNulls(item));
 }
 
@@ -377,7 +377,7 @@ function pickArrayFields(
 }
 
 const PEST_DISEASE_KEYS = ["name", "symptoms", "organicTreatment", "triggerConditions"];
-const GROWING_GUIDE_KEYS = ["howToPlant", "howToCare", "warnings", "localNotes"];
+const _GROWING_GUIDE_KEYS = ["howToPlant", "howToCare", "warnings", "localNotes"];
 
 function mergeImportResults(
   name: string,

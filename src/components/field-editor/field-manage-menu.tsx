@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUpdateField, useDeleteField } from "@/hooks/use-fields";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface FieldManageMenuProps {
   fieldId: string;
@@ -64,7 +65,7 @@ export function FieldManageMenu({
   const handleRename = useCallback(async () => {
     const trimmed = newName.trim();
     if (!trimmed) return;
-    await updateField({ fieldId: fieldId as any, name: trimmed });
+    await updateField({ fieldId: fieldId as Id<"fields">, name: trimmed });
     setRenameOpen(false);
   }, [fieldId, newName, updateField]);
 
@@ -72,12 +73,12 @@ export function FieldManageMenu({
     const w = parseFloat(newWidth);
     const h = parseFloat(newHeight);
     if (!w || w <= 0 || !h || h <= 0) return;
-    await updateField({ fieldId: fieldId as any, widthM: w, heightM: h });
+    await updateField({ fieldId: fieldId as Id<"fields">, widthM: w, heightM: h });
     setResizeOpen(false);
   }, [fieldId, newWidth, newHeight, updateField]);
 
   const handleDelete = useCallback(async () => {
-    await deleteField({ fieldId: fieldId as any });
+    await deleteField({ fieldId: fieldId as Id<"fields"> });
     router.push("/fields");
   }, [fieldId, deleteField, router]);
 

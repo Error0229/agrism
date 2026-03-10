@@ -5,10 +5,12 @@ import { Stage, Layer, Rect, Line, Text, Group, Circle, Image as KonvaImage } fr
 import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
 
+import type { Id } from "../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { resolveCropMedia } from "@/lib/crops/media";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import {
+  useFieldById,
   useUpdateCropPlacement,
   useRemovePlantedCrop,
   useRestorePlantedCrop,
@@ -31,8 +33,18 @@ import { UTILITY_NODE_TYPE_LABELS } from "@/lib/types/labels";
 // Types — field data shape from Convex
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FieldData = any;
+type FieldData = NonNullable<ReturnType<typeof useFieldById>>;
+
+/** Utility node shape for canvas (matches Convex utilityNodes table) */
+interface UtilityNodeData {
+  _id: string;
+  fieldId: string;
+  kind: "water" | "electric";
+  nodeType?: string;
+  label?: string;
+  xM: number;
+  yM: number;
+}
 
 // Merged shape for canvas rendering
 interface CanvasItem {
@@ -511,7 +523,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
         yM: Number(fac.yM),
         widthM: Number(fac.widthM),
         heightM: Number(fac.heightM),
-        label: fac.name,
+        label: fac.name ?? "",
         emoji: "\u{1F3D7}",
         color: "#94a3b8",
         status: "facility",
@@ -523,10 +535,10 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
   }, [field.plantedCrops, field.facilities]);
 
   // Utility nodes / edges
-  const utilityNodes = field.utilityNodes;
+  const utilityNodes = field.utilityNodes as UtilityNodeData[];
   const utilityEdges = field.utilityEdges;
   const utilityNodeById = useMemo(
-    () => new Map<string, any>(utilityNodes.map((n: any) => [n._id, n])),
+    () => new Map(utilityNodes.map((n) => [n._id as string, n])),
     [utilityNodes],
   );
 
@@ -1082,9 +1094,9 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
 
         // Eraser deletes the area entirely (hard delete, no undo)
         if (item.kind === "crop" && item.plantedCropId) {
-          deletePlantedCropWithPlacement({ plantedCropId: item.plantedCropId as any });
+          deletePlantedCropWithPlacement({ plantedCropId: item.plantedCropId as Id<"plantedCrops"> });
         } else if (item.kind === "facility") {
-          deleteFacility({ facilityId: item.id as any });
+          deleteFacility({ facilityId: item.id as Id<"facilities"> });
         }
         return;
       }
@@ -1168,14 +1180,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
               placementData.shapePoints = data.shapePoints;
             }
             await updatePlacement({
-              plantedCropId: id as any,
+              plantedCropId: id as Id<"plantedCrops">,
               fieldId: field._id,
               ...placementData,
               shapePoints: placementData.shapePoints ?? undefined,
             });
           } else if (target.kind === "facility") {
             await updateFacility({
-              facilityId: id as any,
+              facilityId: id as Id<"facilities">,
               fieldId: field._id,
               xM: data.xM,
               yM: data.yM,
@@ -1304,14 +1316,14 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
             updateData.shapePoints = newShapePoints;
           }
           await updatePlacement({
-            plantedCropId: id as any,
+            plantedCropId: id as Id<"plantedCrops">,
             fieldId: field._id,
             ...updateData,
             shapePoints: updateData.shapePoints ?? undefined,
           });
         } else if (item.kind === "facility") {
           await updateFacility({
-            facilityId: id as any,
+            facilityId: id as Id<"facilities">,
             fieldId: field._id,
             ...data,
           });
@@ -1325,7 +1337,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       await origUndo();
       if (item.kind === "crop" && oldShapePoints !== undefined) {
         await updatePlacement({
-          plantedCropId: resizeState.itemId as any,
+          plantedCropId: resizeState.itemId as Id<"plantedCrops">,
           fieldId: field._id,
           shapePoints: oldShapePoints ?? undefined,
         });
@@ -1372,7 +1384,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       });
 
       updateUtilityNode({
-        nodeId: nodeId as any,
+        nodeId: nodeId as Id<"utilityNodes">,
         fieldId: field._id,
         xM: newXM,
         yM: newYM,
@@ -1453,13 +1465,13 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       async updateFn(id, data) {
         if (item.kind === "crop") {
           await updatePlacement({
-            plantedCropId: id as any,
+            plantedCropId: id as Id<"plantedCrops">,
             fieldId: field._id,
             ...data,
             shapePoints: newShapePoints,
           });
         } else if (item.kind === "facility") {
-          await updateFacility({ facilityId: id as any, fieldId: field._id, ...data });
+          await updateFacility({ facilityId: id as Id<"facilities">, fieldId: field._id, ...data });
         }
       },
     });
@@ -1470,7 +1482,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
       await origUndo();
       if (item.kind === "crop") {
         await updatePlacement({
-          plantedCropId: vertexDragState.itemId as any,
+          plantedCropId: vertexDragState.itemId as Id<"plantedCrops">,
           fieldId: field._id,
           shapePoints: origShapePoints,
         });
@@ -1877,7 +1889,7 @@ export function EditorCanvas({ field, onDrawRectComplete, onDrawPolygonComplete,
                 onClick={(e) => {
                   e.cancelBubble = true;
                   if (activeTool === "eraser") {
-                    deleteUtilityNode({ nodeId: node._id as any });
+                    deleteUtilityNode({ nodeId: node._id as Id<"utilityNodes"> });
                     return;
                   }
                   if (activeTool === "select") {

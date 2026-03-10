@@ -13,6 +13,7 @@ import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
+import type { Id } from '../../convex/_generated/dataModel'
 import { useTasks, useToggleTask } from '@/hooks/use-tasks'
 import { useGenerateDailyTasks } from '@/hooks/use-daily-tasks'
 import { useFieldsSummary } from '@/hooks/use-fields'
@@ -196,7 +197,7 @@ export default function DashboardPage() {
   // ---- Handlers ----
   const handleToggle = async (taskId: string) => {
     try {
-      await toggleTask({ taskId: taskId as any })
+      await toggleTask({ taskId: taskId as Id<"tasks"> })
     } catch {
       // ignore
     }

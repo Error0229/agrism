@@ -63,6 +63,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  useFieldById,
   useUpdateUtilityNode,
   useDeleteUtilityNode,
   useDeleteUtilityEdge,
@@ -199,9 +200,8 @@ function SortableSectionOverlay({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Field data type — resolved from Convex at runtime
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FieldData = any;
+// Field data type — derived from the Convex query return type
+type FieldData = NonNullable<ReturnType<typeof useFieldById>>;
 
 interface PropertyInspectorProps {
   field?: FieldData | null;
@@ -302,7 +302,7 @@ export const PropertyInspector = React.memo(function PropertyInspector({
     const id = selectedIds[0];
 
     // Check planted crops (placements are inlined in Convex)
-    const pc = field.plantedCrops.find((p: any) => p._id === id);
+    const pc = field.plantedCrops.find((p) => p._id === id);
     if (pc) {
       return {
         kind: "crop" as const,
@@ -312,13 +312,13 @@ export const PropertyInspector = React.memo(function PropertyInspector({
     }
 
     // Check facilities
-    const facility = field.facilities.find((f: any) => f._id === id);
+    const facility = field.facilities.find((f) => f._id === id);
     if (facility) {
       return { kind: "facility" as const, facility };
     }
 
     // Check utility nodes
-    const utilityNode = field.utilityNodes.find((n: any) => n._id === id);
+    const utilityNode = field.utilityNodes.find((n) => n._id === id);
     if (utilityNode) {
       return { kind: "utility_node" as const, utilityNode };
     }
@@ -793,7 +793,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
 
   // Planning hooks
   const farmId = useFarmId();
-  const occupancy = useFieldOccupancy(fieldId as any);
+  const occupancy = useFieldOccupancy(fieldId as Id<"fields">);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [_editPlanId, setEditPlanId] = useState<string | null>(null);
 
@@ -1051,8 +1051,8 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       {/* Plan crop dialog */}
       {farmId && fieldId && (
         <PlanCropDialog
-          farmId={farmId as any}
-          fieldId={fieldId as any}
+          farmId={farmId as Id<"farms">}
+          fieldId={fieldId as Id<"fields">}
           open={planDialogOpen}
           onOpenChange={(open) => {
             setPlanDialogOpen(open);
@@ -1125,7 +1125,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
             value={facility.facilityType}
             onChange={(e) => {
               updateFacility({
-                facilityId: facility._id as any,
+                facilityId: facility._id as Id<"facilities">,
                 fieldId: field._id,
                 facilityType: e.target.value as FacilityType,
               });
@@ -1152,7 +1152,7 @@ const FacilitySelectionSection = React.memo(function FacilitySelectionSection({
                   data.facilityType = derived as FacilityType;
                 }
                 updateFacility({
-                  facilityId: facility._id as any,
+                  facilityId: facility._id as Id<"facilities">,
                   fieldId: field._id,
                   ...data,
                 });
@@ -1241,10 +1241,10 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
     const edges: { edgeId: string; nodeId: string; nodeLabel: string }[] = [];
     for (const edge of field.utilityEdges) {
       if (edge.fromNodeId === utilityNode._id) {
-        const toNode = field.utilityNodes.find((n: any) => n._id === edge.toNodeId);
+        const toNode = field.utilityNodes.find((n) => n._id === edge.toNodeId);
         if (toNode) edges.push({ edgeId: edge._id, nodeId: toNode._id, nodeLabel: toNode.label });
       } else if (edge.toNodeId === utilityNode._id) {
-        const fromNode = field.utilityNodes.find((n: any) => n._id === edge.fromNodeId);
+        const fromNode = field.utilityNodes.find((n) => n._id === edge.fromNodeId);
         if (fromNode) edges.push({ edgeId: edge._id, nodeId: fromNode._id, nodeLabel: fromNode.label });
       }
     }
@@ -1281,7 +1281,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             value={utilityNode.kind}
             onChange={(e) => {
               updateNode({
-                nodeId: utilityNode._id as any,
+                nodeId: utilityNode._id as Id<"utilityNodes">,
                 fieldId: field._id,
                 kind: e.target.value as UtilityKind,
               });
@@ -1300,7 +1300,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             onChange={(e) => {
               const val = e.target.value;
               updateNode({
-                nodeId: utilityNode._id as any,
+                nodeId: utilityNode._id as Id<"utilityNodes">,
                 fieldId: field._id,
                 nodeType: val || undefined,
               });
@@ -1324,7 +1324,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
               const val = e.target.value.trim();
               if (val && val !== utilityNode.label) {
                 updateNode({
-                  nodeId: utilityNode._id as any,
+                  nodeId: utilityNode._id as Id<"utilityNodes">,
                   fieldId: field._id,
                   label: val,
                 });
@@ -1351,7 +1351,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
                   type="button"
                   className="text-destructive hover:text-destructive/80"
                   onClick={() => {
-                    deleteEdge({ edgeId: ce.edgeId as any });
+                    deleteEdge({ edgeId: ce.edgeId as Id<"utilityEdges"> });
                   }}
                   title="刪除連線"
                 >
@@ -1381,7 +1381,7 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
             size="sm"
             className="text-xs"
             onClick={() => {
-              deleteNode({ nodeId: utilityNode._id as any });
+              deleteNode({ nodeId: utilityNode._id as Id<"utilityNodes"> });
               onDelete?.();
             }}
           >

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { Id } from '../../../../../convex/_generated/dataModel'
 import { useHarvestLogs, useCreateHarvestLog, useDeleteHarvestLog } from '@/hooks/use-harvest'
 import { useCrops } from '@/hooks/use-crops'
 import { useFields } from '@/hooks/use-fields'
@@ -62,8 +63,8 @@ export default function HarvestRecordsPage() {
     notes: '',
   })
 
-  const cropMap = new Map<string, string>(crops.map((c: any) => [c._id, c.name]))
-  const fieldMap = new Map<string, string>(fields.map((f: any) => [f._id, f.name]))
+  const cropMap = new Map<string, string>(crops.map((c) => [c._id, c.name]))
+  const fieldMap = new Map<string, string>(fields.map((f) => [f._id, f.name]))
 
   function resetForm() {
     setForm({
@@ -84,9 +85,9 @@ export default function HarvestRecordsPage() {
     setSubmitting(true)
     try {
       await createLog({
-        farmId: farmId as any,
-        cropId: form.cropId as any,
-        fieldId: form.fieldId as any,
+        farmId: farmId as Id<"farms">,
+        cropId: form.cropId as Id<"crops">,
+        fieldId: form.fieldId as Id<"fields">,
         date: form.date,
         quantity: Number(form.quantity),
         unit: form.unit,

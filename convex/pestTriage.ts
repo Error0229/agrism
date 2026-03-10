@@ -40,10 +40,10 @@ export const triageObservation = action({
     };
 
     if (cropData) {
-      context.cropName = (cropData as any).name;
-      context.commonPests = (cropData as any).commonPests;
-      context.commonDiseases = (cropData as any).commonDiseases;
-      context.category = (cropData as any).category;
+      context.cropName = cropData.name;
+      context.commonPests = cropData.commonPests;
+      context.commonDiseases = cropData.commonDiseases;
+      context.category = cropData.category;
     }
 
     const apiKey = process.env.OPENROUTER_API_KEY;

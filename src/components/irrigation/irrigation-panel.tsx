@@ -289,7 +289,7 @@ export function IrrigationPanel() {
           ? `已生成 ${result.count} 條灌溉建議`
           : result.message ?? "目前無需特別灌溉"
       );
-    } catch (err) {
+    } catch {
       setAdviceResult("生成建議失敗，請稍後再試");
     } finally {
       setGenerating(false);

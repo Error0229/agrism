@@ -2,7 +2,10 @@
 
 import { useState } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { Id } from '../../../../../convex/_generated/dataModel'
 import { useFields } from '@/hooks/use-fields'
+
+type FieldData = NonNullable<ReturnType<typeof useFields>>[number]
 import {
   useUpsertSoilProfile,
   useSoilAmendments,
@@ -103,7 +106,7 @@ export default function SoilRecordsPage() {
   )
 }
 
-function FieldSoilContent({ fieldId, fields }: { fieldId: string; fields: any[] }) {
+function FieldSoilContent({ fieldId, fields }: { fieldId: string; fields: FieldData[] }) {
   return (
     <div className="space-y-6">
       <SoilProfileSection fieldId={fieldId} fields={fields} />
@@ -116,7 +119,7 @@ function FieldSoilContent({ fieldId, fields }: { fieldId: string; fields: any[] 
 // --- Soil Profile Section ---
 // Soil profile is now inlined in field data (from useFields), not a separate query
 
-function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[] }) {
+function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: FieldData[] }) {
   const field = fields.find((f) => f._id === fieldId)
   const profile = field
     ? {
@@ -151,7 +154,7 @@ function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[
     setSubmitting(true)
     try {
       await upsert({
-        fieldId: fieldId as any,
+        fieldId: fieldId as Id<"fields">,
         texture: form.texture ? (form.texture as SoilTexture) : undefined,
         ph: form.ph ? Number(form.ph) : undefined,
         ec: form.ec ? Number(form.ec) : undefined,
@@ -280,7 +283,7 @@ function SoilProfileSection({ fieldId, fields }: { fieldId: string; fields: any[
 // --- Soil Amendments Section ---
 
 function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
-  const amendments = useSoilAmendments(fieldId as any) ?? []
+  const amendments = useSoilAmendments(fieldId as Id<"fields">) ?? []
   const createAmendment = useCreateSoilAmendment()
   const deleteAmendment = useDeleteSoilAmendment()
   const [open, setOpen] = useState(false)
@@ -308,7 +311,7 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
     setSubmitting(true)
     try {
       await createAmendment({
-        fieldId: fieldId as any,
+        fieldId: fieldId as Id<"fields">,
         date: form.date,
         amendmentType: form.amendmentType,
         quantity: Number(form.quantity),
@@ -457,7 +460,7 @@ function SoilAmendmentsSection({ fieldId }: { fieldId: string }) {
 // --- Soil Notes Section ---
 
 function SoilNotesSection({ fieldId }: { fieldId: string }) {
-  const notes = useSoilNotes(fieldId as any) ?? []
+  const notes = useSoilNotes(fieldId as Id<"fields">) ?? []
   const createNote = useCreateSoilNote()
   const deleteNote = useDeleteSoilNote()
   const [open, setOpen] = useState(false)
@@ -481,7 +484,7 @@ function SoilNotesSection({ fieldId }: { fieldId: string }) {
     setSubmitting(true)
     try {
       await createNote({
-        fieldId: fieldId as any,
+        fieldId: fieldId as Id<"fields">,
         date: form.date,
         ph: form.ph ? Number(form.ph) : undefined,
         content: form.content,

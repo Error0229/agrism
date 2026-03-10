@@ -65,10 +65,9 @@ import {
 import {
   CROP_CATEGORY_LABELS,
   WATER_LEVEL_LABELS,
-  SUNLIGHT_LEVEL_LABELS,
   RESISTANCE_LEVEL_LABELS,
 } from '@/lib/types/labels'
-import type { CropCategory, WaterLevel, SunlightLevel, ResistanceLevel } from '@/lib/types/enums'
+import type { CropCategory, WaterLevel, ResistanceLevel } from '@/lib/types/enums'
 import type { Id } from '../../../../../convex/_generated/dataModel'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -123,7 +122,7 @@ const HARVEST_CADENCE_LABELS: Record<string, string> = {
   multiple_flushes: '多次採收',
 }
 
-const LEVEL_LABELS: Record<string, string> = {
+const _LEVEL_LABELS: Record<string, string> = {
   low: '低',
   medium: '中',
   high: '高',

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { Id } from '../../../../convex/_generated/dataModel'
 import { useCreateWeatherLog } from '@/hooks/use-weather-logs'
 import { IrrigationPanel } from '@/components/irrigation/irrigation-panel'
 
@@ -148,7 +149,7 @@ export default function WeatherPage() {
     try {
       if (!farmId) return
       await createWeatherLog({
-        farmId: farmId as any,
+        farmId: farmId as Id<"farms">,
         date: logDate,
         temperature: logTemp ? Number(logTemp) : undefined,
         rainfallMm: logRain ? Number(logRain) : undefined,

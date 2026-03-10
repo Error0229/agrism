@@ -27,7 +27,6 @@ import {
   FlaskConical,
   Leaf,
   Loader2,
-  Move,
   Ruler,
   Scissors,
   ShieldAlert,
@@ -36,7 +35,6 @@ import {
   Thermometer,
   Timer,
   TreePine,
-  Waves,
   Wind,
   X,
 } from 'lucide-react'
@@ -117,21 +115,6 @@ const ROTATION_FAMILY_LABELS: Record<string, string> = {
 const MONTH_NAMES = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
 
 // === Reusable sub-components ===
-
-function SectionHeader({
-  icon,
-  title,
-}: {
-  icon: React.ReactNode
-  title: string
-}) {
-  return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="text-muted-foreground">{icon}</div>
-      <h3 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">{title}</h3>
-    </div>
-  )
-}
 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

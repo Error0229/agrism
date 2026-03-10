@@ -549,22 +549,22 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
 
       // Apply onboarding lifecycle data if provided
       if (onboarding?.isExisting) {
-        const patch: Record<string, unknown> = { plantedCropId };
-        if (onboarding.lifecycleType) patch.lifecycleType = onboarding.lifecycleType;
-        if (onboarding.stage) patch.stage = onboarding.stage;
-        patch.startDateMode = onboarding.startDateMode;
+        const patch: Parameters<typeof updateLifecycle>[0] = {
+          plantedCropId,
+          lifecycleType: onboarding.lifecycleType || undefined,
+          stage: onboarding.stage || undefined,
+          startDateMode: onboarding.startDateMode,
+          plantedDate: onboarding.startDateMode === "exact" && onboarding.plantedDate ? onboarding.plantedDate : undefined,
+          timelineConfidence:
+            onboarding.startDateMode === "exact" && onboarding.plantedDate
+              ? "high"
+              : onboarding.startDateMode === "relative" && onboarding.estimatedAgeDays
+                ? "medium"
+                : "low",
+          estimatedAgeDays: onboarding.startDateMode === "relative" && onboarding.estimatedAgeDays ? onboarding.estimatedAgeDays : undefined,
+        };
 
-        if (onboarding.startDateMode === "exact" && onboarding.plantedDate) {
-          patch.plantedDate = onboarding.plantedDate;
-          patch.timelineConfidence = "high";
-        } else if (onboarding.startDateMode === "relative" && onboarding.estimatedAgeDays) {
-          patch.estimatedAgeDays = onboarding.estimatedAgeDays;
-          patch.timelineConfidence = "medium";
-        } else {
-          patch.timelineConfidence = "low";
-        }
-
-        await updateLifecycle(patch as any);
+        await updateLifecycle(patch);
       } else if (onboarding && !onboarding.isExisting) {
         // New planting — set today's date with exact mode
         await updateLifecycle({

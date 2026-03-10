@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
+import type { Id } from '../../../../../convex/_generated/dataModel'
 import {
   useFinanceRecords,
   useCreateFinanceRecord,
@@ -85,7 +86,7 @@ export default function FinanceRecordsPage() {
     setSubmitting(true)
     try {
       await createRecord({
-        farmId: farmId as any,
+        farmId: farmId as Id<"farms">,
         type: form.type as FinanceType,
         category: form.category,
         amount: Number(form.amount),
