@@ -8,6 +8,7 @@ import { CropEditForm } from '@/components/crops/crop-edit-form'
 import { CropImportReview } from '@/components/crops/crop-import-review'
 import { CropAvatar } from '@/components/crops/crop-avatar'
 import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
+import { CropGallery } from '@/components/crops/crop-gallery'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { resolveCropMedia } from '@/lib/crops/media'
@@ -591,6 +592,14 @@ export default function CropDetailPage({
 
         {/* ===== READ-ONLY DISPLAY ===== */}
         {!editing && <>
+
+        {/* ===== GALLERY (iNaturalist field photos) ===== */}
+        {crop.galleryImages && crop.galleryImages.length > 0 && (
+          <CropGallery
+            images={crop.galleryImages}
+            cropName={crop.name}
+          />
+        )}
 
         {/* ===== PLANTING CALENDAR BAR ===== */}
         {hasCalendar && (

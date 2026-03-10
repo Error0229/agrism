@@ -155,6 +155,18 @@ export default defineSchema({
     lastAiEnriched: v.optional(v.number()),
     aiEnrichmentNotes: v.optional(v.string()),
 
+    // === Gallery Images (iNaturalist field photos, issue #100) ===
+    galleryImages: v.optional(v.array(v.object({
+      url: v.string(),                          // R2 public URL
+      thumbnailUrl: v.string(),                  // R2 thumbnail URL
+      source: v.string(),                        // "inaturalist"
+      sourceUrl: v.string(),                     // Original iNaturalist observation URL
+      license: v.string(),                       // CC license type
+      attribution: v.string(),                   // Photographer credit
+      observationDate: v.optional(v.string()),   // When the photo was taken
+      location: v.optional(v.string()),          // Where (e.g., "花蓮")
+    }))),
+
     // === Import Review (issue #89/#90) ===
     importStatus: v.optional(v.string()),  // "pending_review" | "approved" | undefined
     fieldMeta: v.optional(v.record(v.string(), v.object({
