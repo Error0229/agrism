@@ -436,11 +436,51 @@ export default defineSchema({
       reasoning: v.string(),
       nextChecks: v.string(),
       treatment: v.string(),
+      eppoCode: v.optional(v.string()),
+      referenceImageId: v.optional(v.id("pestReferenceImages")),
     }))),
     triageStatus: v.optional(v.string()),
     resolution: v.optional(v.string()),
     notes: v.optional(v.string()),
+    referenceImageIds: v.optional(v.array(v.id("pestReferenceImages"))),
   }).index("by_farmId", ["farmId"]).index("by_cropId", ["cropId"]),
+
+  // === Pest/Disease Reference Images (issue #101) ===
+  pestReferenceImages: defineTable({
+    farmId: v.optional(v.id("farms")),  // null = global/shared reference
+    source: v.string(),                  // "moa" | "eppo"
+    sourceId: v.string(),               // MOA: diag ID, EPPO: EPPOCODE
+    pestNameCh: v.string(),
+    pestNameEn: v.optional(v.string()),
+    pestNameScientific: v.optional(v.string()),
+    eppoCode: v.optional(v.string()),
+    orderLatin: v.optional(v.string()),
+    orderCh: v.optional(v.string()),
+    familyLatin: v.optional(v.string()),
+    familyCh: v.optional(v.string()),
+    feedingMethod: v.optional(v.string()),
+    harmParts: v.optional(v.array(v.string())),
+    cropName: v.optional(v.string()),
+    cropScientificName: v.optional(v.string()),
+    cropFamily: v.optional(v.string()),
+    images: v.array(v.object({
+      url: v.string(),
+      thumbnailUrl: v.string(),
+      category: v.string(),
+      description: v.optional(v.string()),
+      sourceUrl: v.string(),
+      author: v.optional(v.string()),
+      license: v.string(),
+    })),
+    importedAt: v.number(),
+    lastUpdated: v.optional(v.number()),
+  })
+    .index("by_source", ["source"])
+    .index("by_source_sourceId", ["source", "sourceId"])
+    .index("by_pestNameScientific", ["pestNameScientific"])
+    .index("by_eppoCode", ["eppoCode"])
+    .index("by_pestNameCh", ["pestNameCh"])
+    .index("by_cropScientificName", ["cropScientificName"]),
 
   // === AI Recommendations (issue #93) ===
   recommendations: defineTable({

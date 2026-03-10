@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 
@@ -39,6 +39,14 @@ export const getById = query({
     if (!obs) return null;
     await requireFarmMembership(ctx, obs.farmId);
     return obs;
+  },
+});
+
+// Internal query — used by actions that bypass auth
+export const getByIdInternal = internalQuery({
+  args: { observationId: v.id("pestObservations") },
+  handler: async (ctx, args) => {
+    return ctx.db.get(args.observationId);
   },
 });
 
@@ -110,6 +118,8 @@ export const updateTriageResults = internalMutation({
       reasoning: v.string(),
       nextChecks: v.string(),
       treatment: v.string(),
+      eppoCode: v.optional(v.string()),
+      referenceImageId: v.optional(v.id("pestReferenceImages")),
     })),
   },
   handler: async (ctx, args) => {
@@ -117,5 +127,31 @@ export const updateTriageResults = internalMutation({
       triageResults: args.triageResults,
       triageStatus: "triaged",
     });
+  },
+});
+
+// Internal mutation used to link reference image IDs to an observation
+export const linkReferenceImages = internalMutation({
+  args: {
+    observationId: v.id("pestObservations"),
+    referenceImageIds: v.array(v.id("pestReferenceImages")),
+    triageResults: v.optional(v.array(v.object({
+      possibleCause: v.string(),
+      likelihood: v.string(),
+      reasoning: v.string(),
+      nextChecks: v.string(),
+      treatment: v.string(),
+      eppoCode: v.optional(v.string()),
+      referenceImageId: v.optional(v.id("pestReferenceImages")),
+    }))),
+  },
+  handler: async (ctx, args) => {
+    const patch: Record<string, unknown> = {
+      referenceImageIds: args.referenceImageIds,
+    };
+    if (args.triageResults) {
+      patch.triageResults = args.triageResults;
+    }
+    await ctx.db.patch(args.observationId, patch);
   },
 });
