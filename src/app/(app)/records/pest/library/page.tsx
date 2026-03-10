@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,10 +66,13 @@ const FEEDING_METHOD_LABELS: Record<string, string> = {
 }
 
 export default function PestReferenceLibraryPage() {
+  const searchParams = useSearchParams()
+  const initialSearch = searchParams.get('search') || searchParams.get('crop') || ''
+
   const allRecords = usePestReferenceLibrary()
   const isLoading = allRecords === undefined
 
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
   const [sourceFilter, setSourceFilter] = useState<string>('all')
   const [partFilter, setPartFilter] = useState<string>('all')
   const [orderFilter, setOrderFilter] = useState<string>('all')
