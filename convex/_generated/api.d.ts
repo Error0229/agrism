@@ -12,6 +12,7 @@ import type * as _helpers from "../_helpers.js";
 import type * as briefingContext from "../briefingContext.js";
 import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
+import type * as cropGalleryLookup from "../cropGalleryLookup.js";
 import type * as cropImageLookup from "../cropImageLookup.js";
 import type * as cropImport from "../cropImport.js";
 import type * as crops from "../crops.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   briefingContext: typeof briefingContext;
   briefingGeneration: typeof briefingGeneration;
   cropEnrichment: typeof cropEnrichment;
+  cropGalleryLookup: typeof cropGalleryLookup;
   cropImageLookup: typeof cropImageLookup;
   cropImport: typeof cropImport;
   crops: typeof crops;

@@ -214,6 +214,27 @@ export const applyCropImage = internalMutation({
   },
 });
 
+export const applyCropGallery = internalMutation({
+  args: {
+    cropId: v.id("crops"),
+    galleryImages: v.array(v.object({
+      url: v.string(),
+      thumbnailUrl: v.string(),
+      source: v.string(),
+      sourceUrl: v.string(),
+      license: v.string(),
+      attribution: v.string(),
+      observationDate: v.optional(v.string()),
+      location: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, { cropId, galleryImages }) => {
+    const crop = await ctx.db.get(cropId);
+    if (!crop) return;
+    await ctx.db.patch(cropId, { galleryImages });
+  },
+});
+
 // === Import Review Queries (issue #89/#90) ===
 
 /** Get a single crop by ID without filtering by importStatus (for the review page). */
@@ -259,6 +280,12 @@ export const create = mutation({
     if (args.scientificName && !args.imageUrl) {
       await ctx.scheduler.runAfter(0, internal.cropImageLookup.fetchCropImage, { cropId: id });
     }
+    // Auto-fetch gallery images from iNaturalist
+    if (args.scientificName) {
+      await ctx.scheduler.runAfter(1000, internal.cropGalleryLookup.fetchCropGallery, {
+        cropId: id,
+      });
+    }
     return ctx.db.get(id);
   },
 });
@@ -283,7 +310,18 @@ export const update = mutation({
     }
 
     await ctx.db.patch(cropId, updates);
-    return ctx.db.get(cropId);
+
+    // Auto-fetch image from Wikimedia if the crop has a scientificName and no imageUrl
+    const updatedCrop = await ctx.db.get(cropId);
+    if (updatedCrop?.scientificName && !updatedCrop.imageUrl) {
+      await ctx.scheduler.runAfter(0, internal.cropImageLookup.fetchCropImage, { cropId });
+    }
+    // Auto-fetch gallery images from iNaturalist if not yet populated
+    if (updatedCrop?.scientificName && (!updatedCrop.galleryImages || updatedCrop.galleryImages.length === 0)) {
+      await ctx.scheduler.runAfter(1000, internal.cropGalleryLookup.fetchCropGallery, { cropId });
+    }
+
+    return updatedCrop;
   },
 });
 
@@ -582,6 +620,10 @@ export const approveImport = mutation({
     const updatedCrop = await ctx.db.get(cropId);
     if (updatedCrop?.scientificName && !updatedCrop.imageUrl) {
       await ctx.scheduler.runAfter(0, internal.cropImageLookup.fetchCropImage, { cropId });
+    }
+    // Auto-fetch gallery images from iNaturalist if not yet populated
+    if (updatedCrop?.scientificName && (!updatedCrop.galleryImages || updatedCrop.galleryImages.length === 0)) {
+      await ctx.scheduler.runAfter(1000, internal.cropGalleryLookup.fetchCropGallery, { cropId });
     }
 
     return updatedCrop;
