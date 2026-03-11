@@ -27,8 +27,14 @@
 - Sidebar polish (drag-reorder, scroll fix, handle positioning)
 - Unit tests (47+ total across 9+ files)
 
+## Completed (continued)
+- **#99** Crop Images from Wikimedia Commons — R2 storage, auto-lookup, 16 default crops
+- **#100** iNaturalist Field Photo Gallery — gallery pipeline, R2 upload, lightbox UI, CC attribution
 ## Upcoming
-(All GitHub issues #83-#98, #89, #90 are implemented)
+(All GitHub issues #83-#100 are implemented)
+
+## Closed (Not Planned)
+- **#101** Taiwan MOA + EPPO Pest Reference Images — rolled back; TARI image server down, wrong UX approach (farmers need symptom-based identification, not pest body photos). Consider Pl@ntNet integration instead.
 
 ## Blocked
 (None currently)

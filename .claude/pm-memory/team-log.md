@@ -1,5 +1,30 @@
 # PM Team Log
 
+## Completed: Issue #101 — Taiwan MOA + EPPO Pest Reference Images (2026-03-10)
+- **Agents used**: BA, Backend Dev, Frontend Dev, Reviewer, Fixer
+- **Commit**: `2f99bfe` — feat: integrate Taiwan MOA and EPPO pest/disease reference images (#101)
+- **BA**: Verified MOA API (103 records, no auth), EPPO API (needs free API key), wrote full spec
+- **Backend**: pestReferenceImages table (6 indexes), pestImageImport.ts (MOA batch import with staggered scheduling), pestEppoLookup.ts (on-demand EPPO lookup after triage), pestReferenceImages.ts (queries)
+- **Frontend**: pest-reference-gallery.tsx (inline thumbnails + lightbox), pest-reference-detail.tsx (full detail dialog), crop-pest-references.tsx (crop detail integration), library page at /records/pest/library
+- **Review findings**: 0 CRITICAL, 3 HIGH (all fixed), 7 MEDIUM (non-blocking), 5 LOW
+  - H1: Added compound index (source, sourceId) for efficient lookups
+  - H2: Added auth documentation comment (global data, login-only is correct)
+  - H3: Added R2 key path sanitization for diagId and eppoCode
+- **QA**: Pending (needs browser testing)
+- **Note**: EPPO requires `EPPO_API_KEY` env var (free registration). MOA import requires running batch action. Pre-existing build error in plan-crop-dialog.tsx (unrelated).
+
+## Completed: Issue #100 — iNaturalist Field Photo Gallery (2026-03-10)
+- **Agents used**: Backend Dev, Frontend Dev, Reviewer, Fixer
+- **Commit**: `7ce231e` — feat: add iNaturalist field photo gallery for crop detail pages (#100)
+- **Backend**: cropGalleryLookup.ts (iNaturalist API → R2 upload), galleryImages schema, auto-triggers on create/update/approveImport, batch action
+- **Frontend**: crop-gallery.tsx (responsive grid, lightbox with keyboard nav, CC attribution, iNaturalist links)
+- **Review findings**: 0 CRITICAL, 3 HIGH (all fixed), 7 MEDIUM (non-blocking), 4 LOW
+  - H1: Added scientificName validation regex (defense-in-depth)
+  - H2: Added gallery auto-trigger to update mutation (was missing)
+  - H3: Removed galleryImages from optionalCropFields (prevent client injection)
+  - M4: Removed dead LICENSE_LABELS map from frontend
+- **QA**: Pending (no browser testing yet)
+
 ## Completed: Issue #99 — Crop Images from Wikimedia Commons (2026-03-09)
 - **Team**: `agrism-crop-redesign`
 - **Agents used**: backend-crop-media, frontend-crop-media, qa-crop-creation, reviewer-issue99, fixer-critical
