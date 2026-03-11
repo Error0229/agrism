@@ -1054,7 +1054,9 @@ export default function CropDetailPage({
         )}
 
         {/* ===== PEST REFERENCE IMAGES ===== */}
-        <CropPestReferences cropScientificName={crop.scientificName} cropName={crop.name} />
+        {crop.scientificName && (
+          <CropPestReferences cropScientificName={crop.scientificName} />
+        )}
 
         {/* ===== TYPHOON ===== */}
         {hasTyphoon && (
