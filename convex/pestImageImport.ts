@@ -220,8 +220,7 @@ export const importMoaDataset = internalAction({
       throw new Error(`MOA API error: ${response.status} ${response.statusText}`);
     }
 
-    const json = await response.json();
-    const records: MoaRecord[] = json.Data ?? json;
+    const records: MoaRecord[] = await response.json();
     console.log(`importMoaDataset: received ${records.length} records`);
 
     let scheduledCount = 0;
