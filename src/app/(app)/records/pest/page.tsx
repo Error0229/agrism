@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useFarmId } from '@/hooks/use-farm-id'
 import type { Id } from '../../../../../convex/_generated/dataModel'
 import { useCrops } from '@/hooks/use-crops'
@@ -12,7 +11,6 @@ import {
   useResolvePestObservation,
   useTriageObservation,
 } from '@/hooks/use-pest-observations'
-import { PestReferenceGallery } from '@/components/pest/pest-reference-gallery'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -52,7 +50,6 @@ import {
   ChevronDown,
   CheckCircle2,
   Loader2,
-  BookOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -222,18 +219,10 @@ export default function PestObservationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">病蟲害觀察紀錄</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/records/pest/library">
-            <Button variant="outline" className="gap-2">
-              <BookOpen className="h-4 w-4" />
-              病蟲害圖鑑
-            </Button>
-          </Link>
-          <Button onClick={() => setOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            新增觀察
-          </Button>
-        </div>
+        <Button onClick={() => setOpen(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          新增觀察
+        </Button>
       </div>
 
       {isLoading ? (
@@ -343,11 +332,6 @@ export default function PestObservationsPage() {
                             <Cross className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
                             <span>{result.treatment}</span>
                           </div>
-                          {/* Reference images for this triage result */}
-                          <PestReferenceGallery
-                            pestName={result.possibleCause}
-                            compact
-                          />
                         </div>
                       ))}
                     </CollapsibleContent>

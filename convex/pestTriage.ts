@@ -128,13 +128,6 @@ export const triageObservation = action({
       triageResults,
     });
 
-    // Schedule EPPO reference image lookup for triage results (non-blocking)
-    await ctx.scheduler.runAfter(
-      0,
-      internal.pestEppoLookup.batchLookupForTriage,
-      { observationId },
-    );
-
     return { count: triageResults.length };
   },
 });

@@ -9,7 +9,6 @@ import { CropImportReview } from '@/components/crops/crop-import-review'
 import { CropAvatar } from '@/components/crops/crop-avatar'
 import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
 import { CropGallery } from '@/components/crops/crop-gallery'
-import { CropPestReferences } from '@/components/pest/crop-pest-references'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { resolveCropMedia } from '@/lib/crops/media'
@@ -1051,11 +1050,6 @@ export default function CropDetailPage({
               )}
             </div>
           </div>
-        )}
-
-        {/* ===== PEST REFERENCE IMAGES ===== */}
-        {crop.scientificName && (
-          <CropPestReferences cropScientificName={crop.scientificName} />
         )}
 
         {/* ===== TYPHOON ===== */}
