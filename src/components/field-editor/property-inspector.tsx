@@ -1242,10 +1242,10 @@ const UtilityNodeSelectionSection = React.memo(function UtilityNodeSelectionSect
     for (const edge of field.utilityEdges) {
       if (edge.fromNodeId === utilityNode._id) {
         const toNode = field.utilityNodes.find((n) => n._id === edge.toNodeId);
-        if (toNode) edges.push({ edgeId: edge._id, nodeId: toNode._id, nodeLabel: toNode.label });
+        if (toNode) edges.push({ edgeId: edge._id, nodeId: toNode._id, nodeLabel: toNode.label ?? "" });
       } else if (edge.toNodeId === utilityNode._id) {
         const fromNode = field.utilityNodes.find((n) => n._id === edge.fromNodeId);
-        if (fromNode) edges.push({ edgeId: edge._id, nodeId: fromNode._id, nodeLabel: fromNode.label });
+        if (fromNode) edges.push({ edgeId: edge._id, nodeId: fromNode._id, nodeLabel: fromNode.label ?? "" });
       }
     }
     return edges;

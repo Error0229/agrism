@@ -551,7 +551,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       if (onboarding?.isExisting) {
         const patch: Parameters<typeof updateLifecycle>[0] = {
           plantedCropId,
-          lifecycleType: onboarding.lifecycleType || undefined,
+          lifecycleType: (onboarding.lifecycleType || undefined) as "seasonal" | "long_cycle" | "perennial" | "orchard" | undefined,
           stage: onboarding.stage || undefined,
           startDateMode: onboarding.startDateMode,
           plantedDate: onboarding.startDateMode === "exact" && onboarding.plantedDate ? onboarding.plantedDate : undefined,
