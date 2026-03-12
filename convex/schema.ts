@@ -504,4 +504,65 @@ export default defineSchema({
     skippedTaskIds: v.array(v.id("tasks")),
     notes: v.optional(v.string()),
   }).index("by_farm_date", ["farmId", "date"]),
+
+  // === Field Journal Entries (issue #107) ===
+  fieldJournalEntries: defineTable({
+    farmId: v.id("farms"),
+    fieldId: v.id("fields"),
+    // Entry content
+    type: v.union(
+      v.literal("growth"),
+      v.literal("pest"),
+      v.literal("soil"),
+      v.literal("harvest"),
+      v.literal("weather"),
+      v.literal("general")
+    ),
+    content: v.string(),
+    quickPhrases: v.optional(v.array(v.string())),
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    // Phase 2: cross-links (optional now for forward compatibility)
+    linkedTaskId: v.optional(v.id("tasks")),
+    linkedPestObservationId: v.optional(v.id("pestObservations")),
+    linkedSoilAmendmentId: v.optional(v.id("soilAmendments")),
+    linkedSoilNoteId: v.optional(v.id("soilNotes")),
+    linkedWeatherLogId: v.optional(v.id("weatherLogs")),
+    // Phase 3: media
+    mediaUrls: v.optional(v.array(v.string())),
+  })
+    .index("by_field", ["fieldId", "createdAt"])
+    .index("by_farm", ["farmId", "createdAt"])
+    .index("by_field_type", ["fieldId", "type", "createdAt"]),
+
+  // === Region Journal Entries (issue #107) ===
+  regionJournalEntries: defineTable({
+    farmId: v.id("farms"),
+    fieldId: v.id("fields"),
+    plantedCropId: v.id("plantedCrops"),
+    // Entry content
+    type: v.union(
+      v.literal("growth"),
+      v.literal("pest"),
+      v.literal("soil"),
+      v.literal("harvest"),
+      v.literal("weather"),
+      v.literal("general")
+    ),
+    content: v.string(),
+    quickPhrases: v.optional(v.array(v.string())),
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    // Phase 2: cross-links (optional now for forward compatibility)
+    linkedTaskId: v.optional(v.id("tasks")),
+    linkedPestObservationId: v.optional(v.id("pestObservations")),
+    linkedSoilAmendmentId: v.optional(v.id("soilAmendments")),
+    // Phase 3: media
+    mediaUrls: v.optional(v.array(v.string())),
+  })
+    .index("by_plantedCrop", ["plantedCropId", "createdAt"])
+    .index("by_field", ["fieldId", "createdAt"])
+    .index("by_farm", ["farmId", "createdAt"]),
 });
