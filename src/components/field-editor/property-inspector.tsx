@@ -517,8 +517,8 @@ export const PropertyInspector = React.memo(function PropertyInspector({
               </>
             )}
 
-            {/* Field Journal — replaces MemoSection */}
-            {field && (
+            {/* Field Journal — only when no region/item is selected */}
+            {field && selectedIds.length === 0 && (
               <>
                 <Separator />
                 <FieldJournal

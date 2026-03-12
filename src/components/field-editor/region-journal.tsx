@@ -82,8 +82,8 @@ interface RegionJournalProps {
 
 export const RegionJournal = React.memo(function RegionJournal({
   plantedCropId,
-  cropName,
-  cropEmoji,
+  cropName: _cropName,
+  cropEmoji: _cropEmoji,
 }: RegionJournalProps) {
   const entries = useRegionJournal(plantedCropId);
   const createEntry = useCreateRegionJournalEntry();
@@ -202,53 +202,55 @@ export const RegionJournal = React.memo(function RegionJournal({
     : [];
 
   return (
-    <div className="space-y-2.5">
-      {/* Header */}
-      <div className="flex items-center gap-2 pb-0.5">
-        <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-primary">
-          <BookOpen className="size-3" />
+    <div className="space-y-1.5">
+      {/* Header + category chips + add button in one compact row */}
+      <div className="flex items-center gap-1.5 pb-0.5">
+        <div className="flex size-4 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
+          <BookOpen className="size-2.5" />
         </div>
-        <h3 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70">
-          區域筆記
+        <h3 className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-foreground/70">
+          筆記
         </h3>
-        {cropEmoji && <span className="text-sm">{cropEmoji}</span>}
-        {cropName && (
-          <span className="truncate text-[10px] text-muted-foreground/70">
-            {cropName}
-          </span>
-        )}
         {totalCount > 0 && (
-          <Badge variant="secondary" className="ml-auto h-4 px-1.5 text-[10px]">
+          <Badge variant="secondary" className="h-3.5 px-1 text-[9px]">
             {totalCount}
           </Badge>
         )}
-        <div className="h-px flex-1 bg-border/60" />
-      </div>
 
-      {/* Category chips */}
-      <div className="flex flex-wrap gap-1">
-        {CATEGORIES.map((cat) => {
-          const icon = JOURNAL_CATEGORY_ICONS[cat];
-          const label = JOURNAL_CATEGORY_LABELS[cat];
-          const isActive = formOpen && selectedCategory === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => handleCategoryTap(cat)}
-              className={cn(
-                "inline-flex min-h-[32px] items-center gap-0.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-all active:scale-95",
-                isActive
-                  ? CATEGORY_ACTIVE_COLORS[cat]
-                  : CATEGORY_COLORS[cat],
-                "hover:shadow-sm",
-              )}
-            >
-              <span className="text-xs">{icon}</span>
-              <span>{label}</span>
-            </button>
-          );
-        })}
+        {/* Compact emoji-only category chips */}
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-0.5">
+            {CATEGORIES.map((cat) => {
+              const icon = JOURNAL_CATEGORY_ICONS[cat];
+              const label = JOURNAL_CATEGORY_LABELS[cat];
+              const isActive = formOpen && selectedCategory === cat;
+              return (
+                <Tooltip key={cat}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => handleCategoryTap(cat)}
+                      className={cn(
+                        "inline-flex size-6 items-center justify-center rounded border text-xs transition-all active:scale-95",
+                        isActive
+                          ? CATEGORY_ACTIVE_COLORS[cat]
+                          : CATEGORY_COLORS[cat],
+                        "hover:shadow-sm",
+                      )}
+                    >
+                      {icon}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
+
+        <div className="h-px flex-1 bg-border/60" />
       </div>
 
       {/* Entry form */}
@@ -364,16 +366,16 @@ export const RegionJournal = React.memo(function RegionJournal({
         </div>
       )}
 
-      {/* "New entry" button */}
-      {!formOpen && (
+      {/* "New entry" button — compact, only when no entries yet */}
+      {!formOpen && totalCount === 0 && (
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="w-full min-h-[32px] text-[11px] border-dashed"
+          className="h-6 w-full text-[10px] text-muted-foreground"
           onClick={() => handleCategoryTap(JournalCategory.GENERAL)}
         >
-          <Plus className="mr-1 size-3" />
-          新增筆記
+          <Plus className="mr-0.5 size-2.5" />
+          點擊上方圖示新增筆記
         </Button>
       )}
 
@@ -428,12 +430,9 @@ export const RegionJournal = React.memo(function RegionJournal({
         </div>
       ) : (
         !formOpen && (
-          <div className="flex flex-col items-center gap-1 py-3 text-center">
-            <BookOpen className="size-5 text-muted-foreground/30" />
-            <p className="text-[10px] text-muted-foreground">
-              尚無筆記，點擊上方分類開始記錄
-            </p>
-          </div>
+          <p className="py-1 text-center text-[9px] text-muted-foreground/60">
+            點擊上方圖示開始記錄
+          </p>
         )
       )}
 
