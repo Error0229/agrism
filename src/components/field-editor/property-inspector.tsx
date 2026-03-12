@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -16,7 +16,6 @@ import {
   Magnet,
   MapPin,
   Merge,
-  NotebookPen,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
@@ -55,7 +54,6 @@ import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -82,6 +80,8 @@ import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
 import { SmartCropCard } from "./smart-crop-card";
+import { FieldJournal } from "./field-journal";
+import { RegionJournal } from "./region-journal";
 import { RegionPlanningInspector } from "@/components/planning/region-planning-inspector";
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
 import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
@@ -243,8 +243,8 @@ export const PropertyInspector = React.memo(function PropertyInspector({
   onSplitVertical,
   onMergeZones,
   onAlign,
-  memo,
-  onMemoChange,
+  memo: _memo,
+  onMemoChange: _onMemoChange,
   embedded = false,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
@@ -517,11 +517,14 @@ export const PropertyInspector = React.memo(function PropertyInspector({
               </>
             )}
 
-            {/* Memo section — always visible at bottom */}
-            {onMemoChange && (
+            {/* Field Journal — replaces MemoSection */}
+            {field && (
               <>
                 <Separator />
-                <MemoSection memo={memo ?? ""} onMemoChange={onMemoChange} />
+                <FieldJournal
+                  fieldId={field._id as Id<"fields">}
+                  fieldName={fieldName}
+                />
               </>
             )}
           </div>
@@ -879,7 +882,6 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     "planning": fieldId ? (
       <RegionPlanningInspector
         plantedCrop={plantedCrop}
-        occupancy={regionOccupancy}
         fieldId={fieldId as Id<"fields"> | undefined}
         onPlanNext={() => setPlanDialogOpen(true)}
         onEditPlanning={(sourceId) => {
@@ -888,12 +890,13 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
         }}
       />
     ) : null,
-    "notes": plantedCrop.notes ? (
-      <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
-        <p className="text-[10px] font-medium text-muted-foreground">備註</p>
-        <p className="mt-0.5 text-xs leading-relaxed">{plantedCrop.notes}</p>
-      </div>
-    ) : null,
+    "notes": (
+      <RegionJournal
+        plantedCropId={plantedCrop._id as Id<"plantedCrops">}
+        cropName={crop?.name}
+        cropEmoji={crop?.emoji}
+      />
+    ),
     "actions": (
       <div className="space-y-2">
         {onChangeCrop && (
@@ -1062,6 +1065,8 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
           predecessorPlantedCropId={plantedCrop._id as Id<"plantedCrops">}
           currentOccupant={{
             cropName: crop?.name,
+            cropEmoji: crop?.emoji ?? undefined,
+            rotationFamily: crop?.rotationFamily ?? undefined,
             estimatedEnd: (() => {
               const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
               if (!occ?.endWindow.earliest) return undefined;
@@ -1555,56 +1560,7 @@ function ToggleRow({
   );
 }
 
-const MemoSection = React.memo(function MemoSection({
-  memo,
-  onMemoChange,
-}: {
-  memo: string;
-  onMemoChange: (memo: string) => void;
-}) {
-  const [localMemo, setLocalMemo] = useState(memo);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sync from parent when field data updates externally
-  useEffect(() => {
-    setLocalMemo(memo);
-  }, [memo]);
-
-  const handleChange = useCallback(
-    (value: string) => {
-      setLocalMemo(value);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onMemoChange(value);
-      }, 1000);
-    },
-    [onMemoChange],
-  );
-
-  const handleBlur = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    onMemoChange(localMemo);
-  }, [localMemo, onMemoChange]);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <NotebookPen className="size-3 text-muted-foreground" />
-        <SectionHeading>備忘錄</SectionHeading>
-      </div>
-      <Textarea
-        value={localMemo}
-        onChange={(e) => handleChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder="在此輸入備忘錄..."
-        className="min-h-[80px] resize-y text-xs"
-      />
-      <p className="text-right text-[10px] text-muted-foreground">
-        {localMemo.length} 字
-      </p>
-    </div>
-  );
-});
+// MemoSection has been replaced by FieldJournal (issue #107)
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
