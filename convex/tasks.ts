@@ -441,7 +441,9 @@ export const promoteRecommendation = mutation({
     await requireFarmMembership(ctx, rec.farmId);
 
     // Map recommendation type to task type
-    const typeMap: Record<string, string> = {
+    type RecommendationType = "care" | "harvest" | "weather" | "planning" | "pest" | "general";
+    type TaskType = "seeding" | "fertilizing" | "watering" | "pruning" | "harvesting" | "typhoon_prep" | "pest_control" | "general";
+    const typeMap: Record<RecommendationType, TaskType> = {
       care: "general",
       harvest: "harvesting",
       weather: "typhoon_prep",
@@ -449,7 +451,7 @@ export const promoteRecommendation = mutation({
       pest: "pest_control",
       general: "general",
     };
-    const taskType = typeMap[rec.type] ?? "general";
+    const taskType: TaskType = typeMap[rec.type as RecommendationType] ?? "general";
 
     // Map recommendation priority to task priority
     const taskPriority = args.priority ?? recPriorityToTaskPriority(rec.priority);

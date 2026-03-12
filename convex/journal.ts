@@ -224,6 +224,10 @@ export const updateFieldEntry = mutation({
     if (!entry) throw new Error("找不到日誌紀錄");
     await requireFarmMembership(ctx, entry.farmId);
 
+    if (patch.content !== undefined && patch.content.length > 5000) {
+      throw new Error("日誌內容過長（最多 5000 字）");
+    }
+
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [key, val] of Object.entries(patch)) {
       if (val !== undefined) updates[key] = val;
@@ -246,6 +250,10 @@ export const updateRegionEntry = mutation({
     const entry = await ctx.db.get(entryId);
     if (!entry) throw new Error("找不到日誌紀錄");
     await requireFarmMembership(ctx, entry.farmId);
+
+    if (patch.content !== undefined && patch.content.length > 5000) {
+      throw new Error("日誌內容過長（最多 5000 字）");
+    }
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [key, val] of Object.entries(patch)) {

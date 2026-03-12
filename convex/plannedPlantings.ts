@@ -454,10 +454,8 @@ export const getRegionPlan = query({
     const successorMap = buildSuccessorMap(
       activePlans.map((p) => ({
         _id: p._id,
-        predecessorPlantedCropId: p.predecessorPlantedCropId as
-          | string
-          | undefined,
-        predecessorPlanId: p.predecessorPlanId as string | undefined,
+        predecessorPlantedCropId: p.predecessorPlantedCropId,
+        predecessorPlanId: p.predecessorPlanId,
       })),
     );
 
@@ -767,11 +765,11 @@ export const getRegionHistory = query({
 
     const maxResults = limit ?? 4;
 
-    // Fetch all planted crops for this field
+    // Fetch planted crops for this field (bounded to avoid unbounded scans)
     const allPlantedCrops = await ctx.db
       .query("plantedCrops")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(100);
 
     // Find the current planted crop for spatial reference
     let currentCrop: (typeof allPlantedCrops)[number] | undefined;
@@ -901,16 +899,15 @@ export const create = mutation({
     // 2. The last planned planting in the existing chain for this region
     if (!predecessorPlantedCropId && !predecessorPlanId && args.regionId) {
       // Check if regionId corresponds to an active plantedCrop
-      // regionId is typically a plantedCrop _id string — try to look it up
-      let plantedCrop: Awaited<ReturnType<typeof ctx.db.get<"plantedCrops">>> | null = null;
-      try {
-        plantedCrop = await ctx.db.get(
-          args.regionId as Id<"plantedCrops">,
-        );
-      } catch {
-        // regionId is not a valid plantedCrops ID — that's OK, skip
-        plantedCrop = null;
-      }
+      // regionId is typically a plantedCrop _id string — use normalizeId for safe validation
+      const plantedCropId = ctx.db.normalizeId("plantedCrops", args.regionId);
+      const plantedCrop = plantedCropId ? await ctx.db.get(plantedCropId) : null;
+
+      // Fetch planned plantings once for both branches below
+      const existingPlans = await ctx.db
+        .query("plannedPlantings")
+        .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
+        .collect();
 
       if (plantedCrop && plantedCrop.fieldId === args.fieldId) {
         // Found a matching plantedCrop — check if it's not perennial
@@ -927,10 +924,6 @@ export const create = mutation({
         }
 
         // Check if there are already planned successors in the chain
-        const existingPlans = await ctx.db
-          .query("plannedPlantings")
-          .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
-          .collect();
         const activePlans = existingPlans.filter(
           (p) => p.planningState !== "cancelled",
         );
@@ -939,10 +932,8 @@ export const create = mutation({
         const chainIds = walkChainForward(
           activePlans.map((p) => ({
             _id: p._id,
-            predecessorPlantedCropId: p.predecessorPlantedCropId as
-              | string
-              | undefined,
-            predecessorPlanId: p.predecessorPlanId as string | undefined,
+            predecessorPlantedCropId: p.predecessorPlantedCropId,
+            predecessorPlanId: p.predecessorPlanId,
           })),
           plantedCrop._id,
           "plantedCrop",
@@ -958,10 +949,6 @@ export const create = mutation({
       } else {
         // regionId does not correspond to a plantedCrop — check for existing
         // planned plantings in this region to find the chain tail
-        const existingPlans = await ctx.db
-          .query("plannedPlantings")
-          .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
-          .collect();
         const regionPlans = existingPlans.filter(
           (p) =>
             p.planningState !== "cancelled" &&

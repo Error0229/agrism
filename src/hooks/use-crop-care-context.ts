@@ -12,9 +12,12 @@ import type { Id } from "../../convex/_generated/dataModel";
 export function useCropCareContext(
   plantedCropId: Id<"plantedCrops"> | undefined,
 ) {
+  // Compute today on the client for Convex query determinism
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
+
   const data = useQuery(
     api.fields.getCropCareContext,
-    plantedCropId ? { plantedCropId } : "skip",
+    plantedCropId ? { plantedCropId, today } : "skip",
   );
 
   return {

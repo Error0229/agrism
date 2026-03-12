@@ -233,14 +233,22 @@ export const listSummary = query({
 export const getCropCareContext = query({
   args: {
     plantedCropId: v.id("plantedCrops"),
+    today: v.optional(v.string()),
   },
-  handler: async (ctx, { plantedCropId }) => {
+  handler: async (ctx, { plantedCropId, today: todayArg }) => {
     const pc = await ctx.db.get(plantedCropId);
     if (!pc) return null;
-    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
+
+    // Parallelize farm membership check and crop fetch to avoid sequential N+1
+    const [, crop] = await Promise.all([
+      resolveFieldFarmId(ctx, pc.fieldId).then((farmId) =>
+        requireFarmMembership(ctx, farmId),
+      ),
+      pc.cropId ? ctx.db.get(pc.cropId) : Promise.resolve(null),
+    ]);
 
     // If no crop is assigned, return minimal context
-    if (!pc.cropId) {
+    if (!pc.cropId || !crop) {
       return {
         plantedCrop: pc,
         crop: null,
@@ -255,23 +263,8 @@ export const getCropCareContext = query({
       };
     }
 
-    const crop = await ctx.db.get(pc.cropId);
-    if (!crop) {
-      return {
-        plantedCrop: pc,
-        crop: null,
-        growthStageInfo: null,
-        stageSpecificCare: null,
-        estimatedHarvestDate: null,
-        daysSincePlanting: null,
-        daysToHarvest: null,
-        alerts: [],
-        reference: null,
-        growingGuide: null,
-      };
-    }
-
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
+    // Prefer caller-supplied date for determinism; fall back to Date for backward compat
+    const today = todayArg ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
 
     // --- Growth stage calculation ---
     const growthStageInfo = pc.plantedDate && crop.growthStages
