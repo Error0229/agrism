@@ -612,37 +612,63 @@ export const SmartCropCard = React.memo(function SmartCropCard({
             />
           )}
         </div>
-        <Select
-          value={currentStageName ?? ""}
-          onValueChange={(val) => save("stage", val)}
-          disabled={saving === "stage"}
-        >
-          <SelectTrigger
+        {growthStages.length > 0 ? (
+          <Select
+            value={currentStageName ?? ""}
+            onValueChange={(val) => save("stage", val)}
+            disabled={saving === "stage"}
+          >
+            <SelectTrigger
+              className={cn(
+                "h-7 w-full text-xs transition-colors",
+                stageColor
+                  ? `border-transparent font-medium ${stageColor.bg} ${stageColor.text}`
+                  : "",
+              )}
+            >
+              <SelectValue placeholder="選擇階段" />
+            </SelectTrigger>
+            <SelectContent>
+              {growthStages
+                .toSorted((a, b) => a.daysFromStart - b.daysFromStart)
+                .map((entry) => {
+                  const isAuto = entry.stage === autoDetectedStage;
+                  const displayLabel =
+                    STAGE_LABELS[entry.stage] ?? entry.stage;
+                  return (
+                    <SelectItem key={entry.stage} value={entry.stage}>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            STAGE_COLORS[entry.stage]?.fill ?? "bg-muted",
+                          )}
+                        />
+                        {displayLabel}
+                        {isAuto && (
+                          <span className="ml-0.5 text-[9px] text-muted-foreground">
+                            (自動)
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+            </SelectContent>
+          </Select>
+        ) : (
+          /* No growthStages data — show read-only badge for auto-calculated or manual stage */
+          <div
             className={cn(
-              "h-7 w-full text-xs transition-colors",
+              "flex h-7 items-center rounded-md px-2.5 text-xs",
               stageColor
-                ? `border-transparent font-medium ${stageColor.bg} ${stageColor.text}`
-                : "",
+                ? `${stageColor.bg} ${stageColor.text} font-medium`
+                : "bg-muted/30 text-muted-foreground",
             )}
           >
-            <SelectValue placeholder="選擇階段" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(STAGE_LABELS).map(([val, label]) => (
-              <SelectItem key={val} value={val}>
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      STAGE_COLORS[val]?.fill ?? "bg-muted",
-                    )}
-                  />
-                  {label}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            {stageLabel ?? "無階段資料"}
+          </div>
+        )}
       </div>
 
       {/* Growth stage progress bar — only when growthStages data exists */}
