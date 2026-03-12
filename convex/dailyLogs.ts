@@ -37,22 +37,24 @@ export const list = query({
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, args.farmId);
 
-    let results = await ctx.db
+    // Use index range query for date filtering when bounds are provided
+    const results = await ctx.db
       .query("dailyLogs")
-      .withIndex("by_farm_date", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .withIndex("by_farm_date", (q) => {
+        const q2 = q.eq("farmId", args.farmId);
+        if (args.dateFrom !== undefined && args.dateTo !== undefined) {
+          return q2.gte("date", args.dateFrom).lte("date", args.dateTo);
+        } else if (args.dateFrom !== undefined) {
+          return q2.gte("date", args.dateFrom);
+        } else if (args.dateTo !== undefined) {
+          return q2.lte("date", args.dateTo);
+        }
+        return q2;
+      })
+      .order("desc")
+      .take(args.limit ?? 100);
 
-    if (args.dateFrom !== undefined) {
-      results = results.filter((log) => log.date >= args.dateFrom!);
-    }
-    if (args.dateTo !== undefined) {
-      results = results.filter((log) => log.date <= args.dateTo!);
-    }
-
-    // Sort by date descending (most recent first)
-    results.sort((a, b) => (b.date > a.date ? 1 : -1));
-
-    return results.slice(0, args.limit ?? 100);
+    return results;
   },
 });
 

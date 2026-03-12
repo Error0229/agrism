@@ -248,7 +248,7 @@ export const getUnifiedTasks = query({
       .withIndex("by_farmId_completed", (q) =>
         q.eq("farmId", args.farmId).eq("completed", false)
       )
-      .collect();
+      .take(500);
 
     // Fetch recently completed tasks (completed === true), take latest 100
     // for "completed today" display
@@ -275,13 +275,13 @@ export const getUnifiedTasks = query({
         .withIndex("by_farmId_status", (q) =>
           q.eq("farmId", args.farmId).eq("status", "new")
         )
-        .collect(),
+        .take(200),
       ctx.db
         .query("recommendations")
         .withIndex("by_farmId_status", (q) =>
           q.eq("farmId", args.farmId).eq("status", "accepted")
         )
-        .collect(),
+        .take(200),
     ]);
 
     // Gather IDs of recommendations already linked to tasks
