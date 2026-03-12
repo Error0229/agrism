@@ -520,18 +520,20 @@ const JournalEntryCard = React.memo(function JournalEntryCard({
         <Button
           variant="ghost"
           size="icon"
-          className="size-6"
+          className="size-8"
           onClick={onEdit}
+          aria-label="編輯"
         >
-          <Pencil className="size-2.5" />
+          <Pencil className="size-3" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="size-6 text-destructive hover:text-destructive"
+          className="size-8 text-destructive hover:text-destructive"
           onClick={onDelete}
+          aria-label="刪除"
         >
-          <Trash2 className="size-2.5" />
+          <Trash2 className="size-3" />
         </Button>
       </div>
     </div>

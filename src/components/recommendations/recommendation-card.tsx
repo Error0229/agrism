@@ -87,6 +87,24 @@ const BORDER_COLORS: Record<string, string> = {
   low: 'border-l-emerald-500',
 }
 
+// Raw English signal names → zh-TW labels
+const SOURCE_SIGNAL_LABELS: Record<string, string> = {
+  pendingTasks: '待辦任務',
+  recentWeather: '近期天氣',
+  plantedCrops: '種植作物',
+  activePlans: '進行中計畫',
+  fields: '田區資料',
+  farm: '農場資料',
+  currentDate: '當前日期',
+  currentMonth: '當前月份',
+  recentFeedback: '近期回饋',
+  weatherForecast: '天氣預報',
+}
+
+function translateSignal(signal: string): string {
+  return SOURCE_SIGNAL_LABELS[signal] ?? signal
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -223,7 +241,7 @@ export function RecommendationCard({ recommendation: rec }: RecommendationCardPr
                       variant="secondary"
                       className="text-[10px] px-1.5 py-0 text-muted-foreground"
                     >
-                      {signal}
+                      {translateSignal(signal)}
                     </Badge>
                   ))}
                 </div>

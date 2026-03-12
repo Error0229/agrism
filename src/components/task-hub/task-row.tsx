@@ -77,6 +77,28 @@ interface RecommendationRowProps {
 }
 
 // ---------------------------------------------------------------------------
+// Source signal label mapping (raw English → zh-TW)
+// ---------------------------------------------------------------------------
+
+const SOURCE_SIGNAL_LABELS: Record<string, string> = {
+  pendingTasks: '待辦任務',
+  recentWeather: '近期天氣',
+  plantedCrops: '種植作物',
+  activePlans: '進行中計畫',
+  fields: '田區資料',
+  farm: '農場資料',
+  currentDate: '當前日期',
+  currentMonth: '當前月份',
+  recentFeedback: '近期回饋',
+  weatherForecast: '天氣預報',
+}
+
+/** Translate raw signal names to zh-TW; pass through if already Chinese */
+function translateSignal(signal: string): string {
+  return SOURCE_SIGNAL_LABELS[signal] ?? signal
+}
+
+// ---------------------------------------------------------------------------
 // Source badge
 // ---------------------------------------------------------------------------
 
@@ -403,7 +425,7 @@ export function RecommendationRow({
             <div className="flex flex-wrap gap-1 mt-1">
               {item.sourceSignals.map((signal) => (
                 <Badge key={signal} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {signal}
+                  {translateSignal(signal)}
                 </Badge>
               ))}
             </div>
