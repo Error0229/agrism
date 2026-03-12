@@ -1,5 +1,34 @@
 # PM Team Log
 
+## Completed: Issues #105, #106, #107, #108 — Wave 1+2 Sprint (2026-03-12)
+- **4 issues implemented, reviewed, QA'd in one session**
+- **Total commits**: 12 (4 feat + 4 review fixes + 1 wiring + 1 QA fix + 2 chore)
+- **Pipeline per issue**: BA spec → Backend Dev → Frontend Dev → Reviewer → Fixer → QA → QA Fix
+
+### #108 Unified Task Hub (Phase 1)
+- Backend: extended tasks table (7 fields), getUnifiedTasks, promoteRecommendation, skipTask, completeTask, dailyLogs table
+- Frontend: morning briefing card, unified task stream, quick-add FAB, progress ring
+- Review: 4 HIGH fixed (unbounded fetch, non-deterministic query, N+1, duplicated constant)
+- QA: 15/16 PASS, 1 BLOCKED (responsive)
+
+### #106 Smart Crop Card
+- Backend: getCropCareContext query, enhanced assignCropToRegion, shared/growth-stage.ts pure functions
+- Frontend: SmartCropCard (4-layer progressive disclosure), use-crop-care-context hook
+- Review: 3 HIGH fixed (any types, duplicate calcs, timezone)
+- QA: 8/8 PASS
+
+### #107 Field Journal (Phase 1)
+- Backend: fieldJournalEntries + regionJournalEntries tables, CRUD in convex/journal.ts
+- Frontend: field-journal.tsx, region-journal.tsx, quick phrase chips, relative timestamps
+- Review: 3 HIGH fixed (unbounded collect, broad fallback, content validation)
+- QA: 7/8 PASS, 1 minor (button size fixed)
+
+### #105 Succession Unification (P0)
+- Backend: getRegionPlan unified query, enhanced create with auto-linking, getRegionHistory
+- Frontend: unified vertical timeline, rotation warnings, enhanced plan dialog
+- Review: 3 HIGH fixed (same batch as #107)
+- QA: 6/6 PASS
+
 ## Completed: Issue #101 — Taiwan MOA + EPPO Pest Reference Images (2026-03-10)
 - **Agents used**: BA, Backend Dev, Frontend Dev, Reviewer, Fixer
 - **Commit**: `2f99bfe` — feat: integrate Taiwan MOA and EPPO pest/disease reference images (#101)

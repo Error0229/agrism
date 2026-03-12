@@ -30,13 +30,11 @@
 ## Completed (continued)
 - **#99** Crop Images from Wikimedia Commons — R2 storage, auto-lookup, 16 default crops
 - **#100** iNaturalist Field Photo Gallery — gallery pipeline, R2 upload, lightbox UI, CC attribution
-## In Progress — Wave 1 (parallel)
-- **#108** Unified Task Hub Phase 1 — extend tasks schema, unified query, morning briefing card, basic task stream
-- **#106** Smart Crop Card — auto-populate from crop metadata, SmartCropCard v1 in inspector
-
-## Queued — Wave 2 (after Wave 1 merges)
-- **#107** Field Journal Phase 1 — new journal tables, timestamped entries, replace MemoSection
-- **#105** Succession Unification P0 — unified query, merged timeline section
+## Completed — Wave 1 + Wave 2 (QA passed)
+- **#108** Unified Task Hub Phase 1 — QA: 15/16 PASS. Tasks schema, unified query, morning briefing card, task stream, quick-add FAB, recommendation promotion
+- **#106** Smart Crop Card — QA: 8/8 PASS. Auto-populate, getCropCareContext, 4-layer progressive disclosure, growth stage progress, override UX
+- **#107** Field Journal Phase 1 — QA: 7/8 PASS. 2 journal tables, CRUD, category chips + quick phrases, field + region tiers, timeline display
+- **#105** Succession Unification P0 — QA: 6/6 PASS. Unified timeline, auto-link, rotation warnings, plan dialog with predecessor context
 
 ## Future Phases (after P0/Phase 1 of all 4 ship)
 - **#105** P1-P3: smart suggestions, season board enhancements, quick replan
