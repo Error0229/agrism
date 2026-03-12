@@ -81,7 +81,7 @@ import type { CropCategory, PlantedCropStatus, FacilityType, UtilityKind } from 
 import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
-import { LifecycleInspector } from "./lifecycle-inspector";
+import { SmartCropCard } from "./smart-crop-card";
 import { RegionPlanningInspector } from "@/components/planning/region-planning-inspector";
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
 import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
@@ -874,7 +874,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       </div>
     ),
     "lifecycle": (
-      <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} cropLifecycleType={crop?.lifecycleType} />
+      <SmartCropCard plantedCrop={plantedCrop} crop={crop} />
     ),
     "planning": fieldId ? (
       <RegionPlanningInspector

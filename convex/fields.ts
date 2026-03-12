@@ -4,6 +4,12 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireFarmMembership } from "./_helpers";
 import { resolveCropMedia } from "../shared/crop-media";
+import {
+  calculateGrowthStage,
+  computeCropAlerts,
+  estimateHarvestDate,
+  mapCropLifecycleType,
+} from "../shared/growth-stage";
 
 async function resolveFieldFarmId(ctx: QueryCtx | MutationCtx, fieldId: Id<"fields">) {
   const field = await ctx.db.get(fieldId);
@@ -213,6 +219,156 @@ export const listSummary = query({
 });
 
 // ---------------------------------------------------------------------------
+// Crop Care Context (issue #106 — Smart Crop Card)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns actionable crop care context for a planted crop, powering the
+ * SmartCropCard inspector component. Includes:
+ * - Current growth stage (auto-detected from plantedDate + crop growthStages)
+ * - Stage-specific care tips (water frequency, fertilizer, careNotes)
+ * - Reference data (spacing, companions, antagonists, pest/disease risks)
+ * - Contextual alerts (typhoon, drought, planting month, harvest approaching)
+ */
+export const getCropCareContext = query({
+  args: {
+    plantedCropId: v.id("plantedCrops"),
+  },
+  handler: async (ctx, { plantedCropId }) => {
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) return null;
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
+
+    // If no crop is assigned, return minimal context
+    if (!pc.cropId) {
+      return {
+        plantedCrop: pc,
+        crop: null,
+        growthStageInfo: null,
+        stageSpecificCare: null,
+        estimatedHarvestDate: null,
+        daysSincePlanting: null,
+        daysToHarvest: null,
+        alerts: [],
+        reference: null,
+        growingGuide: null,
+      };
+    }
+
+    const crop = await ctx.db.get(pc.cropId);
+    if (!crop) {
+      return {
+        plantedCrop: pc,
+        crop: null,
+        growthStageInfo: null,
+        stageSpecificCare: null,
+        estimatedHarvestDate: null,
+        daysSincePlanting: null,
+        daysToHarvest: null,
+        alerts: [],
+        reference: null,
+        growingGuide: null,
+      };
+    }
+
+    const today = new Date().toISOString().split("T")[0]!;
+
+    // --- Growth stage calculation ---
+    const growthStageInfo = pc.plantedDate && crop.growthStages
+      ? calculateGrowthStage(pc.plantedDate, crop.growthStages, today)
+      : null;
+
+    // --- Stage-specific care tips ---
+    // If we have a detected growth stage with care data, use that;
+    // otherwise fall back to crop-level values.
+    const currentStage = growthStageInfo?.currentStage ?? null;
+    const stageSpecificCare = {
+      waterFrequencyDays: currentStage?.waterFrequencyDays ?? crop.waterFrequencyDays ?? null,
+      fertilizerFrequencyDays: currentStage?.fertilizerFrequencyDays ?? crop.fertilizerFrequencyDays ?? null,
+      careNotes: currentStage?.careNotes ?? null,
+      water: crop.water ?? null,
+      sunlight: crop.sunlight ?? null,
+      sunlightHoursMin: crop.sunlightHoursMin ?? null,
+      sunlightHoursMax: crop.sunlightHoursMax ?? null,
+    };
+
+    // --- Harvest estimation ---
+    const growthDays = pc.customGrowthDays ?? crop.growthDays;
+    const harvestDate = pc.plantedDate && growthDays
+      ? estimateHarvestDate(pc.plantedDate, growthDays)
+      : null;
+
+    // Days since planting
+    let daysSincePlanting: number | null = null;
+    if (pc.plantedDate) {
+      const plantDate = new Date(pc.plantedDate + "T00:00:00");
+      const todayDate = new Date(today + "T00:00:00");
+      daysSincePlanting = Math.max(0, Math.floor((todayDate.getTime() - plantDate.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    // Days to harvest
+    let daysToHarvest: number | null = null;
+    if (harvestDate) {
+      const harvestD = new Date(harvestDate + "T00:00:00");
+      const todayDate = new Date(today + "T00:00:00");
+      daysToHarvest = Math.max(0, Math.floor((harvestD.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)));
+    }
+
+    // --- Contextual alerts ---
+    const alerts = computeCropAlerts(crop, pc, today);
+
+    // --- Reference data (Tier 3 — collapsed in UI) ---
+    const reference = {
+      propagationMethod: crop.propagationMethod ?? null,
+      spacingPlantCm: crop.spacingPlantCm ?? null,
+      spacingRowCm: crop.spacingRowCm ?? null,
+      maxHeightCm: crop.maxHeightCm ?? null,
+      maxSpreadCm: crop.maxSpreadCm ?? null,
+      trellisRequired: crop.trellisRequired ?? null,
+      companionPlants: crop.companionPlants ?? null,
+      antagonistPlants: crop.antagonistPlants ?? null,
+      rotationFamily: crop.rotationFamily ?? null,
+      rotationYears: crop.rotationYears ?? null,
+      soilPhMin: crop.soilPhMin ?? null,
+      soilPhMax: crop.soilPhMax ?? null,
+      tempOptimalMin: crop.tempOptimalMin ?? null,
+      tempOptimalMax: crop.tempOptimalMax ?? null,
+      harvestMaturitySigns: crop.harvestMaturitySigns ?? null,
+      commonPests: crop.commonPests ?? null,
+      commonDiseases: crop.commonDiseases ?? null,
+    };
+
+    // --- Growing guide (Tier 4) ---
+    const growingGuide = crop.growingGuide ?? null;
+
+    return {
+      plantedCrop: pc,
+      crop: {
+        _id: crop._id,
+        name: crop.name,
+        emoji: crop.emoji,
+        imageUrl: crop.imageUrl,
+        thumbnailUrl: crop.thumbnailUrl,
+        category: crop.category,
+        lifecycleType: crop.lifecycleType,
+        growthDays: crop.growthDays,
+        growthStages: crop.growthStages ?? null,
+        typhoonResistance: crop.typhoonResistance,
+        plantingMonths: crop.plantingMonths,
+      },
+      growthStageInfo,
+      stageSpecificCare,
+      estimatedHarvestDate: harvestDate,
+      daysSincePlanting,
+      daysToHarvest,
+      alerts,
+      reference,
+      growingGuide,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Field CRUD
 // ---------------------------------------------------------------------------
 
@@ -403,7 +559,22 @@ export const assignCropToRegion = mutation({
     const pc = await ctx.db.get(plantedCropId);
     if (!pc) throw new Error("找不到種植紀錄");
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
-    await ctx.db.patch(plantedCropId, { cropId });
+
+    // Auto-populate fields from crop metadata when not already set on the plantedCrop
+    const crop = await ctx.db.get(cropId);
+    const patch: Record<string, unknown> = { cropId };
+
+    if (crop) {
+      // Auto-populate lifecycleType from crop if not already set
+      if (!pc.lifecycleType && crop.lifecycleType) {
+        const mapped = mapCropLifecycleType(crop.lifecycleType);
+        if (mapped) {
+          patch.lifecycleType = mapped;
+        }
+      }
+    }
+
+    await ctx.db.patch(plantedCropId, patch);
   },
 });
 
