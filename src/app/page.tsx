@@ -35,7 +35,6 @@ import {
   UnifiedTaskStream,
   QuickAddFAB,
 } from '@/components/task-hub'
-import type { UnifiedItem } from '@/components/task-hub'
 import {
   Loader2,
   Sprout,
@@ -96,7 +95,7 @@ export default function DashboardPage() {
 
   // Unified task hub hooks
   const unifiedItems = useUnifiedTasks(farmId)
-  const progress = useDailyProgress(unifiedItems as Parameters<typeof useDailyProgress>[0])
+  const progress = useDailyProgress(unifiedItems)
   const completeTask = useCompleteTask()
   const skipTask = useSkipTask()
   const promoteRecommendation = usePromoteRecommendation()
@@ -149,36 +148,24 @@ export default function DashboardPage() {
     if (!unifiedItems) return []
     const today = new Date().toISOString().split('T')[0]!
 
-    return unifiedItems
-      .filter((item) => {
-        if (item.kind === 'recommendation') return false
-        const task = item as Extract<typeof item, { kind: 'task' }>
-        return (
-          task.status !== 'completed' &&
-          task.status !== 'skipped' &&
-          !task.completed
-        )
-      })
-      .slice(0, 3)
-      .map((item) => {
-        const fieldId =
-          item.kind === 'task'
-            ? (item as Extract<typeof item, { kind: 'task' }>).fieldId
-            : undefined
-        return {
-          title: item.title,
-          fieldName: fieldId ? fieldNames[fieldId] : undefined,
-          isUrgent:
-            item.priority === 'urgent' ||
-            item.priority === 'high' ||
-            (item.kind === 'task' &&
-              !!(item as Extract<typeof item, { kind: 'task' }>).dueDate &&
-              (item as Extract<typeof item, { kind: 'task' }>).dueDate! < today),
-          source: item.kind === 'task'
-            ? (item as Extract<typeof item, { kind: 'task' }>).source
-            : 'ai_briefing',
-        }
-      })
+    // Filter to only active task items (narrow once, use safely below)
+    const activeTasks = unifiedItems.filter(
+      (item): item is typeof item & { kind: 'task'; fieldId?: string; dueDate?: string; source: string } =>
+        item.kind === 'task' &&
+        item.status !== 'completed' &&
+        item.status !== 'skipped' &&
+        !item.completed,
+    )
+
+    return activeTasks.slice(0, 3).map((task) => ({
+      title: task.title,
+      fieldName: task.fieldId ? fieldNames[task.fieldId] : undefined,
+      isUrgent:
+        task.priority === 'urgent' ||
+        task.priority === 'high' ||
+        (!!task.dueDate && task.dueDate < today),
+      source: task.source,
+    }))
   }, [unifiedItems, fieldNames])
 
   // --- Field/crop options for quick add ---
@@ -390,7 +377,7 @@ export default function DashboardPage() {
           今日工作
         </h2>
         <UnifiedTaskStream
-          items={unifiedItems as UnifiedItem[] | undefined}
+          items={unifiedItems}
           loading={unifiedItems === undefined}
           fieldNames={fieldNames}
           cropNames={cropNames}

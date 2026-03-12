@@ -65,21 +65,25 @@ export type DailyProgress = {
 };
 
 /**
+ * Shape of a unified item relevant to daily progress computation.
+ * Uses a specific union for `kind` instead of loose `string`.
+ */
+export interface DailyProgressItem {
+  kind: "task" | "recommendation";
+  status?: string;
+  priority?: string;
+  effortMinutes?: number;
+  dueDate?: string;
+  completed?: boolean;
+}
+
+/**
  * Compute today's progress stats from the unified task list.
  * Only counts "task" kind items (not unaccepted recommendations).
  * Memoized to avoid recomputing on every render.
  */
 export function useDailyProgress(
-  unifiedItems:
-    | Array<{
-        kind: string;
-        status?: string;
-        priority?: string;
-        effortMinutes?: number;
-        dueDate?: string;
-        completed?: boolean;
-      }>
-    | undefined,
+  unifiedItems: DailyProgressItem[] | undefined,
 ): DailyProgress | undefined {
   return useMemo(() => {
     if (!unifiedItems) return undefined;

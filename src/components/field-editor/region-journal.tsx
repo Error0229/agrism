@@ -27,6 +27,12 @@ import {
   JOURNAL_CATEGORY_LABELS,
   JOURNAL_CATEGORY_ICONS,
 } from "@/lib/types/labels";
+
+const JOURNAL_CATEGORY_VALUES = new Set<string>(Object.values(JournalCategory));
+
+function isJournalCategory(value: string): value is JournalCategory {
+  return JOURNAL_CATEGORY_VALUES.has(value);
+}
 import { JOURNAL_QUICK_PHRASES } from "@/lib/config/journal-quick-phrases";
 import { formatRelativeTime } from "@/lib/utils/relative-time";
 import {
@@ -163,7 +169,7 @@ export const RegionJournal = React.memo(function RegionJournal({
   const handleEdit = useCallback(
     (entry: NonNullable<typeof entries>[number]) => {
       setEditingEntryId(entry._id);
-      setSelectedCategory(entry.type as JournalCategory);
+      setSelectedCategory(isJournalCategory(entry.type) ? entry.type : JournalCategory.GENERAL);
       setContent(entry.content);
       setSelectedPhrases(entry.quickPhrases ?? []);
       setFormOpen(true);
@@ -472,7 +478,7 @@ const RegionJournalEntryCard = React.memo(function RegionJournalEntryCard({
   onEdit,
   onDelete,
 }: RegionJournalEntryCardProps) {
-  const category = entry.type as JournalCategory;
+  const category = isJournalCategory(entry.type) ? entry.type : JournalCategory.GENERAL;
   const icon = JOURNAL_CATEGORY_ICONS[category] ?? "📋";
   const label = JOURNAL_CATEGORY_LABELS[category] ?? entry.type;
 

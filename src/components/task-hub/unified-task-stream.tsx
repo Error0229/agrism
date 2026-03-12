@@ -49,21 +49,25 @@ interface UnifiedTaskStreamProps {
 // ---------------------------------------------------------------------------
 
 interface GroupedItems {
-  urgent: UnifiedItem[]      // urgent + overdue tasks
-  today: UnifiedItem[]       // today's pending tasks
+  urgent: UnifiedTaskItem[]      // urgent + overdue tasks
+  today: UnifiedTaskItem[]       // today's pending tasks
   aiSuggestions: UnifiedRecommendationItem[]  // unaccepted recommendations
-  upcoming: UnifiedItem[]    // future tasks
+  upcoming: UnifiedTaskItem[]    // future tasks
   completed: UnifiedTaskItem[]  // done tasks
   skipped: UnifiedTaskItem[] // skipped tasks
+}
+
+function isTaskItem(item: UnifiedItem): item is UnifiedTaskItem {
+  return item.kind === 'task'
 }
 
 function groupItems(items: UnifiedItem[]): GroupedItems {
   const today = new Date().toISOString().split('T')[0]!
 
-  const urgent: UnifiedItem[] = []
-  const todayItems: UnifiedItem[] = []
+  const urgent: UnifiedTaskItem[] = []
+  const todayItems: UnifiedTaskItem[] = []
   const aiSuggestions: UnifiedRecommendationItem[] = []
-  const upcoming: UnifiedItem[] = []
+  const upcoming: UnifiedTaskItem[] = []
   const completed: UnifiedTaskItem[] = []
   const skipped: UnifiedTaskItem[] = []
 
@@ -73,8 +77,9 @@ function groupItems(items: UnifiedItem[]): GroupedItems {
       continue
     }
 
-    // Task items
-    const task = item as UnifiedTaskItem
+    // Task items — narrowed via type guard
+    if (!isTaskItem(item)) continue
+    const task = item
     if (task.status === 'completed' || task.completed) {
       completed.push(task)
       continue
@@ -203,7 +208,7 @@ export function UnifiedTaskStream({
             {grouped.urgent.map((item) => (
               <TaskRow
                 key={item._id}
-                item={item as UnifiedTaskItem}
+                item={item}
                 fieldName={getFieldName(item)}
                 cropName={getCropName(item)}
                 onComplete={onComplete}
@@ -227,7 +232,7 @@ export function UnifiedTaskStream({
             {grouped.today.map((item) => (
               <TaskRow
                 key={item._id}
-                item={item as UnifiedTaskItem}
+                item={item}
                 fieldName={getFieldName(item)}
                 cropName={getCropName(item)}
                 onComplete={onComplete}
@@ -288,7 +293,7 @@ export function UnifiedTaskStream({
               {grouped.upcoming.map((item) => (
                 <TaskRow
                   key={item._id}
-                  item={item as UnifiedTaskItem}
+                  item={item}
                   fieldName={getFieldName(item)}
                   cropName={getCropName(item)}
                   onComplete={onComplete}
