@@ -243,10 +243,28 @@ export function PlanCropDialog({
       setSelectedCropId(existingPlan?.cropId ?? undefined);
       setSelectedCropName(existingPlan?.cropName ?? "");
 
+      // Bug 4 fix: parse predecessor's estimatedEnd for start date auto-fill
+      // Format can be "2026年5月下旬" or ISO date string
+      let predecessorEndParsed: { year: string; month: string; jun: string } | null = null;
+      if (currentOccupant?.estimatedEnd) {
+        // Try parsing "YYYY年M月[上旬|中旬|下旬]" format
+        const zhMatch = currentOccupant.estimatedEnd.match(/^(\d{4})年(\d{1,2})月(上旬|中旬|下旬)$/);
+        if (zhMatch) {
+          predecessorEndParsed = {
+            year: zhMatch[1],
+            month: String(parseInt(zhMatch[2])).padStart(2, "0"),
+            jun: zhMatch[3] === "上旬" ? "early" : zhMatch[3] === "中旬" ? "mid" : "late",
+          };
+        } else {
+          // Try ISO date format fallback
+          predecessorEndParsed = parseWindowToMonthJun(currentOccupant.estimatedEnd);
+        }
+      }
+
       const parsedS = parseWindowToMonthJun(existingPlan?.startWindowEarliest);
-      setStartYear(parsedS?.year ?? initialCellContext?.year ?? currentYear);
-      setStartMonth(parsedS?.month ?? initialCellContext?.month ?? "");
-      setStartJun(parsedS?.jun ?? initialCellContext?.jun ?? "");
+      setStartYear(parsedS?.year ?? predecessorEndParsed?.year ?? initialCellContext?.year ?? currentYear);
+      setStartMonth(parsedS?.month ?? predecessorEndParsed?.month ?? initialCellContext?.month ?? "");
+      setStartJun(parsedS?.jun ?? predecessorEndParsed?.jun ?? initialCellContext?.jun ?? "");
 
       const parsedE = parseWindowToMonthJun(existingPlan?.endWindowEarliest);
       setEndYear(parsedE?.year ?? currentYear);
@@ -254,8 +272,29 @@ export function PlanCropDialog({
       setEndJun(parsedE?.jun ?? "");
 
       setNotes(existingPlan?.notes ?? "");
+
+      // Auto-calculate end date if we have a start from predecessor and a selected crop
+      if (!existingPlan && predecessorEndParsed && existingPlan === undefined) {
+        // End will be auto-calculated when crop is selected via handleCropSelect
+        // But if a crop is already selected (e.g. editing), calculate now
+        if (selectedCropId && crops) {
+          const crop = crops.find((c) => c._id === selectedCropId);
+          if (crop?.growthDays) {
+            const end = computeEndFromGrowthDays(
+              predecessorEndParsed.year,
+              predecessorEndParsed.month,
+              predecessorEndParsed.jun,
+              crop.growthDays,
+            );
+            setEndYear(end.year);
+            setEndMonth(end.month);
+            setEndJun(end.jun);
+          }
+        }
+      }
     }
-  }, [open, existingPlan, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year, currentYear]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existingPlan, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year, currentYear, currentOccupant?.estimatedEnd]);
 
   // Overlap detection
   const overlapStartTs = useMemo(() => {
@@ -271,6 +310,7 @@ export function PlanCropDialog({
     overlapStartTs,
     overlapEndTs,
     existingPlan?._id,
+    regionId,
   );
 
   // Rotation family warning — check if selected crop shares family with predecessor

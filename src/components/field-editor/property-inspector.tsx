@@ -84,7 +84,8 @@ import { FieldJournal } from "./field-journal";
 import { RegionJournal } from "./region-journal";
 import { RegionPlanningInspector } from "@/components/planning/region-planning-inspector";
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
-import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
+import { useFieldOccupancy, usePlannedPlantingsByField } from "@/hooks/use-planned-plantings";
+import { useRegionPlan } from "@/hooks/use-region-plan";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { CropAvatar } from "@/components/crops/crop-avatar";
 import { resolveCropMedia } from "@/lib/crops/media";
@@ -797,8 +798,32 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   // Planning hooks
   const farmId = useFarmId();
   const occupancy = useFieldOccupancy(fieldId as Id<"fields">);
+  const plannedPlantings = usePlannedPlantingsByField(fieldId as Id<"fields">);
+  const regionPlan = useRegionPlan(
+    fieldId as Id<"fields"> | undefined,
+    plantedCrop._id as Id<"plantedCrops">,
+    plantedCrop._id,
+  );
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [_editPlanId, setEditPlanId] = useState<string | null>(null);
+  const [editPlanId, setEditPlanId] = useState<string | null>(null);
+
+  // Look up the editing plan from planned plantings data
+  const editingPlan = useMemo(() => {
+    if (!editPlanId || !plannedPlantings) return undefined;
+    const plan = plannedPlantings.find((p) => p._id === editPlanId);
+    if (!plan) return undefined;
+    return {
+      _id: plan._id as Id<"plannedPlantings">,
+      cropId: plan.cropId ?? undefined,
+      cropName: plan.cropName ?? undefined,
+      startWindowEarliest: plan.startWindowEarliest ?? undefined,
+      startWindowLatest: plan.startWindowLatest ?? undefined,
+      endWindowEarliest: plan.endWindowEarliest ?? undefined,
+      endWindowLatest: plan.endWindowLatest ?? undefined,
+      notes: plan.notes ?? undefined,
+      planningState: plan.planningState,
+    };
+  }, [editPlanId, plannedPlantings]);
 
   const regionOccupancy = useMemo(() => {
     if (!occupancy) return [];
@@ -1052,33 +1077,71 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       </DndContext>
 
       {/* Plan crop dialog */}
-      {farmId && fieldId && (
-        <PlanCropDialog
-          farmId={farmId as Id<"farms">}
-          fieldId={fieldId as Id<"fields">}
-          open={planDialogOpen}
-          onOpenChange={(open) => {
-            setPlanDialogOpen(open);
-            if (!open) setEditPlanId(null);
-          }}
-          regionId={plantedCrop._id}
-          predecessorPlantedCropId={plantedCrop._id as Id<"plantedCrops">}
-          currentOccupant={{
-            cropName: crop?.name,
-            cropEmoji: crop?.emoji ?? undefined,
-            rotationFamily: crop?.rotationFamily ?? undefined,
-            estimatedEnd: (() => {
-              const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
-              if (!occ?.endWindow.earliest) return undefined;
-              const d = new Date(occ.endWindow.earliest);
-              const month = d.getMonth() + 1;
-              const day = d.getDate();
-              const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
-              return `${d.getFullYear()}年${month}月${jun}`;
-            })(),
-          }}
-        />
-      )}
+      {farmId && fieldId && (() => {
+        // Bug 1 fix: pass existingPlan when editing
+        // Bug 3 fix: derive predecessor from chain tail, not root
+        const successors = regionPlan?.successors ?? [];
+        const chainTail = successors.length > 0 ? successors[successors.length - 1] : null;
+
+        // When editing, don't pass predecessor info
+        // When creating new, use chain tail as predecessor
+        const predecessorId = editPlanId
+          ? undefined
+          : chainTail
+            ? undefined // will use predecessorPlanId auto-linking via regionId in create mutation
+            : (plantedCrop._id as Id<"plantedCrops">);
+
+        // Build currentOccupant from chain tail (or root if no successors)
+        const occupantInfo = editPlanId
+          ? undefined
+          : chainTail
+            ? {
+                cropName: chainTail.cropName,
+                cropEmoji: undefined as string | undefined,
+                rotationFamily: undefined as string | undefined,
+                estimatedEnd: (() => {
+                  const endStr = chainTail.endWindow.earliest;
+                  if (!endStr) return undefined;
+                  try {
+                    const d = new Date(endStr);
+                    const month = d.getMonth() + 1;
+                    const day = d.getDate();
+                    const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+                    return `${d.getFullYear()}年${month}月${jun}`;
+                  } catch { return undefined; }
+                })(),
+              }
+            : {
+                cropName: crop?.name,
+                cropEmoji: crop?.emoji ?? undefined,
+                rotationFamily: crop?.rotationFamily ?? undefined,
+                estimatedEnd: (() => {
+                  const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
+                  if (!occ?.endWindow.earliest) return undefined;
+                  const d = new Date(occ.endWindow.earliest);
+                  const month = d.getMonth() + 1;
+                  const day = d.getDate();
+                  const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+                  return `${d.getFullYear()}年${month}月${jun}`;
+                })(),
+              };
+
+        return (
+          <PlanCropDialog
+            farmId={farmId as Id<"farms">}
+            fieldId={fieldId as Id<"fields">}
+            open={planDialogOpen}
+            onOpenChange={(open) => {
+              setPlanDialogOpen(open);
+              if (!open) setEditPlanId(null);
+            }}
+            regionId={plantedCrop._id}
+            existingPlan={editingPlan}
+            predecessorPlantedCropId={predecessorId}
+            currentOccupant={occupantInfo}
+          />
+        );
+      })()}
     </>
   );
 });

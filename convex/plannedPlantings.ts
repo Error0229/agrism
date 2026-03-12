@@ -204,8 +204,9 @@ export const checkOverlap = query({
     startEarliest: v.optional(v.number()),
     endLatest: v.optional(v.number()),
     excludePlanId: v.optional(v.id("plannedPlantings")),
+    regionId: v.optional(v.string()),
   },
-  handler: async (ctx, { fieldId, startEarliest, endLatest, excludePlanId }) => {
+  handler: async (ctx, { fieldId, startEarliest, endLatest, excludePlanId, regionId }) => {
     const farmId = await resolveFieldFarmId(ctx, fieldId);
     await requireFarmMembership(ctx, farmId);
 
@@ -216,6 +217,14 @@ export const checkOverlap = query({
     return occupancy.filter((entry) => {
       // Exclude the entry matching excludePlanId
       if (excludePlanId && entry.sourceId === excludePlanId) return false;
+
+      // If regionId is specified, only check entries in the same region
+      if (regionId) {
+        // For planned plantings, match by regionId
+        // For current planted crops, match by sourceId (plantedCrop._id acts as regionId)
+        const entryRegion = entry.regionId ?? (entry.type === "current" ? entry.sourceId : undefined);
+        if (entryRegion !== regionId) return false;
+      }
 
       // Perennial entries always overlap (they never end)
       if (entry.isPerennial) {

@@ -32,11 +32,12 @@ export function useCheckOverlap(
   startEarliest: number | undefined,
   endLatest: number | undefined,
   excludePlanId?: Id<"plannedPlantings">,
+  regionId?: string,
 ) {
   return useQuery(
     api.plannedPlantings.checkOverlap,
     fieldId && (startEarliest || endLatest)
-      ? { fieldId, startEarliest, endLatest, excludePlanId }
+      ? { fieldId, startEarliest, endLatest, excludePlanId, regionId }
       : "skip",
   );
 }

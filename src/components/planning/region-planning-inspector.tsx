@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Link2Off,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +20,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 import { CropAvatar } from "@/components/crops/crop-avatar";
 import { resolveCropMedia } from "@/lib/crops/media";
 import { useRegionPlan, useRegionHistory } from "@/hooks/use-region-plan";
+import { useDeletePlannedPlanting } from "@/hooks/use-planned-plantings";
 import { cn } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -291,6 +294,7 @@ function SuccessorNode({
   plan,
   index,
   onEdit,
+  onDelete,
 }: {
   plan: {
     _id: string;
@@ -303,6 +307,7 @@ function SuccessorNode({
   };
   index: number;
   onEdit: (sourceId: string) => void;
+  onDelete: (sourceId: string) => void;
 }) {
   const startStr = formatDateWindow(plan.startWindow.earliest);
   const endStr = formatDateWindow(plan.endWindow.earliest);
@@ -311,31 +316,32 @@ function SuccessorNode({
   const stateStyle =
     PLANNING_STATE_STYLES[plan.planningState ?? "draft"] ?? "";
   const hasOverlap = plan.overlaps.length > 0;
+  const canDelete = plan.planningState === "draft" || plan.planningState === "cancelled";
 
   return (
     <div className="relative">
-      <button
-        type="button"
-        className="flex w-full items-start gap-2 text-left group"
-        onClick={() => onEdit(plan._id)}
-      >
+      <div className="flex w-full items-start gap-2 text-left group">
         <TimelineDot status="planned" />
-        <div
+        <button
+          type="button"
           className={cn(
             "min-w-0 flex-1 rounded-lg border p-2.5 transition-colors",
             "border-blue-200/50 bg-blue-50/20 group-hover:bg-blue-50/40",
             "dark:border-blue-800/30 dark:bg-blue-950/10 dark:group-hover:bg-blue-950/25",
             hasOverlap && "ring-1 ring-amber-400/40",
           )}
+          onClick={() => onEdit(plan._id)}
         >
           {/* Header */}
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               接續 #{index + 1}
             </span>
-            <Badge className={cn("text-[8px] px-1.5 py-0 border-0", stateStyle)}>
-              {stateLabel}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Badge className={cn("text-[8px] px-1.5 py-0 border-0", stateStyle)}>
+                {stateLabel}
+              </Badge>
+            </div>
           </div>
 
           {/* Crop info */}
@@ -367,8 +373,22 @@ function SuccessorNode({
               時間重疊
             </div>
           )}
-        </div>
-      </button>
+        </button>
+        {/* Delete button */}
+        {canDelete && (
+          <button
+            type="button"
+            className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+            title="刪除計畫"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(plan._id);
+            }}
+          >
+            <Trash2 className="size-3" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -440,6 +460,16 @@ export function RegionPlanningInspector({
   onEditPlanning,
 }: RegionPlanningInspectorProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const deletePlanning = useDeletePlannedPlanting();
+
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      await deletePlanning({ plannedPlantingId: planId as Id<"plannedPlantings"> });
+      toast.success("已刪除種植計畫");
+    } catch {
+      toast.error("刪除失敗，只能刪除草稿或已取消的計畫");
+    }
+  };
 
   // Unified region plan query
   const regionPlan = useRegionPlan(
@@ -539,6 +569,7 @@ export function RegionPlanningInspector({
                   plan={plan}
                   index={idx}
                   onEdit={onEditPlanning}
+                  onDelete={handleDeletePlan}
                 />
               </React.Fragment>
             ))}
