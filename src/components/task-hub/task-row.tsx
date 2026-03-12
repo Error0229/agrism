@@ -212,25 +212,28 @@ export function TaskRow({
     >
       {/* Main row */}
       <div className="flex items-start gap-3">
-        {/* Checkbox — 48x48 touch target */}
+        {/* Circular checkbox — 44px+ touch target, 24px visual circle */}
         <button
           type="button"
           onClick={handleComplete}
           disabled={isCompleted || isSkipped}
-          className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded-md border-2 transition-all mt-0.5',
-            'min-w-[44px] min-h-[44px] -m-2 p-2', // expand touch target
-            isCompleted
-              ? 'border-emerald-500 bg-emerald-500 text-white'
-              : isSkipped
-                ? 'border-muted bg-muted text-muted-foreground'
-                : 'border-emerald-400 hover:bg-emerald-50 active:bg-emerald-100',
-            completing && 'animate-pulse',
-          )}
+          className="relative flex shrink-0 items-center justify-center min-w-[44px] min-h-[44px] -m-2 mt-[-6px]"
           aria-label={isCompleted ? '已完成' : '完成任務'}
         >
-          {isCompleted && <Check className="size-4" />}
-          {isSkipped && <SkipForward className="size-3" />}
+          <span
+            className={cn(
+              'flex size-[22px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
+              isCompleted
+                ? 'border-emerald-500 bg-emerald-500 text-white scale-100'
+                : isSkipped
+                  ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+                  : 'border-neutral-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
+              completing && 'scale-110 border-emerald-400 bg-emerald-100',
+            )}
+          >
+            {isCompleted && <Check className="size-3.5 stroke-[2.5]" />}
+            {isSkipped && <SkipForward className="size-3 stroke-[2]" />}
+          </span>
         </button>
 
         {/* Content */}
