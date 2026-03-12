@@ -2,26 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 import { Id } from "./_generated/dataModel";
-
-// ---------------------------------------------------------------------------
-// Task effort/difficulty/tools presets
-// ---------------------------------------------------------------------------
-
-type TaskPreset = {
-  effortMinutes: number;
-  difficulty: string;
-  requiredTools: string[];
-};
-
-const TASK_PRESETS: Record<string, TaskPreset> = {
-  seeding: { effortMinutes: 45, difficulty: "medium", requiredTools: ["手鏟"] },
-  fertilizing: { effortMinutes: 30, difficulty: "low", requiredTools: ["施肥器"] },
-  watering: { effortMinutes: 20, difficulty: "low", requiredTools: ["水管"] },
-  pruning: { effortMinutes: 35, difficulty: "medium", requiredTools: ["剪刀"] },
-  harvesting: { effortMinutes: 60, difficulty: "medium", requiredTools: ["採收籃"] },
-  typhoon_prep: { effortMinutes: 90, difficulty: "high", requiredTools: ["綁繩", "支架"] },
-  pest_control: { effortMinutes: 50, difficulty: "medium", requiredTools: ["噴霧器"] },
-};
+import { TASK_PRESETS } from "./_taskPresets";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -254,18 +235,38 @@ function recPriorityToTaskPriority(
 export const getUnifiedTasks = query({
   args: {
     farmId: v.id("farms"),
-    date: v.optional(v.string()), // optional: filter to a specific date
+    date: v.string(), // caller must provide today's date (deterministic)
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, args.farmId);
 
-    const today = args.date ?? new Date().toISOString().split("T")[0]!;
+    const today = args.date;
 
-    // Fetch all non-completed tasks for the farm
-    const allTasks = await ctx.db
+    // Fetch only non-completed tasks (pending, in_progress) for the farm
+    const incompleteTasks = await ctx.db
       .query("tasks")
-      .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", false)
+      )
       .collect();
+
+    // Fetch recently completed tasks (completed === true), take latest 100
+    // for "completed today" display
+    const recentCompletedTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", true)
+      )
+      .order("desc")
+      .take(100);
+
+    // Only keep completed tasks from the last 24 hours
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const completedToday = recentCompletedTasks.filter(
+      (t) => (t.completedAt ?? t._creationTime) >= oneDayAgo
+    );
+
+    const allTasks = [...incompleteTasks, ...completedToday];
 
     // Fetch pending recommendations not yet converted to tasks
     const [newRecs, acceptedRecs] = await Promise.all([
@@ -291,11 +292,12 @@ export const getUnifiedTasks = query({
     );
 
     // Filter out expired and already-linked recommendations
-    const now = Date.now();
+    // Derive "now" from the caller-provided date to keep the query deterministic
+    const nowFromDate = new Date(today + "T23:59:59Z").getTime();
     const unlinkedRecs = [...newRecs, ...acceptedRecs].filter(
       (r) =>
         !linkedRecIds.has(r._id as string) &&
-        (!r.expiresAt || r.expiresAt > now)
+        (!r.expiresAt || r.expiresAt > nowFromDate)
     );
 
     // Build unified items from tasks

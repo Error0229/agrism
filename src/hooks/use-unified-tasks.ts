@@ -1,20 +1,31 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 /**
+ * Get today's date in YYYY-MM-DD format (client-side).
+ * Kept outside the hook so it can be used as a stable reference within a render.
+ */
+function getTodayISO(): string {
+  return new Date().toISOString().split("T")[0]!;
+}
+
+/**
  * Unified task stream: fetches all tasks + pending recommendations
  * merged into a single sorted list.
+ * Always passes today's date from the client to keep the Convex query deterministic.
  */
 export function useUnifiedTasks(
   farmId: Id<"farms"> | undefined,
   date?: string,
 ) {
+  const effectiveDate = date ?? getTodayISO();
   return useQuery(
     api.tasks.getUnifiedTasks,
-    farmId ? { farmId, date } : "skip",
+    farmId ? { farmId, date: effectiveDate } : "skip",
   );
 }
 
@@ -56,6 +67,7 @@ export type DailyProgress = {
 /**
  * Compute today's progress stats from the unified task list.
  * Only counts "task" kind items (not unaccepted recommendations).
+ * Memoized to avoid recomputing on every render.
  */
 export function useDailyProgress(
   unifiedItems:
@@ -69,46 +81,48 @@ export function useDailyProgress(
       }>
     | undefined,
 ): DailyProgress | undefined {
-  if (!unifiedItems) return undefined;
+  return useMemo(() => {
+    if (!unifiedItems) return undefined;
 
-  const today = new Date().toISOString().split("T")[0]!;
+    const today = new Date().toISOString().split("T")[0]!;
 
-  // Only count actual tasks (not unaccepted recommendations), and only those due today or overdue
-  const todayTasks = unifiedItems.filter(
-    (item) =>
-      item.kind === "task" &&
-      item.dueDate &&
-      item.dueDate <= today,
-  );
+    // Only count actual tasks (not unaccepted recommendations), and only those due today or overdue
+    const todayTasks = unifiedItems.filter(
+      (item) =>
+        item.kind === "task" &&
+        item.dueDate &&
+        item.dueDate <= today,
+    );
 
-  const completed = todayTasks.filter(
-    (t) => t.status === "completed" || t.completed,
-  ).length;
-  const skipped = todayTasks.filter((t) => t.status === "skipped").length;
-  const pending = todayTasks.length - completed - skipped;
-  const total = todayTasks.length;
+    const completed = todayTasks.filter(
+      (t) => t.status === "completed" || t.completed,
+    ).length;
+    const skipped = todayTasks.filter((t) => t.status === "skipped").length;
+    const pending = todayTasks.length - completed - skipped;
+    const total = todayTasks.length;
 
-  const remainingEffortMinutes = todayTasks
-    .filter(
-      (t) => t.status !== "completed" && t.status !== "skipped" && !t.completed,
-    )
-    .reduce((sum, t) => sum + (t.effortMinutes ?? 0), 0);
+    const remainingEffortMinutes = todayTasks
+      .filter(
+        (t) => t.status !== "completed" && t.status !== "skipped" && !t.completed,
+      )
+      .reduce((sum, t) => sum + (t.effortMinutes ?? 0), 0);
 
-  const urgentCount = todayTasks.filter(
-    (t) =>
-      t.priority === "urgent" &&
-      t.status !== "completed" &&
-      t.status !== "skipped" &&
-      !t.completed,
-  ).length;
+    const urgentCount = todayTasks.filter(
+      (t) =>
+        t.priority === "urgent" &&
+        t.status !== "completed" &&
+        t.status !== "skipped" &&
+        !t.completed,
+    ).length;
 
-  return {
-    total,
-    completed,
-    skipped,
-    pending,
-    completedPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
-    remainingEffortMinutes,
-    urgentCount,
-  };
+    return {
+      total,
+      completed,
+      skipped,
+      pending,
+      completedPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
+      remainingEffortMinutes,
+      urgentCount,
+    };
+  }, [unifiedItems]);
 }

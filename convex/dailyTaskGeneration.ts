@@ -2,42 +2,7 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 import { Doc, Id } from "./_generated/dataModel";
-
-// ---------------------------------------------------------------------------
-// Task effort/difficulty/tools presets (mirrored from tasks.ts)
-// ---------------------------------------------------------------------------
-
-type TaskPreset = {
-  effortMinutes: number;
-  difficulty: string;
-  requiredTools: string[];
-};
-
-const TASK_PRESETS: Record<string, TaskPreset> = {
-  seeding: { effortMinutes: 45, difficulty: "medium", requiredTools: ["手鏟"] },
-  fertilizing: {
-    effortMinutes: 30,
-    difficulty: "low",
-    requiredTools: ["施肥器"],
-  },
-  watering: { effortMinutes: 20, difficulty: "low", requiredTools: ["水管"] },
-  pruning: { effortMinutes: 35, difficulty: "medium", requiredTools: ["剪刀"] },
-  harvesting: {
-    effortMinutes: 60,
-    difficulty: "medium",
-    requiredTools: ["採收籃"],
-  },
-  typhoon_prep: {
-    effortMinutes: 90,
-    difficulty: "high",
-    requiredTools: ["綁繩", "支架"],
-  },
-  pest_control: {
-    effortMinutes: 50,
-    difficulty: "medium",
-    requiredTools: ["噴霧器"],
-  },
-};
+import { TASK_PRESETS } from "./_taskPresets";
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -564,15 +529,16 @@ export const generateDailyTasks = mutation({
       return { generated: 0, skipped: 0, tasks: [] };
     }
 
-    // ----- 2. Fetch all planted crops across all fields -----
-    const allPlantedCrops: Doc<"plantedCrops">[] = [];
-    for (const field of fields) {
-      const fieldCrops = await ctx.db
-        .query("plantedCrops")
-        .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-        .collect();
-      allPlantedCrops.push(...fieldCrops);
-    }
+    // ----- 2. Fetch all planted crops across all fields (parallelized) -----
+    const allPlantedCropsNested = await Promise.all(
+      fields.map((field) =>
+        ctx.db
+          .query("plantedCrops")
+          .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
+          .collect()
+      )
+    );
+    const allPlantedCrops: Doc<"plantedCrops">[] = allPlantedCropsNested.flat();
 
     // Filter to status === "growing"
     const growingPlantedCrops = allPlantedCrops.filter(

@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ProgressRingProps {
@@ -22,6 +23,7 @@ export function ProgressRing({
   strokeWidth = 3.5,
   className,
 }: ProgressRingProps) {
+  const gradientId = useId()
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const percent = total > 0 ? completed / total : 0
@@ -53,7 +55,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="url(#progressGradient)"
+          stroke={`url(#${gradientId})`}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -61,7 +63,7 @@ export function ProgressRing({
           className="transition-[stroke-dashoffset] duration-500 ease-out"
         />
         <defs>
-          <linearGradient id="progressGradient" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor={isComplete ? '#10b981' : '#22c55e'} />
             <stop offset="100%" stopColor={isComplete ? '#059669' : '#16a34a'} />
           </linearGradient>
