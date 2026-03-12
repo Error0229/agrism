@@ -82,10 +82,12 @@ const LIFECYCLE_TYPE_LABELS: Record<string, string> = {
 };
 
 const STAGE_LABELS: Record<string, string> = {
+  germination: "發芽期",
   seedling: "幼苗期",
   vegetative: "營養生長期",
   flowering: "開花期",
   fruiting: "結果期",
+  harvest: "收穫期",
   harvest_ready: "可採收",
   dormant: "休眠",
   declining: "衰退",
