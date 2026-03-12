@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -178,9 +179,10 @@ export function TaskRow({
 
   const isCompleted = item.status === 'completed' || item.completed
   const isSkipped = item.status === 'skipped'
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0]!, [])
   const isOverdue =
     item.dueDate &&
-    item.dueDate < new Date().toISOString().split('T')[0]! &&
+    item.dueDate < todayStr &&
     !isCompleted &&
     !isSkipped
 
@@ -194,8 +196,12 @@ export function TaskRow({
     }
   }
 
-  const handleSkipWithReason = (reason: string) => {
-    onSkip(item._id, reason)
+  const handleSkipWithReason = async (reason: string) => {
+    try {
+      await onSkip(item._id, reason)
+    } catch {
+      toast.error('跳過任務失敗，請重試')
+    }
     setShowSkipReasons(false)
   }
 

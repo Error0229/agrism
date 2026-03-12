@@ -27,12 +27,6 @@ import {
   JOURNAL_CATEGORY_LABELS,
   JOURNAL_CATEGORY_ICONS,
 } from "@/lib/types/labels";
-
-const JOURNAL_CATEGORY_VALUES = new Set<string>(Object.values(JournalCategory));
-
-function isJournalCategory(value: string): value is JournalCategory {
-  return JOURNAL_CATEGORY_VALUES.has(value);
-}
 import { JOURNAL_QUICK_PHRASES } from "@/lib/config/journal-quick-phrases";
 import { formatRelativeTime } from "@/lib/utils/relative-time";
 import {
@@ -42,6 +36,12 @@ import {
   useDeleteRegionJournalEntry,
 } from "@/hooks/use-journal";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+const JOURNAL_CATEGORY_VALUES = new Set<string>(Object.values(JournalCategory));
+
+function isJournalCategory(value: string): value is JournalCategory {
+  return JOURNAL_CATEGORY_VALUES.has(value);
+}
 
 // ---------------------------------------------------------------------------
 // Constants (shared with field journal)

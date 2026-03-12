@@ -43,7 +43,7 @@ import { Separator } from "@/components/ui/separator";
 import { useCropCareContext } from "@/hooks/use-crop-care-context";
 import { useUpdatePlantedCropLifecycle } from "@/hooks/use-fields";
 import { SUNLIGHT_LEVEL_LABELS, WATER_LEVEL_LABELS } from "@/lib/types/labels";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import type { Doc } from "../../../convex/_generated/dataModel";
 import type { CropAlert, GrowthStageEntry } from "../../../shared/growth-stage";
 import { mapCropLifecycleType } from "../../../shared/growth-stage";
 
@@ -394,7 +394,7 @@ export const SmartCropCard = React.memo(function SmartCropCard({
   const [saving, setSaving] = useState<string | null>(null);
 
   const { data: careContext, isLoading } = useCropCareContext(
-    plantedCrop._id as Id<"plantedCrops">,
+    plantedCrop._id,
   );
 
   const save = useCallback(
@@ -402,7 +402,7 @@ export const SmartCropCard = React.memo(function SmartCropCard({
       setSaving(field);
       try {
         await updateLifecycle({
-          plantedCropId: plantedCrop._id as Id<"plantedCrops">,
+          plantedCropId: plantedCrop._id,
           [field]: value,
         });
       } catch {

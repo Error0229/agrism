@@ -249,7 +249,7 @@ export function PlanCropDialog({
       if (currentOccupant?.estimatedEnd) {
         // Try parsing "YYYY年M月[上旬|中旬|下旬]" format
         const zhMatch = currentOccupant.estimatedEnd.match(/^(\d{4})年(\d{1,2})月(上旬|中旬|下旬)$/);
-        if (zhMatch) {
+        if (zhMatch?.[1] && zhMatch[2] && zhMatch[3]) {
           predecessorEndParsed = {
             year: zhMatch[1],
             month: String(parseInt(zhMatch[2])).padStart(2, "0"),
@@ -274,7 +274,7 @@ export function PlanCropDialog({
       setNotes(existingPlan?.notes ?? "");
 
       // Auto-calculate end date if we have a start from predecessor and a selected crop
-      if (!existingPlan && predecessorEndParsed && existingPlan === undefined) {
+      if (!existingPlan && predecessorEndParsed) {
         // End will be auto-calculated when crop is selected via handleCropSelect
         // But if a crop is already selected (e.g. editing), calculate now
         if (selectedCropId && crops) {

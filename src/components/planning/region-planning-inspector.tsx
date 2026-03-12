@@ -32,7 +32,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 interface RegionPlanningInspectorProps {
   plantedCrop: {
-    _id: string;
+    _id: Id<"plantedCrops">;
     crop?: {
       name: string;
       emoji?: string;
@@ -474,14 +474,14 @@ export function RegionPlanningInspector({
   // Unified region plan query
   const regionPlan = useRegionPlan(
     fieldId,
-    plantedCrop._id as Id<"plantedCrops">,
+    plantedCrop._id,
     plantedCrop._id,
   );
 
   // Region history query
   const regionHistory = useRegionHistory(
     fieldId,
-    plantedCrop._id as Id<"plantedCrops">,
+    plantedCrop._id,
     plantedCrop._id,
   );
 

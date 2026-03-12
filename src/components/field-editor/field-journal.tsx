@@ -27,12 +27,6 @@ import {
   JOURNAL_CATEGORY_LABELS,
   JOURNAL_CATEGORY_ICONS,
 } from "@/lib/types/labels";
-
-const JOURNAL_CATEGORY_VALUES = new Set<string>(Object.values(JournalCategory));
-
-function isJournalCategory(value: string): value is JournalCategory {
-  return JOURNAL_CATEGORY_VALUES.has(value);
-}
 import { JOURNAL_QUICK_PHRASES } from "@/lib/config/journal-quick-phrases";
 import { formatRelativeTime } from "@/lib/utils/relative-time";
 import {
@@ -41,7 +35,23 @@ import {
   useUpdateFieldJournalEntry,
   useDeleteFieldJournalEntry,
 } from "@/hooks/use-journal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+const JOURNAL_CATEGORY_VALUES = new Set<string>(Object.values(JournalCategory));
+
+function isJournalCategory(value: string): value is JournalCategory {
+  return JOURNAL_CATEGORY_VALUES.has(value);
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -100,6 +110,7 @@ export const FieldJournal = React.memo(function FieldJournal({
   const [selectedPhrases, setSelectedPhrases] = useState<string[]>([]);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<JournalCategory | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // --- Handlers ---
@@ -177,17 +188,21 @@ export const FieldJournal = React.memo(function FieldJournal({
     [],
   );
 
-  const handleDelete = useCallback(
-    async (entryId: string) => {
-      try {
-        await deleteEntry({ entryId: entryId as Id<"fieldJournalEntries"> });
-        toast.success("日誌已刪除");
-      } catch {
-        toast.error("刪除失敗");
-      }
-    },
-    [deleteEntry],
-  );
+  const handleDeleteRequest = useCallback((entryId: string) => {
+    setPendingDeleteId(entryId);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!pendingDeleteId) return;
+    try {
+      await deleteEntry({ entryId: pendingDeleteId as Id<"fieldJournalEntries"> });
+      toast.success("日誌已刪除");
+    } catch {
+      toast.error("刪除失敗");
+    } finally {
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, deleteEntry]);
 
   const handleFilterToggle = useCallback((category: JournalCategory) => {
     setFilterCategory((prev) => (prev === category ? null : category));
@@ -425,7 +440,7 @@ export const FieldJournal = React.memo(function FieldJournal({
               key={entry._id}
               entry={entry}
               onEdit={() => handleEdit(entry)}
-              onDelete={() => handleDelete(entry._id)}
+              onDelete={() => handleDeleteRequest(entry._id)}
             />
           ))}
         </div>
@@ -450,6 +465,24 @@ export const FieldJournal = React.memo(function FieldJournal({
           查看完整日誌（共 {totalCount} 筆）
         </button>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認刪除日誌</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作無法復原，確定要刪除這筆日誌記錄嗎？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });
