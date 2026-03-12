@@ -271,7 +271,7 @@ export const getCropCareContext = query({
       };
     }
 
-    const today = new Date().toISOString().split("T")[0]!;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
 
     // --- Growth stage calculation ---
     const growthStageInfo = pc.plantedDate && crop.growthStages
@@ -298,9 +298,9 @@ export const getCropCareContext = query({
       ? estimateHarvestDate(pc.plantedDate, growthDays)
       : null;
 
-    // Days since planting
-    let daysSincePlanting: number | null = null;
-    if (pc.plantedDate) {
+    // Days since planting — reuse growthStageInfo when available, fall back to manual calc
+    let daysSincePlanting: number | null = growthStageInfo?.daysSincePlanting ?? null;
+    if (daysSincePlanting == null && pc.plantedDate) {
       const plantDate = new Date(pc.plantedDate + "T00:00:00");
       const todayDate = new Date(today + "T00:00:00");
       daysSincePlanting = Math.max(0, Math.floor((todayDate.getTime() - plantDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -507,7 +507,7 @@ export const plantCrop = mutation({
       cropId: args.cropId,
       fieldId: args.fieldId,
       plantedDate:
-        args.plantedDate ?? new Date().toISOString().split("T")[0],
+        args.plantedDate ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
       status: "growing",
       xM: args.xM,
       yM: args.yM,
@@ -538,7 +538,7 @@ export const createRegion = mutation({
       cropId: args.cropId,
       fieldId: args.fieldId,
       name: args.name,
-      plantedDate: new Date().toISOString().split("T")[0],
+      plantedDate: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
       status: "growing",
       xM: args.xM,
       yM: args.yM,
@@ -659,7 +659,7 @@ export const harvestCrop = mutation({
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
     await ctx.db.patch(plantedCropId, {
       status: "harvested",
-      harvestedDate: new Date().toISOString().split("T")[0],
+      harvestedDate: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }),
     });
   },
 });

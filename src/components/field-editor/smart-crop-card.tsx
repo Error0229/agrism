@@ -43,13 +43,32 @@ import { Separator } from "@/components/ui/separator";
 import { useCropCareContext } from "@/hooks/use-crop-care-context";
 import { useUpdatePlantedCropLifecycle } from "@/hooks/use-fields";
 import { SUNLIGHT_LEVEL_LABELS, WATER_LEVEL_LABELS } from "@/lib/types/labels";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import type { CropAlert, GrowthStageEntry } from "../../../shared/growth-stage";
+import { mapCropLifecycleType } from "../../../shared/growth-stage";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PlantedCropData = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type CropData = any;
+/** Fields accessed from plantedCrop in this component */
+type PlantedCropData = Pick<
+  Doc<"plantedCrops">,
+  | "_id"
+  | "lifecycleType"
+  | "customGrowthDays"
+  | "stage"
+>;
+
+/** Fields accessed from crop in this component */
+type CropData = Pick<
+  Doc<"crops">,
+  | "_id"
+  | "lifecycleType"
+  | "growthDays"
+  | "water"
+  | "fertilizerFrequencyDays"
+  | "sunlight"
+  | "sunlightHoursMin"
+  | "sunlightHoursMax"
+  | "growthStages"
+>;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -542,12 +561,8 @@ export const SmartCropCard = React.memo(function SmartCropCard({
               onReset={
                 isLifecycleOverridden
                   ? () => {
-                      const mapped = cropLifecycleType as
-                        | "seasonal"
-                        | "long_cycle"
-                        | "perennial"
-                        | "orchard";
-                      save("lifecycleType", mapped);
+                      const mapped = mapCropLifecycleType(cropLifecycleType);
+                      if (mapped) save("lifecycleType", mapped);
                     }
                   : undefined
               }

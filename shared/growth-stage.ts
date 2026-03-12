@@ -62,7 +62,7 @@ export function calculateGrowthStage(
     return null;
   }
 
-  const today = todayStr ?? new Date().toISOString().split("T")[0]!;
+  const today = todayStr ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
   const daysSincePlanting = daysBetween(plantedDate, today);
 
   // If planting is in the future, clamp to 0
@@ -158,8 +158,13 @@ export function computeCropAlerts(
   todayStr?: string,
 ): CropAlert[] {
   const alerts: CropAlert[] = [];
-  const today = todayStr ?? new Date().toISOString().split("T")[0]!;
+  const today = todayStr ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" });
   const currentMonth = new Date(today + "T00:00:00").getMonth() + 1; // 1-12
+
+  // Pre-compute growth stage once (reused for drought check and careNotes)
+  const stageResult = (plantedCrop.plantedDate && crop.growthStages)
+    ? calculateGrowthStage(plantedCrop.plantedDate, crop.growthStages, today)
+    : null;
 
   // 1. Typhoon season alert (June-October) for crops with low/medium resistance
   if (currentMonth >= 6 && currentMonth <= 10) {
@@ -177,13 +182,7 @@ export function computeCropAlerts(
   // 2. Current stage is drought-critical
   if (crop.criticalDroughtStages && crop.criticalDroughtStages.length > 0) {
     // Determine current stage name
-    let currentStageName = plantedCrop.stage;
-    if (!currentStageName && plantedCrop.plantedDate && crop.growthStages) {
-      const stageResult = calculateGrowthStage(plantedCrop.plantedDate, crop.growthStages, today);
-      if (stageResult) {
-        currentStageName = stageResult.currentStage.stage;
-      }
-    }
+    const currentStageName = plantedCrop.stage ?? stageResult?.currentStage.stage;
     if (currentStageName && crop.criticalDroughtStages.includes(currentStageName)) {
       alerts.push({
         type: "warning",
@@ -205,15 +204,12 @@ export function computeCropAlerts(
   }
 
   // 4. Growth stage careNotes
-  if (plantedCrop.plantedDate && crop.growthStages) {
-    const stageResult = calculateGrowthStage(plantedCrop.plantedDate, crop.growthStages, today);
-    if (stageResult?.currentStage.careNotes) {
-      alerts.push({
-        type: "info",
-        icon: "notebook-pen",
-        message: stageResult.currentStage.careNotes,
-      });
-    }
+  if (stageResult?.currentStage.careNotes) {
+    alerts.push({
+      type: "info",
+      icon: "notebook-pen",
+      message: stageResult.currentStage.careNotes,
+    });
   }
 
   // 5. Harvest approaching (within 7 days)
