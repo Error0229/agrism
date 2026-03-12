@@ -54,25 +54,21 @@ export const getFieldEntries = query({
     const farmId = await resolveFieldFarmId(ctx, fieldId);
     await requireFarmMembership(ctx, farmId);
 
-    let entries;
+    const maxEntries = Math.min(Math.max(limit ?? 20, 1), 100);
+
     if (type) {
-      entries = await ctx.db
+      return await ctx.db
         .query("fieldJournalEntries")
         .withIndex("by_field_type", (q) => q.eq("fieldId", fieldId).eq("type", type))
         .order("desc")
-        .collect();
+        .take(maxEntries);
     } else {
-      entries = await ctx.db
+      return await ctx.db
         .query("fieldJournalEntries")
         .withIndex("by_field", (q) => q.eq("fieldId", fieldId))
         .order("desc")
-        .collect();
+        .take(maxEntries);
     }
-
-    if (limit && limit > 0) {
-      return entries.slice(0, limit);
-    }
-    return entries;
   },
 });
 
@@ -91,27 +87,23 @@ export const getRegionEntries = query({
     const { farmId } = await resolvePlantedCropContext(ctx, plantedCropId);
     await requireFarmMembership(ctx, farmId);
 
-    let entries;
+    const maxEntries = Math.min(Math.max(limit ?? 20, 1), 100);
+
     if (type) {
-      // No dedicated index for plantedCropId+type, filter in memory
+      // No dedicated index for plantedCropId+type, so fetch with a hard cap and filter in memory
       const allEntries = await ctx.db
         .query("regionJournalEntries")
         .withIndex("by_plantedCrop", (q) => q.eq("plantedCropId", plantedCropId))
         .order("desc")
-        .collect();
-      entries = allEntries.filter((e) => e.type === type);
+        .take(maxEntries * 5);
+      return allEntries.filter((e) => e.type === type).slice(0, maxEntries);
     } else {
-      entries = await ctx.db
+      return await ctx.db
         .query("regionJournalEntries")
         .withIndex("by_plantedCrop", (q) => q.eq("plantedCropId", plantedCropId))
         .order("desc")
-        .collect();
+        .take(maxEntries);
     }
-
-    if (limit && limit > 0) {
-      return entries.slice(0, limit);
-    }
-    return entries;
   },
 });
 
@@ -128,7 +120,7 @@ export const getRecentEntries = query({
   handler: async (ctx, { farmId, limit }) => {
     await requireFarmMembership(ctx, farmId);
 
-    const maxEntries = limit && limit > 0 ? limit : 20;
+    const maxEntries = Math.min(Math.max(limit ?? 20, 1), 100);
 
     const [fieldEntries, regionEntries] = await Promise.all([
       ctx.db
@@ -174,6 +166,8 @@ export const createFieldEntry = mutation({
     const farmId = await resolveFieldFarmId(ctx, fieldId);
     await requireFarmMembership(ctx, farmId);
 
+    if (content.length > 5000) throw new Error("日誌內容過長（最多 5000 字）");
+
     const entryId = await ctx.db.insert("fieldJournalEntries", {
       farmId,
       fieldId,
@@ -199,6 +193,8 @@ export const createRegionEntry = mutation({
   handler: async (ctx, { plantedCropId, type, content, quickPhrases }) => {
     const { farmId, fieldId } = await resolvePlantedCropContext(ctx, plantedCropId);
     await requireFarmMembership(ctx, farmId);
+
+    if (content.length > 5000) throw new Error("日誌內容過長（最多 5000 字）");
 
     const entryId = await ctx.db.insert("regionJournalEntries", {
       farmId,

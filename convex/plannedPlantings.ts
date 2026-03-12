@@ -395,17 +395,17 @@ export const getRegionPlan = query({
     // Determine effective regionId — regionId is typically the plantedCropId string
     const effectiveRegionId = regionId ?? (plantedCropId as string | undefined);
 
-    // ── Fetch all planted crops for this field ──
+    // ── Fetch planted crops for this field (hard cap to prevent runaway) ──
     const allPlantedCrops = await ctx.db
       .query("plantedCrops")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
 
-    // ── Fetch all planned plantings for this field ──
+    // ── Fetch planned plantings for this field (hard cap) ──
     const allPlannedPlantings = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     const activePlans = allPlannedPlantings.filter(
       (p) => p.planningState !== "cancelled",
     );
@@ -752,7 +752,7 @@ export const getRegionHistory = query({
     plantedCropId: v.optional(v.id("plantedCrops")),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { fieldId, regionId, plantedCropId, limit }) => {
+  handler: async (ctx, { fieldId, regionId: _regionId, plantedCropId, limit }) => {
     const farmId = await resolveFieldFarmId(ctx, fieldId);
     await requireFarmMembership(ctx, farmId);
 
@@ -787,16 +787,9 @@ export const getRegionHistory = query({
         return samePosition;
       }
 
-      // If only regionId provided, check if any past plantedCrop's ID matches
-      // the region-based lookup (regionId in planned plantings is typically
-      // the plantedCrop._id as string)
-      if (regionId) {
-        // Look for predecessor chains that reference this region
-        // For region history, we accept all past crops at the same position
-        // This fallback returns all past crops on the field if no spatial match
-        return true;
-      }
-
+      // Without a spatial reference from a current crop, we cannot reliably
+      // determine which past crops belonged to this region. Return nothing
+      // rather than misleadingly showing all past crops on the field.
       return false;
     });
 
