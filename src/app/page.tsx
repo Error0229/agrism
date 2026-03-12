@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import {
   Card,
@@ -8,54 +8,50 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useFarmIdWithStatus } from '@/hooks/use-farm-id'
 import type { Id } from '../../convex/_generated/dataModel'
-import { useTasks, useToggleTask } from '@/hooks/use-tasks'
+import { useCreateTask } from '@/hooks/use-tasks'
 import { useGenerateDailyTasks } from '@/hooks/use-daily-tasks'
 import { useFieldsSummary } from '@/hooks/use-fields'
+import { useCrops } from '@/hooks/use-crops'
 import {
-  TASK_TYPE_LABELS,
-  TASK_DIFFICULTY_LABELS,
-} from '@/lib/types/labels'
-import type { TaskType, TaskDifficulty } from '@/lib/types/enums'
+  useUnifiedTasks,
+  useDailyProgress,
+  useCompleteTask,
+  useSkipTask,
+  usePromoteRecommendation,
+} from '@/hooks/use-unified-tasks'
 import {
-  CheckCircle2,
+  useGenerateBriefing,
+  useCheckWeatherReplan,
+  useSnoozeRecommendation,
+  useDismissRecommendation,
+} from '@/hooks/use-recommendations'
+import { CropAvatar } from '@/components/crops/crop-avatar'
+import {
+  MorningBriefingCard,
+  UnifiedTaskStream,
+  QuickAddFAB,
+} from '@/components/task-hub'
+import type { UnifiedItem } from '@/components/task-hub'
+import {
   Loader2,
-  Map,
-  CalendarDays,
   Sprout,
+  Clock,
+  Cloud,
   Thermometer,
   AlertTriangle,
   ArrowRight,
-  Clock,
-  Cloud,
   Wind,
-  BrainCircuit,
-  Sparkles,
-  ChevronDown,
-  History,
-  CloudRain,
-  ListChecks,
+  Map,
+  CalendarDays,
+  CheckCircle2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { weatherCodeLabel, weatherCodeIcon } from '@/lib/weather-utils'
 import {
-  useActiveRecommendations,
-  useRecommendationHistory,
-  useGenerateBriefing,
-  useCheckWeatherReplan,
-} from '@/hooks/use-recommendations'
-import { RecommendationCard } from '@/components/recommendations/recommendation-card'
-import { CropAvatar } from '@/components/crops/crop-avatar'
-import {
-  isToday,
-  isBefore,
-  startOfDay,
-  addDays,
   differenceInDays,
   format,
 } from 'date-fns'
@@ -93,26 +89,31 @@ interface WeatherData {
 
 export default function DashboardPage() {
   const { farmId, isLoading: farmLoading } = useFarmIdWithStatus()
-  const allTasks = useTasks(farmId)
   const fieldsData = useFieldsSummary(farmId)
-  const toggleTask = useToggleTask()
+  const cropsData = useCrops(farmId)
+  const createTask = useCreateTask()
   const generateDailyTasks = useGenerateDailyTasks()
-  const [generatingTasks, setGeneratingTasks] = useState(false)
 
-  const tasksLoading = allTasks === undefined
-  const fieldsLoading = fieldsData === undefined
+  // Unified task hub hooks
+  const unifiedItems = useUnifiedTasks(farmId)
+  const progress = useDailyProgress(unifiedItems as Parameters<typeof useDailyProgress>[0])
+  const completeTask = useCompleteTask()
+  const skipTask = useSkipTask()
+  const promoteRecommendation = usePromoteRecommendation()
 
-  const recommendations = useActiveRecommendations(farmId)
-  const recommendationHistory = useRecommendationHistory(farmId)
+  // Recommendation actions
   const generateBriefing = useGenerateBriefing()
   const checkWeatherReplan = useCheckWeatherReplan()
-  const [briefingLoading, setBriefingLoading] = useState(false)
-  const [weatherReplanLoading, setWeatherReplanLoading] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const recommendationsLoading = recommendations === undefined
+  const snoozeRecommendation = useSnoozeRecommendation()
+  const dismissRecommendation = useDismissRecommendation()
+
+  const [refreshing, setRefreshing] = useState(false)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(true)
+
+  const fieldsLoading = fieldsData === undefined
 
   useEffect(() => {
     fetch('/api/weather')
@@ -121,6 +122,197 @@ export default function DashboardPage() {
       .catch(() => null)
       .finally(() => setWeatherLoading(false))
   }, [])
+
+  // --- Name lookups for field/crop resolution ---
+  const fieldNames = useMemo(() => {
+    const map: Record<string, string> = {}
+    if (fieldsData) {
+      for (const f of fieldsData) {
+        map[f._id] = f.name
+      }
+    }
+    return map
+  }, [fieldsData])
+
+  const cropNames = useMemo(() => {
+    const map: Record<string, string> = {}
+    if (cropsData) {
+      for (const c of cropsData) {
+        map[c._id] = c.name
+      }
+    }
+    return map
+  }, [cropsData])
+
+  // --- Top priorities for morning briefing ---
+  const topPriorities = useMemo(() => {
+    if (!unifiedItems) return []
+    const today = new Date().toISOString().split('T')[0]!
+
+    return unifiedItems
+      .filter((item) => {
+        if (item.kind === 'recommendation') return false
+        const task = item as Extract<typeof item, { kind: 'task' }>
+        return (
+          task.status !== 'completed' &&
+          task.status !== 'skipped' &&
+          !task.completed
+        )
+      })
+      .slice(0, 3)
+      .map((item) => {
+        const fieldId =
+          item.kind === 'task'
+            ? (item as Extract<typeof item, { kind: 'task' }>).fieldId
+            : undefined
+        return {
+          title: item.title,
+          fieldName: fieldId ? fieldNames[fieldId] : undefined,
+          isUrgent:
+            item.priority === 'urgent' ||
+            item.priority === 'high' ||
+            (item.kind === 'task' &&
+              !!(item as Extract<typeof item, { kind: 'task' }>).dueDate &&
+              (item as Extract<typeof item, { kind: 'task' }>).dueDate! < today),
+          source: item.kind === 'task'
+            ? (item as Extract<typeof item, { kind: 'task' }>).source
+            : 'ai_briefing',
+        }
+      })
+  }, [unifiedItems, fieldNames])
+
+  // --- Field/crop options for quick add ---
+  const fieldOptions = useMemo(() => {
+    if (!fieldsData) return []
+    return fieldsData.map((f) => ({ id: f._id as Id<'fields'>, name: f.name }))
+  }, [fieldsData])
+
+  const cropOptions = useMemo(() => {
+    if (!cropsData) return []
+    return cropsData.map((c) => ({
+      id: c._id as Id<'crops'>,
+      name: c.name,
+      emoji: c.emoji,
+    }))
+  }, [cropsData])
+
+  // --- Growing crops ---
+  const growingEntries = useMemo(() => {
+    if (!fieldsData) return []
+    return fieldsData.flatMap((field) =>
+      field.plantedCrops
+        .filter((entry) => entry.status === 'growing' && entry.cropName !== '未知')
+        .map((entry) => ({
+          ...entry,
+          fieldName: field.name,
+        })),
+    )
+  }, [fieldsData])
+
+  // --- Handlers ---
+  const handleRefresh = useCallback(async () => {
+    if (!farmId || refreshing) return
+    setRefreshing(true)
+    try {
+      // Run all refresh operations in parallel
+      const results = await Promise.allSettled([
+        checkWeatherReplan({ farmId }),
+        generateBriefing({ farmId }),
+        generateDailyTasks({ farmId }),
+      ])
+
+      // Report results
+      const weatherResult = results[0]
+      if (weatherResult.status === 'fulfilled') {
+        const count = (weatherResult.value as { count?: number })?.count ?? 0
+        if (count > 0) toast.success(`已生成 ${count} 個天氣建議`)
+      }
+      const taskResult = results[2]
+      if (taskResult.status === 'fulfilled') {
+        const generated = (taskResult.value as { generated?: number })?.generated ?? 0
+        if (generated > 0) toast.success(`已生成 ${generated} 項任務`)
+      }
+
+      // Refresh weather data too
+      fetch('/api/weather')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => { if (data) setWeather(data) })
+        .catch(() => null)
+
+      toast.success('農務資料已更新')
+    } catch {
+      toast.error('部分更新失敗，請稍後重試')
+    } finally {
+      setRefreshing(false)
+    }
+  }, [farmId, refreshing, checkWeatherReplan, generateBriefing, generateDailyTasks])
+
+  const handleComplete = useCallback(
+    async (taskId: Id<'tasks'>) => {
+      try {
+        await completeTask({ taskId })
+        toast.success('任務已完成')
+      } catch {
+        toast.error('操作失敗')
+      }
+    },
+    [completeTask],
+  )
+
+  const handleSkip = useCallback(
+    async (taskId: Id<'tasks'>, reason?: string) => {
+      try {
+        await skipTask({ taskId, reason })
+        toast.success('已跳過任務')
+      } catch {
+        toast.error('操作失敗')
+      }
+    },
+    [skipTask],
+  )
+
+  const handlePromote = useCallback(
+    async (recId: Id<'recommendations'>) => {
+      try {
+        await promoteRecommendation({ recommendationId: recId })
+        toast.success('已加入待辦')
+      } catch {
+        toast.error('操作失敗')
+      }
+    },
+    [promoteRecommendation],
+  )
+
+  const handleSnooze = useCallback(
+    async (recId: Id<'recommendations'>) => {
+      try {
+        await snoozeRecommendation({ recommendationId: recId })
+        toast.success('已延後')
+      } catch {
+        toast.error('操作失敗')
+      }
+    },
+    [snoozeRecommendation],
+  )
+
+  const handleDismiss = useCallback(
+    async (recId: Id<'recommendations'>, reason?: string) => {
+      try {
+        await dismissRecommendation({ recommendationId: recId, reason })
+        toast.success('已忽略')
+      } catch {
+        toast.error('操作失敗')
+      }
+    },
+    [dismissRecommendation],
+  )
+
+  const handleCreate = useCallback(
+    async (args: Parameters<typeof createTask>[0]) => {
+      return createTask(args)
+    },
+    [createTask],
+  )
 
   // Show loading skeleton only while session is loading
   if (farmLoading) {
@@ -166,93 +358,8 @@ export default function DashboardPage() {
     )
   }
 
-  const today = startOfDay(new Date())
-  const threeDaysLater = addDays(today, 3)
-
-  // ---- Task grouping ----
-  const incompleteTasks = (allTasks ?? []).filter((t) => !t.completed)
-
-  const overdueTasks = incompleteTasks.filter(
-    (t) => t.dueDate && isBefore(new Date(t.dueDate), today) && !isToday(new Date(t.dueDate)),
-  )
-  const todayTasks = incompleteTasks.filter((t) =>
-    t.dueDate && isToday(new Date(t.dueDate)),
-  )
-  const upcomingTasks = incompleteTasks.filter((t) => {
-    if (!t.dueDate) return false
-    const d = new Date(t.dueDate)
-    return !isToday(d) && !isBefore(d, today) && isBefore(d, addDays(threeDaysLater, 1))
-  })
-
-  // ---- Growing crops ----
-  const growingEntries = (fieldsData ?? []).flatMap((field) =>
-    field.plantedCrops
-      .filter((entry) => entry.status === 'growing' && entry.cropName !== '未知')
-      .map((entry) => ({
-        ...entry,
-        fieldName: field.name,
-      })),
-  )
-
-  // ---- Handlers ----
-  const handleToggle = async (taskId: string) => {
-    try {
-      await toggleTask({ taskId: taskId as Id<"tasks"> })
-    } catch {
-      // ignore
-    }
-  }
-
-  const handleGenerateBriefing = async () => {
-    if (!farmId || briefingLoading) return
-    setBriefingLoading(true)
-    try {
-      await generateBriefing({ farmId })
-    } catch {
-      // ignore
-    } finally {
-      setBriefingLoading(false)
-    }
-  }
-
-  const handleCheckWeather = async () => {
-    if (!farmId || weatherReplanLoading) return
-    setWeatherReplanLoading(true)
-    try {
-      const result = await checkWeatherReplan({ farmId })
-      const count = (result as { count: number })?.count ?? 0
-      if (count > 0) {
-        toast.success(`已生成 ${count} 個天氣建議`)
-      } else {
-        toast.info('天氣正常，無需調整')
-      }
-    } catch {
-      toast.error('天氣檢查失敗')
-    } finally {
-      setWeatherReplanLoading(false)
-    }
-  }
-
-  const handleGenerateDailyTasks = async () => {
-    if (!farmId || generatingTasks) return
-    setGeneratingTasks(true)
-    try {
-      const result = await generateDailyTasks({ farmId })
-      const generated = (result as { generated: number })?.generated ?? 0
-      if (generated > 0) {
-        toast.success(`已生成 ${generated} 項任務`)
-      } else {
-        toast.info('目前無需生成新任務')
-      }
-    } catch {
-      toast.error('生成任務失敗')
-    } finally {
-      setGeneratingTasks(false)
-    }
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-24">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">花蓮蔬果種植指南</h1>
@@ -262,253 +369,41 @@ export default function DashboardPage() {
       </div>
 
       {/* ================================================================
-          Section 0: AI Daily Briefing
+          Section 1: Morning Briefing Card (早安農事卡)
           ================================================================ */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <BrainCircuit className="size-5 text-violet-600" />
-            今日農務建議
-          </CardTitle>
-          <div className="flex justify-end -mt-6 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={handleCheckWeather}
-              disabled={weatherReplanLoading}
-            >
-              {weatherReplanLoading ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  檢查天氣中...
-                </>
-              ) : (
-                <>
-                  <CloudRain className="size-3.5" />
-                  天氣檢查
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={handleGenerateBriefing}
-              disabled={briefingLoading}
-            >
-              {briefingLoading ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  AI 分析中...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-3.5" />
-                  生成建議
-                </>
-              )}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {recommendationsLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
-          ) : !recommendations || recommendations.length === 0 ? (
-            <div className="py-6 text-center text-muted-foreground">
-              <Sparkles className="mx-auto size-8 mb-2" />
-              <p>目前沒有建議，點擊上方按鈕生成今日建議</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recommendations.map((rec) => (
-                <RecommendationCard key={rec._id} recommendation={rec} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <MorningBriefingCard
+        weather={weather}
+        weatherLoading={weatherLoading}
+        progress={progress}
+        topPriorities={topPriorities}
+        onRefresh={handleRefresh}
+        onQuickAdd={() => setQuickAddOpen(true)}
+        refreshing={refreshing}
+      />
 
       {/* ================================================================
-          Section 0b: Recommendation History
+          Section 2: Unified Task Stream (今日農務)
           ================================================================ */}
-      {recommendationHistory && recommendationHistory.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(!historyOpen)}
-              className="flex items-center gap-2 w-full text-left"
-            >
-              <History className="size-5 text-muted-foreground" />
-              <CardTitle className="text-lg flex-1">歷史建議</CardTitle>
-              <Badge variant="secondary" className="text-xs">
-                {recommendationHistory.length}
-              </Badge>
-              <ChevronDown
-                className={cn(
-                  'size-4 text-muted-foreground transition-transform duration-200',
-                  historyOpen && 'rotate-180',
-                )}
-              />
-            </button>
-          </CardHeader>
-          <div
-            className={cn(
-              'grid transition-all duration-200 ease-in-out',
-              historyOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-            )}
-          >
-            <div className="overflow-hidden">
-              <CardContent className="pt-0 pb-3">
-                <div className="space-y-2">
-                  {recommendationHistory.slice(0, 10).map((rec) => (
-                    <div
-                      key={rec._id}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <span className="flex-1 truncate">{rec.title}</span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-[10px] px-1.5 py-0 shrink-0',
-                          rec.status === 'completed' && 'bg-sky-100 text-sky-700 border-sky-200',
-                          rec.status === 'dismissed' && 'bg-rose-100 text-rose-700 border-rose-200',
-                          rec.status === 'snoozed' && 'bg-amber-100 text-amber-700 border-amber-200',
-                          rec.status === 'accepted' && 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                        )}
-                      >
-                        {rec.status === 'completed' && '已完成'}
-                        {rec.status === 'accepted' && '已接受'}
-                        {rec.status === 'snoozed' && '已延後'}
-                        {rec.status === 'dismissed' && '已忽略'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {format(new Date(rec.createdAt), 'M/d')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </div>
-          </div>
-        </Card>
-      )}
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <CheckCircle2 className="size-5 text-emerald-600" />
+          今日工作
+        </h2>
+        <UnifiedTaskStream
+          items={unifiedItems as UnifiedItem[] | undefined}
+          loading={unifiedItems === undefined}
+          fieldNames={fieldNames}
+          cropNames={cropNames}
+          onComplete={handleComplete}
+          onSkip={handleSkip}
+          onPromote={handlePromote}
+          onSnooze={handleSnooze}
+          onDismiss={handleDismiss}
+        />
+      </div>
 
       {/* ================================================================
-          Section 1: Today's Tasks
-          ================================================================ */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <CheckCircle2 className="size-5 text-green-600" />
-            今日任務
-          </CardTitle>
-          <div className="flex justify-end -mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateDailyTasks}
-              disabled={generatingTasks}
-              className="gap-1.5"
-            >
-              {generatingTasks ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <ListChecks className="size-3.5" />
-                  自動生成今日任務
-                </>
-              )}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {tasksLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : overdueTasks.length === 0 &&
-            todayTasks.length === 0 &&
-            upcomingTasks.length === 0 ? (
-            <div className="py-6 text-center text-muted-foreground">
-              <CheckCircle2 className="mx-auto size-8 mb-2 text-green-500" />
-              <p>沒有待辦任務，今天可以休息一下！</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Overdue */}
-              {overdueTasks.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-semibold text-red-600">
-                    逾期 ({overdueTasks.length})
-                  </p>
-                  <div className="space-y-2">
-                    {overdueTasks.map((task) => (
-                      <TaskRow
-                        key={task._id}
-                        task={task}
-                        variant="overdue"
-                        onToggle={handleToggle}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Today */}
-              {todayTasks.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-semibold text-green-700">
-                    今天 ({todayTasks.length})
-                  </p>
-                  <div className="space-y-2">
-                    {todayTasks.map((task) => (
-                      <TaskRow
-                        key={task._id}
-                        task={task}
-                        variant="today"
-                        onToggle={handleToggle}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upcoming 3 days */}
-              {upcomingTasks.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-semibold text-muted-foreground">
-                    未來 3 天 ({upcomingTasks.length})
-                  </p>
-                  <div className="space-y-2">
-                    {upcomingTasks.map((task) => (
-                      <TaskRow
-                        key={task._id}
-                        task={task}
-                        variant="upcoming"
-                        onToggle={handleToggle}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ================================================================
-          Section 2: Growing Crops Overview
+          Section 3: Growing Crops Overview
           ================================================================ */}
       <Card>
         <CardHeader className="pb-3">
@@ -535,7 +430,7 @@ export default function DashboardPage() {
           ) : (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               {growingEntries.map((entry) => {
-                const plantedDate = new Date(entry.plantedDate ?? "2000-01-01")
+                const plantedDate = new Date(entry.plantedDate ?? '2000-01-01')
                 const daysSincePlanted = differenceInDays(new Date(), plantedDate)
                 const totalGrowthDays =
                   entry.customGrowthDays ??
@@ -587,7 +482,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* ================================================================
-          Section 3: Weather Summary
+          Section 4: Weather Summary (simplified)
           ================================================================ */}
       <Card>
         <CardHeader className="pb-3">
@@ -669,7 +564,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* ================================================================
-          Section 4: Quick Actions
+          Section 5: Quick Actions
           ================================================================ */}
       <Card>
         <CardHeader className="pb-3">
@@ -704,77 +599,18 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
-  )
-}
 
-// ---------------------------------------------------------------------------
-// TaskRow sub-component
-// ---------------------------------------------------------------------------
-
-interface TaskRowProps {
-  task: {
-    _id: string
-    type: string
-    title: string
-    dueDate?: string
-    effortMinutes?: number | null
-    difficulty?: string | null
-  }
-  variant: 'overdue' | 'today' | 'upcoming'
-  onToggle: (id: string) => void
-}
-
-function TaskRow({ task, variant, onToggle }: TaskRowProps) {
-  const borderColor =
-    variant === 'overdue'
-      ? 'border-red-200 bg-red-50/50'
-      : variant === 'today'
-        ? 'border-green-200 bg-green-50/50'
-        : ''
-
-  const checkColor =
-    variant === 'overdue'
-      ? 'border-red-400 hover:bg-red-100'
-      : 'border-green-500 hover:bg-green-100'
-
-  const typeLabel =
-    TASK_TYPE_LABELS[task.type as TaskType] ?? task.type
-  const difficultyLabel = task.difficulty
-    ? TASK_DIFFICULTY_LABELS[task.difficulty as TaskDifficulty]
-    : null
-
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${borderColor}`}
-    >
-      <button
-        onClick={() => onToggle(task._id)}
-        className={`flex size-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${checkColor}`}
-        aria-label="完成任務"
-      >
-        {/* empty — check mark appears on complete */}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{sanitizeTaskTitle(task.title)}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-          {variant === 'overdue' && task.dueDate && (
-            <span className="text-red-600">
-              {format(new Date(task.dueDate), 'M/d')}
-            </span>
-          )}
-          {variant === 'upcoming' && task.dueDate && (
-            <span>{format(new Date(task.dueDate), 'M/d EEEE', { locale: zhTW })}</span>
-          )}
-          {task.effortMinutes && (
-            <span>{task.effortMinutes} 分鐘</span>
-          )}
-          {difficultyLabel && <span>難度 {difficultyLabel}</span>}
-        </div>
-      </div>
-      <Badge variant="secondary" className="text-xs shrink-0">
-        {typeLabel}
-      </Badge>
+      {/* ================================================================
+          Quick Add FAB
+          ================================================================ */}
+      <QuickAddFAB
+        farmId={farmId}
+        fields={fieldOptions}
+        crops={cropOptions}
+        onCreate={handleCreate}
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+      />
     </div>
   )
 }

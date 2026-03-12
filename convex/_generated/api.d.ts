@@ -16,6 +16,7 @@ import type * as cropGalleryLookup from "../cropGalleryLookup.js";
 import type * as cropImageLookup from "../cropImageLookup.js";
 import type * as cropImport from "../cropImport.js";
 import type * as crops from "../crops.js";
+import type * as dailyLogs from "../dailyLogs.js";
 import type * as dailyTaskGeneration from "../dailyTaskGeneration.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   cropImageLookup: typeof cropImageLookup;
   cropImport: typeof cropImport;
   crops: typeof crops;
+  dailyLogs: typeof dailyLogs;
   dailyTaskGeneration: typeof dailyTaskGeneration;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;

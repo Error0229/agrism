@@ -673,6 +673,24 @@ export const generateDailyTasks = mutation({
 
       const preset = TASK_PRESETS[candidate.type];
 
+      // Determine priority based on task type urgency
+      const typePriority = (type: string): "urgent" | "high" | "normal" | "low" => {
+        switch (type) {
+          case "typhoon_prep":
+            return "urgent";
+          case "watering":
+          case "harvesting":
+            return "high";
+          case "fertilizing":
+          case "pest_control":
+            return "normal";
+          case "pruning":
+          case "seeding":
+          default:
+            return "normal";
+        }
+      };
+
       await ctx.db.insert("tasks", {
         farmId: args.farmId,
         type: candidate.type,
@@ -685,6 +703,10 @@ export const generateDailyTasks = mutation({
         effortMinutes: preset?.effortMinutes,
         difficulty: preset?.difficulty,
         requiredTools: preset?.requiredTools,
+        // Unified Task Hub fields (issue #108)
+        source: "auto_rule" as const,
+        status: "pending" as const,
+        priority: typePriority(candidate.type),
       });
 
       // Also add to allTasks so subsequent candidates can detect this new task as duplicate
@@ -702,6 +724,9 @@ export const generateDailyTasks = mutation({
         effortMinutes: preset?.effortMinutes,
         difficulty: preset?.difficulty,
         requiredTools: preset?.requiredTools,
+        source: "auto_rule" as const,
+        status: "pending" as const,
+        priority: typePriority(candidate.type),
       });
 
       generated++;
