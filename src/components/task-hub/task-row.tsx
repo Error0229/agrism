@@ -208,144 +208,150 @@ export function TaskRow({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border p-3 transition-all duration-200',
-        isCompleted && 'opacity-60 bg-muted/30',
-        isSkipped && 'opacity-50 bg-muted/20',
-        isOverdue && 'border-l-4 border-l-red-400',
-        item.priority === 'urgent' && !isCompleted && !isSkipped && 'border-l-4 border-l-rose-500 bg-rose-50/30',
-        !isCompleted && !isSkipped && !isOverdue && item.priority !== 'urgent' && 'hover:bg-accent/50',
+        'group relative rounded-xl border bg-card shadow-sm transition-all duration-200',
+        // Priority & state-based left accent strip
+        isCompleted && 'opacity-60 bg-muted/30 shadow-none',
+        isSkipped && 'opacity-50 bg-muted/20 shadow-none',
+        isOverdue && 'ring-1 ring-red-200 border-l-[3px] border-l-red-400',
+        item.priority === 'urgent' && !isCompleted && !isSkipped && 'border-l-[3px] border-l-rose-500 bg-rose-50/20',
+        item.priority === 'high' && !isCompleted && !isSkipped && !isOverdue && 'border-l-[3px] border-l-orange-400',
+        !isCompleted && !isSkipped && 'hover:shadow-md hover:border-foreground/15',
       )}
     >
-      {/* Main row */}
-      <div className="flex items-start gap-3">
-        {/* Circular checkbox — 44px+ touch target, 24px visual circle */}
-        <button
-          type="button"
-          onClick={handleComplete}
-          disabled={isCompleted || isSkipped}
-          className="relative flex shrink-0 items-center justify-center min-w-[44px] min-h-[44px] -m-2 mt-[-6px]"
-          aria-label={isCompleted ? '已完成' : '完成任務'}
-        >
-          <span
-            className={cn(
-              'flex size-[22px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
-              isCompleted
-                ? 'border-emerald-500 bg-emerald-500 text-white scale-100'
-                : isSkipped
-                  ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
-                  : 'border-neutral-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
-              completing && 'scale-110 border-emerald-400 bg-emerald-100',
-            )}
+      {/* Card body */}
+      <div className="p-3">
+        {/* Top: checkbox + title row */}
+        <div className="flex items-start gap-2.5">
+          {/* Circular checkbox */}
+          <button
+            type="button"
+            onClick={handleComplete}
+            disabled={isCompleted || isSkipped}
+            className="relative flex shrink-0 items-center justify-center min-w-[36px] min-h-[36px] -m-1.5 mt-[-2px]"
+            aria-label={isCompleted ? '已完成' : '完成任務'}
           >
-            {isCompleted && <Check className="size-3.5 stroke-[2.5]" />}
-            {isSkipped && <SkipForward className="size-3 stroke-[2]" />}
-          </span>
-        </button>
+            <span
+              className={cn(
+                'flex size-[20px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
+                isCompleted
+                  ? 'border-emerald-500 bg-emerald-500 text-white scale-100'
+                  : isSkipped
+                    ? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+                    : 'border-neutral-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
+                completing && 'scale-110 border-emerald-400 bg-emerald-100',
+              )}
+            >
+              {isCompleted && <Check className="size-3 stroke-[2.5]" />}
+              {isSkipped && <SkipForward className="size-2.5 stroke-[2]" />}
+            </span>
+          </button>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Line 1: title + badges */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Title + skip button */}
+          <div className="flex-1 min-w-0">
             <span className={cn(
-              'text-sm font-medium',
+              'text-[13px] font-medium leading-snug line-clamp-2',
               isCompleted && 'line-through text-muted-foreground',
               isSkipped && 'line-through text-muted-foreground',
             )}>
               {sanitizeTaskTitle(item.title)}
             </span>
-            <SourceBadge source={item.source} />
-            <PriorityBadge priority={item.priority} />
-            {item.effortMinutes && !isCompleted && !isSkipped && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <Clock className="size-3" />
-                {item.effortMinutes}分
-              </span>
-            )}
           </div>
 
-          {/* Line 2: field / crop context */}
-          {(fieldName || cropName) && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {fieldName}
-              {fieldName && cropName && ' · '}
-              {cropName}
-              {isOverdue && item.dueDate && (
-                <span className="text-red-500 ml-1.5">
-                  逾期 ({item.dueDate})
-                </span>
-              )}
-            </p>
-          )}
-
-          {/* Line 3: AI reasoning toggle (for AI/weather tasks) */}
-          {item.aiReasoning && !isCompleted && !isSkipped && (
-            <button
-              type="button"
-              onClick={() => setShowAiReasoning(!showAiReasoning)}
-              className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 mt-1 transition-colors"
+          {/* Skip button — top-right corner */}
+          {!isCompleted && !isSkipped && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -mt-0.5 -mr-1"
+              onClick={() => setShowSkipReasons(!showSkipReasons)}
+              title="跳過"
             >
-              <ChevronDown
-                className={cn(
-                  'size-3 transition-transform duration-200',
-                  showAiReasoning && 'rotate-180',
-                )}
-              />
-              {showAiReasoning ? '收合 AI 分析' : '展開 AI 分析'}
-            </button>
-          )}
-
-          {/* AI reasoning expanded content */}
-          {showAiReasoning && item.aiReasoning && (
-            <div className="mt-2 rounded-lg bg-violet-50/50 border border-violet-100 p-2.5 text-xs space-y-1">
-              <div className="flex items-start gap-1.5">
-                <Sparkles className="size-3 text-violet-500 mt-0.5 shrink-0" />
-                <p className="text-violet-900">{item.aiReasoning}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Completed timestamp */}
-          {isCompleted && item.completedAt && (
-            <p className="text-[10px] text-emerald-600 mt-0.5">
-              完成於 {new Date(item.completedAt).toLocaleTimeString('zh-TW', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </p>
-          )}
-
-          {/* Skipped reason */}
-          {isSkipped && item.skippedReason && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              跳過原因：{item.skippedReason}
-            </p>
+              <SkipForward className="size-3 text-muted-foreground" />
+            </Button>
           )}
         </div>
 
-        {/* Right side: skip button (for non-completed tasks) */}
-        {!isCompleted && !isSkipped && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => setShowSkipReasons(!showSkipReasons)}
-            title="跳過"
+        {/* Badges row */}
+        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+          <SourceBadge source={item.source} />
+          <PriorityBadge priority={item.priority} />
+          {item.effortMinutes && !isCompleted && !isSkipped && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+              <Clock className="size-2.5" />
+              {item.effortMinutes}分
+            </span>
+          )}
+          {isOverdue && item.dueDate && (
+            <span className="text-[10px] text-red-500 font-medium">
+              逾期
+            </span>
+          )}
+        </div>
+
+        {/* Context: field / crop */}
+        {(fieldName || cropName) && (
+          <p className="text-[11px] text-muted-foreground mt-1.5 truncate">
+            {fieldName}
+            {fieldName && cropName && ' · '}
+            {cropName}
+          </p>
+        )}
+
+        {/* Completed timestamp */}
+        {isCompleted && item.completedAt && (
+          <p className="text-[10px] text-emerald-600 mt-1">
+            完成於 {new Date(item.completedAt).toLocaleTimeString('zh-TW', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        )}
+
+        {/* Skipped reason */}
+        {isSkipped && item.skippedReason && (
+          <p className="text-[10px] text-muted-foreground mt-1">
+            跳過原因：{item.skippedReason}
+          </p>
+        )}
+
+        {/* AI reasoning toggle */}
+        {item.aiReasoning && !isCompleted && !isSkipped && (
+          <button
+            type="button"
+            onClick={() => setShowAiReasoning(!showAiReasoning)}
+            className="flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 mt-1.5 transition-colors"
           >
-            <SkipForward className="size-3.5 text-muted-foreground" />
-          </Button>
+            <ChevronDown
+              className={cn(
+                'size-3 transition-transform duration-200',
+                showAiReasoning && 'rotate-180',
+              )}
+            />
+            {showAiReasoning ? '收合' : 'AI 分析'}
+          </button>
+        )}
+
+        {/* AI reasoning expanded */}
+        {showAiReasoning && item.aiReasoning && (
+          <div className="mt-2 rounded-lg bg-violet-50/50 border border-violet-100 p-2 text-[11px]">
+            <div className="flex items-start gap-1.5">
+              <Sparkles className="size-3 text-violet-500 mt-0.5 shrink-0" />
+              <p className="text-violet-900">{item.aiReasoning}</p>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Skip reason pills */}
+      {/* Skip reason pills — slides out from card bottom */}
       {showSkipReasons && (
-        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t">
-          <span className="text-xs text-muted-foreground mr-1">跳過原因：</span>
+        <div className="flex flex-wrap gap-1.5 px-3 pb-2.5 pt-2 border-t">
+          <span className="text-[11px] text-muted-foreground mr-0.5">原因：</span>
           {SKIP_REASONS.map((reason) => (
             <button
               key={reason.value}
               type="button"
               onClick={() => handleSkipWithReason(reason.value)}
-              className="text-xs px-2.5 py-1 rounded-full border hover:bg-accent transition-colors min-h-[32px]"
+              className="text-[11px] px-2 py-0.5 rounded-full border hover:bg-accent transition-colors"
             >
               {reason.label}
             </button>
