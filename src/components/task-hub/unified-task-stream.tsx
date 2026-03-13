@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   TaskRow,
   RecommendationRow,
+  getTaskTypeKey,
+  getTaskTheme,
   type UnifiedItem,
   type UnifiedTaskItem,
   type UnifiedRecommendationItem,
@@ -18,6 +20,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -77,7 +80,7 @@ function groupItems(items: UnifiedItem[]): GroupedItems {
       continue
     }
 
-    // Task items — narrowed via type guard
+    // Task items
     if (!isTaskItem(item)) continue
     const task = item
     if (task.status === 'completed' || task.completed) {
@@ -107,6 +110,36 @@ function groupItems(items: UnifiedItem[]): GroupedItems {
 }
 
 // ---------------------------------------------------------------------------
+// Group tasks by type for visual clustering
+// ---------------------------------------------------------------------------
+
+interface TypeGroup {
+  typeKey: string
+  label: string
+  items: UnifiedTaskItem[]
+}
+
+function groupByType(tasks: UnifiedTaskItem[]): TypeGroup[] {
+  const groups = new Map<string, UnifiedTaskItem[]>()
+
+  for (const task of tasks) {
+    const key = getTaskTypeKey(task)
+    const existing = groups.get(key)
+    if (existing) {
+      existing.push(task)
+    } else {
+      groups.set(key, [task])
+    }
+  }
+
+  return Array.from(groups.entries()).map(([key, items]) => ({
+    typeKey: key,
+    label: getTaskTheme(items[0]!).label,
+    items,
+  }))
+}
+
+// ---------------------------------------------------------------------------
 // Section header
 // ---------------------------------------------------------------------------
 
@@ -114,20 +147,75 @@ function SectionHeader({
   icon: Icon,
   title,
   count,
-  iconClassName,
+  variant = 'default',
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
   count: number
-  iconClassName?: string
+  variant?: 'urgent' | 'today' | 'ai' | 'default'
 }) {
+  const colorMap = {
+    urgent: {
+      bg: 'bg-gradient-to-r from-rose-500 to-red-500',
+      text: 'text-white',
+      icon: 'text-white',
+      badge: 'bg-white/20 text-white border-white/30',
+    },
+    today: {
+      bg: 'bg-gradient-to-r from-emerald-500 to-green-500',
+      text: 'text-white',
+      icon: 'text-white',
+      badge: 'bg-white/20 text-white border-white/30',
+    },
+    ai: {
+      bg: 'bg-gradient-to-r from-violet-500 to-purple-500',
+      text: 'text-white',
+      icon: 'text-white',
+      badge: 'bg-white/20 text-white border-white/30',
+    },
+    default: {
+      bg: 'bg-muted',
+      text: 'text-muted-foreground',
+      icon: 'text-muted-foreground',
+      badge: 'bg-background text-muted-foreground border-border',
+    },
+  }
+
+  const colors = colorMap[variant]
+
   return (
-    <div className="flex items-center gap-2 py-1">
-      <Icon className={cn('size-4', iconClassName)} />
-      <span className="text-sm font-semibold">{title}</span>
-      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+    <div className={cn(
+      'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg',
+      colors.bg,
+    )}>
+      <Icon className={cn('size-4', colors.icon)} />
+      <span className={cn('text-sm font-bold tracking-wide', colors.text)}>{title}</span>
+      <Badge variant="outline" className={cn('text-[11px] px-1.5 py-0 h-5 font-bold', colors.badge)}>
         {count}
       </Badge>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Type group sub-header (inline label for clustered tasks)
+// ---------------------------------------------------------------------------
+
+function TypeGroupHeader({ group }: { group: TypeGroup }) {
+  const theme = getTaskTheme(group.items[0]!)
+  const TypeIcon = theme.icon
+
+  // Only show group header when 2+ tasks of same type
+  if (group.items.length < 2) return null
+
+  return (
+    <div className="flex items-center gap-2 col-span-full">
+      <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold', theme.bgBase, theme.borderBase, 'border')}>
+        <TypeIcon className={cn('size-3.5', theme.iconColor)} />
+        <span className={theme.accentText}>{group.label}</span>
+        <span className="text-muted-foreground">x{group.items.length}</span>
+      </div>
+      <div className="flex-1 h-px bg-border/50" />
     </div>
   )
 }
@@ -155,9 +243,16 @@ export function UnifiedTaskStream({
     return groupItems(items)
   }, [items])
 
+  // Group today's tasks by type for visual clustering
+  // Must be called before any early returns to satisfy React hooks rules
+  const todayTypeGroups = useMemo(
+    () => (grouped ? groupByType(grouped.today) : []),
+    [grouped],
+  )
+
   if (loading || !grouped) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
         ))}
@@ -194,17 +289,17 @@ export function UnifiedTaskStream({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Urgent section */}
       {grouped.urgent.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SectionHeader
             icon={Zap}
             title="緊急"
             count={grouped.urgent.length}
-            iconClassName="text-rose-500"
+            variant="urgent"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {grouped.urgent.map((item) => (
               <TaskRow
                 key={item._id}
@@ -219,22 +314,22 @@ export function UnifiedTaskStream({
         </div>
       )}
 
-      {/* Today section */}
+      {/* Today section -- grouped by task type */}
       {grouped.today.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SectionHeader
             icon={CalendarCheck}
             title="今日待辦"
             count={grouped.today.length}
-            iconClassName="text-emerald-600"
+            variant="today"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {grouped.today.map((item) => (
-              <TaskRow
-                key={item._id}
-                item={item}
-                fieldName={getFieldName(item)}
-                cropName={getCropName(item)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {todayTypeGroups.map((group) => (
+              <TypeGroupFragment
+                key={group.typeKey}
+                group={group}
+                fieldNames={fieldNames}
+                cropNames={cropNames}
                 onComplete={onComplete}
                 onSkip={onSkip}
               />
@@ -245,14 +340,14 @@ export function UnifiedTaskStream({
 
       {/* AI Suggestions section */}
       {grouped.aiSuggestions.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SectionHeader
             icon={Lightbulb}
             title="AI 建議"
             count={grouped.aiSuggestions.length}
-            iconClassName="text-violet-500"
+            variant="ai"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {grouped.aiSuggestions.map((item) => (
               <RecommendationRow
                 key={item._id}
@@ -274,22 +369,21 @@ export function UnifiedTaskStream({
           <button
             type="button"
             onClick={() => setUpcomingOpen(!upcomingOpen)}
-            className="flex items-center gap-2 py-1 w-full"
+            className="flex items-center gap-2 py-1.5 px-3 w-full rounded-lg bg-muted/50 hover:bg-muted transition-colors"
           >
             <CalendarDays className="size-4 text-muted-foreground" />
             <span className="text-sm font-semibold text-muted-foreground">即將到來</span>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+            <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-5">
               {grouped.upcoming.length}
             </Badge>
-            <ChevronDown
-              className={cn(
-                'size-4 text-muted-foreground ml-auto transition-transform duration-200',
-                upcomingOpen && 'rotate-180',
-              )}
-            />
+            {upcomingOpen ? (
+              <ChevronDown className="size-4 text-muted-foreground ml-auto" />
+            ) : (
+              <ChevronRight className="size-4 text-muted-foreground ml-auto" />
+            )}
           </button>
           {upcomingOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {grouped.upcoming.map((item) => (
                 <TaskRow
                   key={item._id}
@@ -311,25 +405,24 @@ export function UnifiedTaskStream({
           <button
             type="button"
             onClick={() => setCompletedOpen(!completedOpen)}
-            className="flex items-center gap-2 py-1 w-full"
+            className="flex items-center gap-2 py-1.5 px-3 w-full rounded-lg bg-emerald-50 hover:bg-emerald-100/80 transition-colors"
           >
             <CheckCircle2 className="size-4 text-emerald-500" />
             <span className="text-sm font-semibold text-emerald-700">已完成</span>
             <Badge
               variant="secondary"
-              className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700"
+              className="text-[11px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-700"
             >
               {grouped.completed.length}
             </Badge>
-            <ChevronDown
-              className={cn(
-                'size-4 text-muted-foreground ml-auto transition-transform duration-200',
-                completedOpen && 'rotate-180',
-              )}
-            />
+            {completedOpen ? (
+              <ChevronDown className="size-4 text-emerald-500 ml-auto" />
+            ) : (
+              <ChevronRight className="size-4 text-emerald-500 ml-auto" />
+            )}
           </button>
           {completedOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {grouped.completed.map((item) => (
                 <TaskRow
                   key={item._id}
@@ -345,5 +438,49 @@ export function UnifiedTaskStream({
         </div>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Type group fragment (renders group header + items in grid flow)
+// ---------------------------------------------------------------------------
+
+function TypeGroupFragment({
+  group,
+  fieldNames,
+  cropNames,
+  onComplete,
+  onSkip,
+}: {
+  group: TypeGroup
+  fieldNames: FieldLookup
+  cropNames: CropLookup
+  onComplete: (taskId: Id<'tasks'>) => void
+  onSkip: (taskId: Id<'tasks'>, reason?: string) => void
+}) {
+  const getFieldName = (item: UnifiedTaskItem) => {
+    if (item.fieldId) return fieldNames[item.fieldId] ?? undefined
+    return undefined
+  }
+
+  const getCropName = (item: UnifiedTaskItem) => {
+    if (item.cropId) return cropNames[item.cropId] ?? undefined
+    return undefined
+  }
+
+  return (
+    <>
+      <TypeGroupHeader group={group} />
+      {group.items.map((item) => (
+        <TaskRow
+          key={item._id}
+          item={item}
+          fieldName={getFieldName(item)}
+          cropName={getCropName(item)}
+          onComplete={onComplete}
+          onSkip={onSkip}
+        />
+      ))}
+    </>
   )
 }

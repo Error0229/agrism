@@ -294,7 +294,7 @@ export default function DashboardPage() {
     )
   }
 
-  // Authenticated but no farm assigned — show onboarding prompt
+  // Authenticated but no farm assigned -- show onboarding prompt
   if (!farmId) {
     return (
       <div className="space-y-6">
@@ -334,7 +334,7 @@ export default function DashboardPage() {
           Section 1 + 2: Morning Briefing + Task Stream (responsive grid)
           ================================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Morning Briefing Card — narrower on desktop */}
+        {/* Morning Briefing Card -- narrower on desktop */}
         <div className="lg:col-span-4">
           <MorningBriefingCard
             weather={weather}
@@ -346,12 +346,8 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Task Stream — takes remaining space */}
+        {/* Task Stream -- takes remaining space */}
         <div className="lg:col-span-8">
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <CheckCircle2 className="size-5 text-emerald-600" />
-            今日工作
-          </h2>
           <UnifiedTaskStream
             items={unifiedItems}
             loading={unifiedItems === undefined}
@@ -369,14 +365,16 @@ export default function DashboardPage() {
       {/* ================================================================
           Section 3: Growing Crops Overview
           ================================================================ */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-green-200/50 overflow-hidden">
+        <CardHeader className="pb-3 bg-gradient-to-r from-green-50/50 to-emerald-50/30">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Sprout className="size-5 text-green-600" />
+            <div className="size-7 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+              <Sprout className="size-4 text-white" />
+            </div>
             生長中作物
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {fieldsLoading ? (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -401,11 +399,12 @@ export default function DashboardPage() {
                   entry.growthDays ??
                   90
                 const daysToHarvest = Math.max(0, totalGrowthDays - daysSincePlanted)
+                const progressPercent = Math.min(100, Math.round((daysSincePlanted / totalGrowthDays) * 100))
 
                 return (
                   <div
                     key={entry._id}
-                    className="rounded-lg border p-3 space-y-1"
+                    className="rounded-xl border border-green-100 bg-gradient-to-br from-green-50/40 to-white p-3 space-y-1.5 hover:shadow-md transition-all hover:-translate-y-0.5"
                   >
                     <div className="flex items-center gap-2">
                       <CropAvatar
@@ -415,28 +414,39 @@ export default function DashboardPage() {
                         thumbnailUrl={entry.cropThumbnailUrl}
                         size="sm"
                       />
-                      <span className="text-sm font-medium truncate">
+                      <span className="text-sm font-semibold truncate">
                         {entry.cropName}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {entry.fieldName}
                     </p>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="size-3" />
-                      <span>第 {daysSincePlanted} 天</span>
+                    {/* Growth progress bar */}
+                    <div className="space-y-1">
+                      <div className="h-1.5 rounded-full bg-green-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground flex items-center gap-0.5">
+                          <Clock className="size-3" />
+                          第 {daysSincePlanted} 天
+                        </span>
+                        <span>
+                          {daysToHarvest > 0 ? (
+                            <span className="text-amber-600 font-medium">
+                              {daysToHarvest} 天後收成
+                            </span>
+                          ) : (
+                            <span className="text-green-600 font-bold">
+                              可收成
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs">
-                      {daysToHarvest > 0 ? (
-                        <span className="text-amber-600">
-                          預計 {daysToHarvest} 天後收成
-                        </span>
-                      ) : (
-                        <span className="text-green-600 font-medium">
-                          可收成
-                        </span>
-                      )}
-                    </p>
                   </div>
                 )
               })}
@@ -448,14 +458,16 @@ export default function DashboardPage() {
       {/* ================================================================
           Section 4: Weather Summary (simplified)
           ================================================================ */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="border-blue-200/50 overflow-hidden">
+        <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/50 to-sky-50/30">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Cloud className="size-5 text-blue-500" />
+            <div className="size-7 rounded-lg bg-gradient-to-br from-blue-500 to-sky-500 flex items-center justify-center">
+              <Cloud className="size-4 text-white" />
+            </div>
             天氣概況
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {weatherLoading ? (
             <div className="flex items-center gap-4">
               <Skeleton className="h-12 w-12 rounded-full" />
@@ -498,7 +510,7 @@ export default function DashboardPage() {
                   {weather.alerts.map((alert) => (
                     <div
                       key={alert.id}
-                      className={`flex items-start gap-2 rounded-md border p-2 text-sm ${
+                      className={`flex items-start gap-2 rounded-lg border p-2.5 text-sm ${
                         alert.severity === 'critical'
                           ? 'border-red-300 bg-red-50 text-red-800'
                           : alert.severity === 'warning'
@@ -536,25 +548,25 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 hover:bg-blue-50 hover:border-blue-200 transition-colors">
               <Link href="/fields">
                 <Map className="size-5 text-blue-600" />
                 <span>田地規劃</span>
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 hover:bg-green-50 hover:border-green-200 transition-colors">
               <Link href="/crops">
                 <Sprout className="size-5 text-green-600" />
                 <span>作物資料庫</span>
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 hover:bg-amber-50 hover:border-amber-200 transition-colors">
               <Link href="/calendar">
                 <CalendarDays className="size-5 text-amber-600" />
                 <span>農事日曆</span>
               </Link>
             </Button>
-            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+            <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 hover:bg-red-50 hover:border-red-200 transition-colors">
               <Link href="/records/harvest">
                 <CheckCircle2 className="size-5 text-red-600" />
                 <span>收成紀錄</span>
