@@ -128,84 +128,84 @@ const TASK_TYPE_THEMES: Record<string, TaskTypeTheme> = {
   watering: {
     icon: Droplets,
     label: '澆水',
-    bgBase: 'bg-sky-50/70',
-    bgHigh: 'bg-sky-100/80',
-    bgUrgent: 'bg-sky-100',
-    borderBase: 'border-sky-200',
-    borderHigh: 'border-sky-300',
-    borderUrgent: 'border-sky-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-sky-500',
     accentText: 'text-sky-700',
   },
   fertilizing: {
     icon: Leaf,
     label: '施肥',
-    bgBase: 'bg-emerald-50/70',
-    bgHigh: 'bg-emerald-100/80',
-    bgUrgent: 'bg-emerald-100',
-    borderBase: 'border-emerald-200',
-    borderHigh: 'border-emerald-300',
-    borderUrgent: 'border-emerald-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-emerald-500',
     accentText: 'text-emerald-700',
   },
   pest_control: {
     icon: Bug,
     label: '病蟲害巡檢',
-    bgBase: 'bg-amber-50/70',
-    bgHigh: 'bg-amber-100/80',
-    bgUrgent: 'bg-amber-100',
-    borderBase: 'border-amber-200',
-    borderHigh: 'border-amber-300',
-    borderUrgent: 'border-amber-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-amber-500',
     accentText: 'text-amber-700',
   },
   seeding: {
     icon: Sprout,
     label: '播種',
-    bgBase: 'bg-teal-50/70',
-    bgHigh: 'bg-teal-100/80',
-    bgUrgent: 'bg-teal-100',
-    borderBase: 'border-teal-200',
-    borderHigh: 'border-teal-300',
-    borderUrgent: 'border-teal-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-teal-500',
     accentText: 'text-teal-700',
   },
   pruning: {
     icon: Scissors,
     label: '剪枝',
-    bgBase: 'bg-violet-50/70',
-    bgHigh: 'bg-violet-100/80',
-    bgUrgent: 'bg-violet-100',
-    borderBase: 'border-violet-200',
-    borderHigh: 'border-violet-300',
-    borderUrgent: 'border-violet-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-violet-500',
     accentText: 'text-violet-700',
   },
   harvesting: {
     icon: Wheat,
     label: '收成',
-    bgBase: 'bg-orange-50/70',
-    bgHigh: 'bg-orange-100/80',
-    bgUrgent: 'bg-orange-100',
-    borderBase: 'border-orange-200',
-    borderHigh: 'border-orange-300',
-    borderUrgent: 'border-orange-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-orange-500',
     accentText: 'text-orange-700',
   },
   typhoon_prep: {
     icon: ShieldAlert,
     label: '防颱',
-    bgBase: 'bg-rose-50/70',
-    bgHigh: 'bg-rose-100/80',
-    bgUrgent: 'bg-rose-100',
-    borderBase: 'border-rose-200',
-    borderHigh: 'border-rose-300',
-    borderUrgent: 'border-rose-400',
+    bgBase: 'bg-white',
+    bgHigh: 'bg-white',
+    bgUrgent: 'bg-white',
+    borderBase: 'border-stone-200',
+    borderHigh: 'border-stone-200',
+    borderUrgent: 'border-rose-200',
     iconColor: 'text-rose-500',
     accentText: 'text-rose-700',
   },
@@ -214,13 +214,13 @@ const TASK_TYPE_THEMES: Record<string, TaskTypeTheme> = {
 const DEFAULT_THEME: TaskTypeTheme = {
   icon: Clock,
   label: '任務',
-  bgBase: 'bg-stone-50/70',
-  bgHigh: 'bg-stone-100/80',
-  bgUrgent: 'bg-stone-100',
+  bgBase: 'bg-white',
+  bgHigh: 'bg-white',
+  bgUrgent: 'bg-white',
   borderBase: 'border-stone-200',
-  borderHigh: 'border-stone-300',
-  borderUrgent: 'border-stone-400',
-  iconColor: 'text-stone-500',
+  borderHigh: 'border-stone-200',
+  borderUrgent: 'border-rose-200',
+  iconColor: 'text-stone-400',
   accentText: 'text-stone-700',
 }
 
@@ -255,21 +255,15 @@ function SourceBadge({ source }: { source: string }) {
   switch (source) {
     case 'ai_briefing':
       return (
-        <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200 font-medium">
-          AI
-        </Badge>
+        <span className="text-[10px] text-stone-400 font-medium">AI</span>
       )
     case 'weather':
       return (
-        <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-sky-50 text-sky-700 border-sky-200 font-medium">
-          天氣
-        </Badge>
+        <span className="text-[10px] text-stone-400 font-medium">天氣</span>
       )
     case 'auto_rule':
       return (
-        <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-stone-100 text-stone-600 border-stone-200 font-medium">
-          自動
-        </Badge>
+        <span className="text-[10px] text-stone-400 font-medium">自動</span>
       )
     // 'manual' -- no badge (noise reduction)
     default:
@@ -284,14 +278,14 @@ function SourceBadge({ source }: { source: string }) {
 function PriorityBadge({ priority }: { priority: string }) {
   if (priority === 'urgent') {
     return (
-      <Badge className="text-[11px] px-2 py-0.5 bg-rose-500 text-white border-rose-600 font-bold shadow-sm shadow-rose-200">
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-rose-50 text-rose-600 border-rose-200 font-semibold">
         急
       </Badge>
     )
   }
   if (priority === 'high') {
     return (
-      <Badge className="text-[11px] px-2 py-0.5 bg-orange-500 text-white border-orange-600 font-bold shadow-sm shadow-orange-200">
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-600 border-amber-200 font-semibold">
         高
       </Badge>
     )
@@ -337,17 +331,9 @@ export function TaskRow({
   const theme = getTaskTheme(item)
   const TypeIcon = theme.icon
 
-  // Select color tier based on priority
-  const bgColor = item.priority === 'urgent'
-    ? theme.bgUrgent
-    : item.priority === 'high'
-      ? theme.bgHigh
-      : theme.bgBase
-  const borderColor = item.priority === 'urgent'
-    ? theme.borderUrgent
-    : item.priority === 'high'
-      ? theme.borderHigh
-      : theme.borderBase
+  // All cards are white with stone border; overdue handled separately
+  const bgColor = theme.bgBase
+  const borderColor = theme.borderBase
 
   const handleComplete = async () => {
     if (completing || isCompleted) return
@@ -368,41 +354,53 @@ export function TaskRow({
     setShowSkipReasons(false)
   }
 
+  // Color strip on left edge per type
+  const stripColorMap: Record<string, string> = {
+    watering: 'bg-sky-400',
+    fertilizing: 'bg-emerald-400',
+    pest_control: 'bg-amber-400',
+    seeding: 'bg-teal-400',
+    pruning: 'bg-violet-400',
+    harvesting: 'bg-orange-400',
+    typhoon_prep: 'bg-rose-400',
+    default: 'bg-stone-300',
+  }
+  const typeKey = getTaskTypeKey(item)
+  const stripColor = stripColorMap[typeKey] ?? stripColorMap.default
+
   return (
     <div
       className={cn(
-        'group relative rounded-xl border-[1.5px] shadow-sm transition-all duration-200',
-        // Type-based coloring
+        'group relative overflow-hidden rounded-xl border transition-all duration-200',
+        // Clean white cards with consistent border
         !isCompleted && !isSkipped && bgColor,
         !isCompleted && !isSkipped && borderColor,
-        // Overdue: red ring override
-        isOverdue && 'ring-2 ring-red-300/60 border-red-300',
-        // Urgent: subtle glow
-        item.priority === 'urgent' && !isCompleted && !isSkipped && 'shadow-md',
+        // Overdue: subtle red border
+        isOverdue && 'border-rose-300',
+        // Urgent: slightly elevated
+        item.priority === 'urgent' && !isCompleted && !isSkipped && 'shadow-sm',
         // Completed/skipped states
-        isCompleted && 'opacity-60 bg-muted/30 border-muted shadow-none',
-        isSkipped && 'opacity-50 bg-muted/20 border-muted shadow-none',
+        isCompleted && 'opacity-50 bg-stone-50 border-stone-200 shadow-none',
+        isSkipped && 'opacity-40 bg-stone-50 border-stone-200 shadow-none',
         // Hover
-        !isCompleted && !isSkipped && 'hover:shadow-md hover:-translate-y-0.5',
+        !isCompleted && !isSkipped && 'hover:shadow-md hover:border-stone-300',
       )}
     >
+      {/* Left color strip -- type indicator */}
+      {!isCompleted && !isSkipped && (
+        <div className={cn('absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl', stripColor)} />
+      )}
+
       {/* Card body */}
-      <div className="p-3">
+      <div className="p-3 pl-3.5">
         {/* Top: type icon + title row */}
         <div className="flex items-start gap-2.5">
-          {/* Type icon circle */}
-          <div className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-            isCompleted
-              ? 'bg-emerald-100'
-              : isSkipped
-                ? 'bg-muted'
-                : 'bg-white/80 shadow-sm',
-          )}>
+          {/* Type icon -- simple, no background box */}
+          <div className="flex size-5 shrink-0 items-center justify-center mt-0.5">
             {isCompleted ? (
-              <Check className="size-4 text-emerald-600 stroke-[2.5]" />
+              <Check className="size-4 text-emerald-500 stroke-[2.5]" />
             ) : isSkipped ? (
-              <SkipForward className="size-3.5 text-muted-foreground" />
+              <SkipForward className="size-3.5 text-stone-400" />
             ) : (
               <TypeIcon className={cn('size-4', theme.iconColor)} />
             )}
@@ -411,7 +409,7 @@ export function TaskRow({
           {/* Title + context */}
           <div className="flex-1 min-w-0">
             <span className={cn(
-              'text-[13px] font-semibold leading-snug line-clamp-2',
+              'text-[13px] font-medium leading-snug line-clamp-2',
               isCompleted && 'line-through text-muted-foreground',
               isSkipped && 'line-through text-muted-foreground',
             )}>
@@ -432,13 +430,13 @@ export function TaskRow({
             <button
               type="button"
               onClick={handleComplete}
-              className="relative flex shrink-0 items-center justify-center min-w-[32px] min-h-[32px] -m-1 mt-[-2px]"
+              className="relative flex shrink-0 items-center justify-center min-w-[28px] min-h-[28px] -m-0.5 mt-[-1px]"
               aria-label="完成任務"
             >
               <span
                 className={cn(
-                  'flex size-[20px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
-                  'border-neutral-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
+                  'flex size-[18px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
+                  'border-stone-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
                   completing && 'scale-110 border-emerald-400 bg-emerald-100',
                 )}
               >
@@ -452,7 +450,7 @@ export function TaskRow({
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -mt-0.5 -mr-1"
+              className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -mt-0.5 -mr-1"
               onClick={() => setShowSkipReasons(!showSkipReasons)}
               title="跳過"
             >
@@ -466,13 +464,13 @@ export function TaskRow({
           <PriorityBadge priority={item.priority} />
           <SourceBadge source={item.source} />
           {item.effortMinutes && !isCompleted && !isSkipped && (
-            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5 bg-white/60 rounded-full px-1.5 py-0.5">
+            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
               <Clock className="size-3" />
               {item.effortMinutes}分
             </span>
           )}
           {isOverdue && item.dueDate && (
-            <Badge className="text-[11px] px-2 py-0.5 bg-red-500 text-white border-red-600 font-bold animate-pulse">
+            <Badge className="text-[11px] px-1.5 py-0 bg-rose-100 text-rose-700 border-rose-200 font-semibold">
               逾期
             </Badge>
           )}
@@ -500,7 +498,7 @@ export function TaskRow({
           <button
             type="button"
             onClick={() => setShowAiReasoning(!showAiReasoning)}
-            className="flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 mt-2 transition-colors"
+            className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-700 mt-2 transition-colors"
           >
             <ChevronDown
               className={cn(
@@ -514,10 +512,10 @@ export function TaskRow({
 
         {/* AI reasoning expanded */}
         {showAiReasoning && item.aiReasoning && (
-          <div className="mt-2 rounded-lg bg-white/70 border border-violet-100 p-2 text-[11px]">
+          <div className="mt-2 rounded-lg bg-stone-50 border border-stone-200 p-2 text-[11px]">
             <div className="flex items-start gap-1.5">
-              <Sparkles className="size-3 text-violet-500 mt-0.5 shrink-0" />
-              <p className="text-violet-900">{item.aiReasoning}</p>
+              <Sparkles className="size-3 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-stone-700">{item.aiReasoning}</p>
             </div>
           </div>
         )}
@@ -562,28 +560,29 @@ export function RecommendationRow({
     item.confidence === 'medium' ? '中信心' : '低信心'
 
   return (
-    <div className="rounded-xl border-[1.5px] border-dashed border-violet-200 bg-gradient-to-br from-violet-50/50 to-fuchsia-50/30 p-3 space-y-2 transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-white p-3 space-y-2 transition-all hover:shadow-md hover:border-stone-300">
+      {/* Left color strip -- amber for AI suggestions */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-amber-400" />
+
       {/* Top: icon + title + badges */}
-      <div className="flex items-start gap-2.5">
-        <div className="size-8 rounded-lg bg-gradient-to-br from-violet-100 to-fuchsia-100 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-          <Lightbulb className="size-4 text-violet-600" />
+      <div className="flex items-start gap-2.5 pl-0.5">
+        <div className="flex size-5 shrink-0 items-center justify-center mt-0.5">
+          <Lightbulb className="size-4 text-amber-500" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm font-semibold">{item.title}</span>
-            <Badge variant="outline" className="text-[11px] px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-200 font-medium">
-              AI
-            </Badge>
+            <span className="text-[13px] font-medium">{item.title}</span>
+            <span className="text-[10px] text-stone-400 font-medium">AI</span>
             <PriorityBadge priority={item.priority} />
           </div>
           {(fieldName || cropName) && (
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-[11px] text-muted-foreground mt-0.5">
               {fieldName}
               {fieldName && cropName && ' · '}
               {cropName}
             </p>
           )}
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.summary}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{item.summary}</p>
         </div>
       </div>
 
@@ -591,7 +590,7 @@ export function RecommendationRow({
       <button
         type="button"
         onClick={() => setShowReasoning(!showReasoning)}
-        className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors"
+        className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-700 transition-colors pl-0.5"
       >
         <ChevronDown
           className={cn(
@@ -604,7 +603,7 @@ export function RecommendationRow({
 
       {/* Expanded reasoning */}
       {showReasoning && (
-        <div className="rounded-lg bg-white/70 border border-violet-100 p-2.5 text-xs space-y-1.5">
+        <div className="rounded-lg bg-stone-50 border border-stone-150 p-2.5 text-xs space-y-1.5 ml-0.5">
           <div>
             <span className="font-medium text-muted-foreground">建議行動：</span>
             <span>{item.recommendedAction}</span>
@@ -630,10 +629,10 @@ export function RecommendationRow({
       )}
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pl-0.5">
         <Button
           size="sm"
-          className="h-8 text-xs gap-1 min-w-[80px]"
+          className="h-7 text-xs gap-1 bg-stone-800 hover:bg-stone-900 text-white"
           onClick={() => onPromote(item._id)}
         >
           <Check className="size-3" />
@@ -642,20 +641,19 @@ export function RecommendationRow({
         <Button
           size="sm"
           variant="outline"
-          className="h-8 text-xs gap-1"
+          className="h-7 text-xs gap-1"
           onClick={() => onSnooze(item._id)}
         >
           <Clock className="size-3" />
           稍後
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 text-xs gap-1 text-muted-foreground"
+        <button
+          type="button"
+          className="h-7 text-xs text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => onDismiss(item._id)}
         >
           忽略
-        </Button>
+        </button>
       </div>
     </div>
   )

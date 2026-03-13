@@ -64,8 +64,8 @@ export function ProgressRing({
         />
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={isComplete ? '#10b981' : '#22c55e'} />
-            <stop offset="100%" stopColor={isComplete ? '#059669' : '#16a34a'} />
+            <stop offset="0%" stopColor={isComplete ? '#059669' : '#34d399'} />
+            <stop offset="100%" stopColor={isComplete ? '#047857' : '#059669'} />
           </linearGradient>
         </defs>
       </svg>

@@ -86,11 +86,11 @@ export function MorningBriefingCard({
   const hasCriticalAlert = weather?.alerts.some((a) => a.severity === 'critical')
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-card text-card-foreground shadow-sm">
-      {/* Top gradient accent — sunrise feel */}
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-orange-300 to-sky-400" />
+    <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+      {/* Top gradient accent -- warm earth tones */}
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-300" />
 
-      <div className="p-4 pt-5 space-y-3">
+      <div className="px-5 py-4 pt-5 space-y-4">
         {/* Row 1: Weather strip */}
         {weatherLoading ? (
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -98,7 +98,7 @@ export function MorningBriefingCard({
             <div className="h-4 w-24 rounded bg-muted animate-pulse" />
           </div>
         ) : weather ? (
-          <div className="flex items-center gap-3 text-sm flex-wrap">
+          <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5">
               <WeatherIcon code={weather.current.weather_code} className="size-5" />
               <span className="font-semibold text-base tabular-nums">
@@ -108,6 +108,7 @@ export function MorningBriefingCard({
                 {weatherLabel(weather.current.weather_code)}
               </span>
             </div>
+            <span className="text-stone-300">|</span>
             <div className="flex items-center gap-1 text-muted-foreground">
               <Droplets className="size-3.5" />
               <span className="tabular-nums">{weather.current.relative_humidity_2m}%</span>
@@ -122,18 +123,18 @@ export function MorningBriefingCard({
         )}
 
         {/* Row 2: Task summary + progress ring + action buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Progress ring */}
           {progress ? (
             <ProgressRing
               completed={progress.completed}
               total={progress.total}
-              size={52}
-              strokeWidth={3.5}
+              size={48}
+              strokeWidth={3}
               className="shrink-0"
             />
           ) : (
-            <div className="size-[52px] shrink-0 rounded-full border-2 border-muted flex items-center justify-center">
+            <div className="size-[48px] shrink-0 rounded-full border-2 border-muted flex items-center justify-center">
               <span className="text-xs text-muted-foreground">--</span>
             </div>
           )}
@@ -142,11 +143,11 @@ export function MorningBriefingCard({
           <div className="flex-1 min-w-0">
             {progress ? (
               <>
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-medium text-stone-800">
                   今日 {progress.total} 項農務
                   {progress.urgentCount > 0 && (
-                    <span className="text-rose-600 ml-1.5">
-                      {progress.urgentCount} 項緊急
+                    <span className="text-rose-500 ml-1.5 font-normal text-xs">
+                      ({progress.urgentCount} 項緊急)
                     </span>
                   )}
                 </p>
@@ -165,11 +166,11 @@ export function MorningBriefingCard({
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="size-9"
+              className="size-8 text-stone-400 hover:text-stone-600"
               onClick={onRefresh}
               disabled={refreshing}
               title="更新農務資料"
@@ -183,7 +184,7 @@ export function MorningBriefingCard({
             <Button
               variant="ghost"
               size="icon"
-              className="size-9"
+              className="size-8 text-stone-400 hover:text-stone-600"
               onClick={onQuickAdd}
               title="快速新增任務"
             >
@@ -197,14 +198,14 @@ export function MorningBriefingCard({
           <Link href="/weather" className="block">
             <div
               className={cn(
-                'flex items-start gap-2 rounded-lg px-3 py-2 text-sm',
+                'flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm',
                 hasCriticalAlert
-                  ? 'bg-red-50 text-red-800 border border-red-200'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200',
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-amber-50/80 text-amber-700 border border-amber-200/60',
               )}
             >
               <AlertTriangle className="size-4 mt-0.5 shrink-0" />
-              <span className="line-clamp-2">
+              <span className="line-clamp-2 text-[13px]">
                 {weather!.alerts[0]!.title}
                 {weather!.alerts[0]!.recommendation && (
                   <span className="ml-1">{weather!.alerts[0]!.recommendation}</span>

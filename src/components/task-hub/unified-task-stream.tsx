@@ -156,43 +156,43 @@ function SectionHeader({
 }) {
   const colorMap = {
     urgent: {
-      bg: 'bg-gradient-to-r from-rose-500 to-red-500',
-      text: 'text-white',
-      icon: 'text-white',
-      badge: 'bg-white/20 text-white border-white/30',
+      icon: 'text-rose-600',
+      text: 'text-rose-900',
+      count: 'text-rose-600',
+      line: 'bg-rose-200',
     },
     today: {
-      bg: 'bg-gradient-to-r from-emerald-500 to-green-500',
-      text: 'text-white',
-      icon: 'text-white',
-      badge: 'bg-white/20 text-white border-white/30',
+      icon: 'text-emerald-600',
+      text: 'text-stone-800',
+      count: 'text-emerald-600',
+      line: 'bg-emerald-200',
     },
     ai: {
-      bg: 'bg-gradient-to-r from-violet-500 to-purple-500',
-      text: 'text-white',
-      icon: 'text-white',
-      badge: 'bg-white/20 text-white border-white/30',
+      icon: 'text-amber-600',
+      text: 'text-stone-800',
+      count: 'text-amber-600',
+      line: 'bg-amber-200',
     },
     default: {
-      bg: 'bg-muted',
-      text: 'text-muted-foreground',
-      icon: 'text-muted-foreground',
-      badge: 'bg-background text-muted-foreground border-border',
+      icon: 'text-stone-400',
+      text: 'text-stone-600',
+      count: 'text-stone-500',
+      line: 'bg-stone-200',
     },
   }
 
   const colors = colorMap[variant]
 
   return (
-    <div className={cn(
-      'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg',
-      colors.bg,
-    )}>
-      <Icon className={cn('size-4', colors.icon)} />
-      <span className={cn('text-sm font-bold tracking-wide', colors.text)}>{title}</span>
-      <Badge variant="outline" className={cn('text-[11px] px-1.5 py-0 h-5 font-bold', colors.badge)}>
-        {count}
-      </Badge>
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0">
+        <Icon className={cn('size-[18px]', colors.icon)} />
+        <span className={cn('text-[15px] font-semibold', colors.text)}>{title}</span>
+        <span className={cn('text-sm font-medium tabular-nums', colors.count)}>
+          {count}
+        </span>
+      </div>
+      <div className={cn('flex-1 h-px', colors.line)} />
     </div>
   )
 }
@@ -210,12 +210,12 @@ function TypeGroupHeader({ group }: { group: TypeGroup }) {
 
   return (
     <div className="flex items-center gap-2 col-span-full">
-      <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold', theme.bgBase, theme.borderBase, 'border')}>
-        <TypeIcon className={cn('size-3.5', theme.iconColor)} />
-        <span className={theme.accentText}>{group.label}</span>
-        <span className="text-muted-foreground">x{group.items.length}</span>
+      <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs text-muted-foreground">
+        <TypeIcon className={cn('size-3', theme.iconColor)} />
+        <span className="font-medium">{group.label}</span>
+        <span className="text-muted-foreground/60">x{group.items.length}</span>
       </div>
-      <div className="flex-1 h-px bg-border/50" />
+      <div className="flex-1 h-px bg-border/40" />
     </div>
   )
 }

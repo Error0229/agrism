@@ -345,9 +345,9 @@ export function QuickAddFAB({
         onClick={() => setOpen(true)}
         className={cn(
           'fixed bottom-20 right-4 z-40',
-          'flex size-14 items-center justify-center',
-          'rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/30',
-          'hover:bg-emerald-700 active:scale-95',
+          'flex size-12 items-center justify-center',
+          'rounded-full bg-stone-800 text-white shadow-lg shadow-stone-800/20',
+          'hover:bg-stone-900 active:scale-95',
           'transition-all duration-200',
           'md:bottom-6 md:right-6',
         )}
