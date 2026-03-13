@@ -143,31 +143,6 @@ export default function DashboardPage() {
     return map
   }, [cropsData])
 
-  // --- Top priorities for morning briefing ---
-  const topPriorities = useMemo(() => {
-    if (!unifiedItems) return []
-    const today = new Date().toISOString().split('T')[0]!
-
-    // Filter to only active task items (narrow once, use safely below)
-    const activeTasks = unifiedItems.filter(
-      (item): item is typeof item & { kind: 'task'; fieldId?: string; dueDate?: string; source: string } =>
-        item.kind === 'task' &&
-        item.status !== 'completed' &&
-        item.status !== 'skipped' &&
-        !item.completed,
-    )
-
-    return activeTasks.slice(0, 3).map((task) => ({
-      title: task.title,
-      fieldName: task.fieldId ? fieldNames[task.fieldId] : undefined,
-      isUrgent:
-        task.priority === 'urgent' ||
-        task.priority === 'high' ||
-        (!!task.dueDate && task.dueDate < today),
-      source: task.source,
-    }))
-  }, [unifiedItems, fieldNames])
-
   // --- Field/crop options for quick add ---
   const fieldOptions = useMemo(() => {
     if (!fieldsData) return []
@@ -356,37 +331,39 @@ export default function DashboardPage() {
       </div>
 
       {/* ================================================================
-          Section 1: Morning Briefing Card (早安農事卡)
+          Section 1 + 2: Morning Briefing + Task Stream (responsive grid)
           ================================================================ */}
-      <MorningBriefingCard
-        weather={weather}
-        weatherLoading={weatherLoading}
-        progress={progress}
-        topPriorities={topPriorities}
-        onRefresh={handleRefresh}
-        onQuickAdd={() => setQuickAddOpen(true)}
-        refreshing={refreshing}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Morning Briefing Card — narrower on desktop */}
+        <div className="lg:col-span-4">
+          <MorningBriefingCard
+            weather={weather}
+            weatherLoading={weatherLoading}
+            progress={progress}
+            onRefresh={handleRefresh}
+            onQuickAdd={() => setQuickAddOpen(true)}
+            refreshing={refreshing}
+          />
+        </div>
 
-      {/* ================================================================
-          Section 2: Unified Task Stream (今日農務)
-          ================================================================ */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-emerald-600" />
-          今日工作
-        </h2>
-        <UnifiedTaskStream
-          items={unifiedItems}
-          loading={unifiedItems === undefined}
-          fieldNames={fieldNames}
-          cropNames={cropNames}
-          onComplete={handleComplete}
-          onSkip={handleSkip}
-          onPromote={handlePromote}
-          onSnooze={handleSnooze}
-          onDismiss={handleDismiss}
-        />
+        {/* Task Stream — takes remaining space */}
+        <div className="lg:col-span-8">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-emerald-600" />
+            今日工作
+          </h2>
+          <UnifiedTaskStream
+            items={unifiedItems}
+            loading={unifiedItems === undefined}
+            fieldNames={fieldNames}
+            cropNames={cropNames}
+            onComplete={handleComplete}
+            onSkip={handleSkip}
+            onPromote={handlePromote}
+            onSnooze={handleSnooze}
+            onDismiss={handleDismiss}
+          />
+        </div>
       </div>
 
       {/* ================================================================

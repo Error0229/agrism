@@ -12,8 +12,6 @@ import {
   Droplets,
   Wind,
   AlertTriangle,
-  Zap,
-  ChevronRight,
   RefreshCw,
   Plus,
   Loader2,
@@ -41,18 +39,10 @@ interface WeatherData {
   }>
 }
 
-interface TopPriorityItem {
-  title: string
-  fieldName?: string
-  isUrgent: boolean
-  source: string
-}
-
 interface MorningBriefingCardProps {
   weather: WeatherData | null
   weatherLoading: boolean
   progress: DailyProgress | undefined
-  topPriorities: TopPriorityItem[]
   onRefresh: () => void
   onQuickAdd: () => void
   refreshing: boolean
@@ -88,7 +78,6 @@ export function MorningBriefingCard({
   weather,
   weatherLoading,
   progress,
-  topPriorities,
   onRefresh,
   onQuickAdd,
   refreshing,
@@ -203,36 +192,7 @@ export function MorningBriefingCard({
           </div>
         </div>
 
-        {/* Row 3: Top 3 priorities preview */}
-        {topPriorities.length > 0 && (
-          <div className="space-y-1">
-            {topPriorities.slice(0, 3).map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 text-sm min-h-[28px]"
-              >
-                {item.isUrgent ? (
-                  <Zap className="size-3.5 shrink-0 text-rose-500" />
-                ) : (
-                  <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
-                )}
-                <span className={cn(
-                  'truncate',
-                  item.isUrgent && 'font-medium text-rose-700',
-                )}>
-                  {item.title}
-                </span>
-                {item.fieldName && (
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {item.fieldName}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Row 4: Alert banner (conditional) */}
+        {/* Row 3: Alert banner (conditional) */}
         {hasAlerts && (
           <Link href="/weather" className="block">
             <div
