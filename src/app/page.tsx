@@ -334,8 +334,8 @@ export default function DashboardPage() {
           Section 1 + 2: Morning Briefing + Task Stream (responsive grid)
           ================================================================ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Morning Briefing Card -- narrower on desktop */}
-        <div className="lg:col-span-4">
+        {/* Morning Briefing Card -- narrower on desktop, sticky so no dead space */}
+        <div className="lg:col-span-4 self-start lg:sticky lg:top-4">
           <MorningBriefingCard
             weather={weather}
             weatherLoading={weatherLoading}
