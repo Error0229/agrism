@@ -289,17 +289,17 @@ export function UnifiedTaskStream({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Urgent section */}
       {grouped.urgent.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <SectionHeader
             icon={Zap}
             title="緊急"
             count={grouped.urgent.length}
             variant="urgent"
           />
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {grouped.urgent.map((item) => (
               <TaskRow
                 key={item._id}
@@ -316,14 +316,14 @@ export function UnifiedTaskStream({
 
       {/* Today section -- grouped by task type */}
       {grouped.today.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <SectionHeader
             icon={CalendarCheck}
             title="今日待辦"
             count={grouped.today.length}
             variant="today"
           />
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {todayTypeGroups.map((group) => (
               <TypeGroupFragment
                 key={group.typeKey}
@@ -340,14 +340,14 @@ export function UnifiedTaskStream({
 
       {/* AI Suggestions section */}
       {grouped.aiSuggestions.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <SectionHeader
             icon={Lightbulb}
             title="AI 建議"
             count={grouped.aiSuggestions.length}
             variant="ai"
           />
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {grouped.aiSuggestions.map((item) => (
               <RecommendationRow
                 key={item._id}
@@ -365,25 +365,25 @@ export function UnifiedTaskStream({
 
       {/* Upcoming section (collapsed by default) */}
       {grouped.upcoming.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={() => setUpcomingOpen(!upcomingOpen)}
-            className="flex items-center gap-2.5 py-2 px-4 rounded-full bg-stone-100 hover:bg-stone-200/70 transition-colors w-fit"
+            className="flex items-center gap-2 py-1.5 px-3 w-full rounded-lg bg-muted/50 hover:bg-muted transition-colors"
           >
-            <CalendarDays className="size-4 text-stone-500" />
-            <span className="text-sm font-semibold text-stone-600">即將到來</span>
-            <span className="text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-stone-400 text-white">
+            <CalendarDays className="size-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-muted-foreground">即將到來</span>
+            <Badge variant="secondary" className="text-[11px] px-1.5 py-0 h-5">
               {grouped.upcoming.length}
-            </span>
+            </Badge>
             {upcomingOpen ? (
-              <ChevronDown className="size-4 text-stone-400" />
+              <ChevronDown className="size-4 text-muted-foreground ml-auto" />
             ) : (
-              <ChevronRight className="size-4 text-stone-400" />
+              <ChevronRight className="size-4 text-muted-foreground ml-auto" />
             )}
           </button>
           {upcomingOpen && (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {grouped.upcoming.map((item) => (
                 <TaskRow
                   key={item._id}
@@ -401,25 +401,28 @@ export function UnifiedTaskStream({
 
       {/* Completed section (collapsed by default) */}
       {grouped.completed.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={() => setCompletedOpen(!completedOpen)}
-            className="flex items-center gap-2.5 py-2 px-4 rounded-full bg-emerald-100 hover:bg-emerald-200/70 transition-colors w-fit"
+            className="flex items-center gap-2 py-1.5 px-3 w-full rounded-lg bg-emerald-50 hover:bg-emerald-100/80 transition-colors"
           >
             <CheckCircle2 className="size-4 text-emerald-500" />
             <span className="text-sm font-semibold text-emerald-700">已完成</span>
-            <span className="text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+            <Badge
+              variant="secondary"
+              className="text-[11px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-700"
+            >
               {grouped.completed.length}
-            </span>
+            </Badge>
             {completedOpen ? (
-              <ChevronDown className="size-4 text-emerald-500" />
+              <ChevronDown className="size-4 text-emerald-500 ml-auto" />
             ) : (
-              <ChevronRight className="size-4 text-emerald-500" />
+              <ChevronRight className="size-4 text-emerald-500 ml-auto" />
             )}
           </button>
           {completedOpen && (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {grouped.completed.map((item) => (
                 <TaskRow
                   key={item._id}
