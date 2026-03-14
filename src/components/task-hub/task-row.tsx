@@ -477,7 +477,7 @@ export function TaskRow({
               <span>跳過</span>
             </button>
           </div>
-        )
+        )}
 
         {/* Completed timestamp */}
         {isCompleted && item.completedAt && (
