@@ -454,24 +454,28 @@ export function TaskRow({
 
         {/* Action buttons - always visible */}
         {!isCompleted && !isSkipped && (
-          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-stone-100">
+          <div className="flex items-center gap-2 mt-3">
             <button
               type="button"
               onClick={handleComplete}
               disabled={completing}
               className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all',
-                'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98]',
-                completing && 'bg-emerald-100'
+                'flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold transition-all shadow-sm',
+                'bg-stone-800 text-white hover:bg-stone-900 active:scale-[0.97]',
+                completing && 'bg-stone-600'
               )}
             >
               <Check className="size-3.5 stroke-[2.5]" />
-              <span>{completing ? '完成中...' : '完成'}</span>
+              <span>{completing ? '處理中...' : '標記完成'}</span>
             </button>
             <button
               type="button"
               onClick={() => setShowSkipReasons(!showSkipReasons)}
-              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium text-stone-500 hover:bg-stone-100 transition-all active:scale-[0.98]"
+              className={cn(
+                'flex items-center justify-center gap-1 py-2 px-3 rounded-lg text-xs font-medium transition-all',
+                'border border-stone-200 text-stone-600 hover:bg-stone-50 hover:border-stone-300 active:scale-[0.97]',
+                showSkipReasons && 'bg-stone-50 border-stone-300'
+              )}
             >
               <SkipForward className="size-3.5" />
               <span>跳過</span>
