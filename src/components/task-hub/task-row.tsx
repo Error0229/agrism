@@ -433,39 +433,6 @@ export function TaskRow({
               </p>
             )}
           </div>
-
-          {/* Checkbox button -- top-right */}
-          {!isCompleted && !isSkipped && (
-            <button
-              type="button"
-              onClick={handleComplete}
-              className="relative flex shrink-0 items-center justify-center min-w-[28px] min-h-[28px] -m-0.5 mt-[-1px]"
-              aria-label="完成任務"
-            >
-              <span
-                className={cn(
-                  'flex size-[20px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
-                  'border-stone-400 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
-                  completing && 'scale-110 border-emerald-400 bg-emerald-100',
-                )}
-              >
-                {completing && <Check className="size-3 text-emerald-500 stroke-[2.5]" />}
-              </span>
-            </button>
-          )}
-
-          {/* Skip button -- top-right corner */}
-          {!isCompleted && !isSkipped && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6 shrink-0 text-stone-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-all -mt-0.5 -mr-1"
-              onClick={() => setShowSkipReasons(!showSkipReasons)}
-              title="跳過"
-            >
-              <SkipForward className="size-3" />
-            </Button>
-          )}
         </div>
 
         {/* Badges row */}
@@ -484,6 +451,33 @@ export function TaskRow({
             </Badge>
           )}
         </div>
+
+        {/* Action buttons - always visible */}
+        {!isCompleted && !isSkipped && (
+          <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-stone-100">
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={completing}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all',
+                'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98]',
+                completing && 'bg-emerald-100'
+              )}
+            >
+              <Check className="size-3.5 stroke-[2.5]" />
+              <span>{completing ? '完成中...' : '完成'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSkipReasons(!showSkipReasons)}
+              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium text-stone-500 hover:bg-stone-100 transition-all active:scale-[0.98]"
+            >
+              <SkipForward className="size-3.5" />
+              <span>跳過</span>
+            </button>
+          </div>
+        )
 
         {/* Completed timestamp */}
         {isCompleted && item.completedAt && (
