@@ -40,6 +40,9 @@ export interface UnifiedTaskItem {
   cropId?: Id<'crops'>
   fieldId?: Id<'fields'>
   aiReasoning?: string
+  description?: string
+  aiConfidence?: string
+  aiSourceSignals?: string[]
   effortMinutes?: number
   completedAt?: number
   skippedReason?: string
@@ -392,7 +395,7 @@ export function TaskRow({
       )}
 
       {/* Card body */}
-      <div className="p-3 pl-3.5">
+      <div className="px-2.5 py-2 pl-3">
         {/* Top: type icon + title row */}
         <div className="flex items-start gap-2.5">
           {/* Type icon -- simple, no background box */}
@@ -423,6 +426,12 @@ export function TaskRow({
                 {cropName}
               </p>
             )}
+            {/* Description (from promoted recommendations) */}
+            {item.description && (
+              <p className="text-[12px] text-muted-foreground mt-1 line-clamp-2 whitespace-pre-line">
+                {item.description}
+              </p>
+            )}
           </div>
 
           {/* Checkbox button -- top-right */}
@@ -435,8 +444,8 @@ export function TaskRow({
             >
               <span
                 className={cn(
-                  'flex size-[18px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
-                  'border-stone-300 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
+                  'flex size-[20px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
+                  'border-stone-400 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
                   completing && 'scale-110 border-emerald-400 bg-emerald-100',
                 )}
               >
@@ -450,17 +459,17 @@ export function TaskRow({
             <Button
               variant="ghost"
               size="icon"
-              className="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -mt-0.5 -mr-1"
+              className="size-6 shrink-0 text-stone-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-all -mt-0.5 -mr-1"
               onClick={() => setShowSkipReasons(!showSkipReasons)}
               title="跳過"
             >
-              <SkipForward className="size-3 text-muted-foreground" />
+              <SkipForward className="size-3" />
             </Button>
           )}
         </div>
 
         {/* Badges row */}
-        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <PriorityBadge priority={item.priority} />
           <SourceBadge source={item.source} />
           {item.effortMinutes && !isCompleted && !isSkipped && (
@@ -512,11 +521,37 @@ export function TaskRow({
 
         {/* AI reasoning expanded */}
         {showAiReasoning && item.aiReasoning && (
-          <div className="mt-2 rounded-lg bg-stone-50 border border-stone-200 p-2 text-[11px]">
+          <div className="mt-2 rounded-lg bg-stone-50 border border-stone-200 p-2 text-[11px] space-y-1.5">
             <div className="flex items-start gap-1.5">
               <Sparkles className="size-3 text-amber-500 mt-0.5 shrink-0" />
               <p className="text-stone-700">{item.aiReasoning}</p>
             </div>
+            {item.aiConfidence && (
+              <div className="flex items-center gap-1.5 pl-[18px]">
+                <span className="font-medium text-muted-foreground">信心度：</span>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    'text-[10px] px-1.5 py-0',
+                    item.aiConfidence === 'high' && 'bg-emerald-100 text-emerald-700',
+                    item.aiConfidence === 'medium' && 'bg-amber-100 text-amber-700',
+                    item.aiConfidence === 'low' && 'bg-rose-100 text-rose-700',
+                  )}
+                >
+                  {item.aiConfidence === 'high' ? '高' : item.aiConfidence === 'medium' ? '中' : '低'}
+                </Badge>
+              </div>
+            )}
+            {item.aiSourceSignals && item.aiSourceSignals.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 pl-[18px]">
+                <span className="font-medium text-muted-foreground">依據：</span>
+                {item.aiSourceSignals.map((signal) => (
+                  <Badge key={signal} variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {translateSignal(signal)}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -560,7 +595,7 @@ export function RecommendationRow({
     item.confidence === 'medium' ? '中信心' : '低信心'
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-white p-3 space-y-2 transition-all hover:shadow-md hover:border-stone-300">
+    <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-white px-2.5 py-2 space-y-2 transition-all hover:shadow-md hover:border-stone-300">
       {/* Left color strip -- amber for AI suggestions */}
       <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-amber-400" />
 

@@ -252,7 +252,7 @@ export function UnifiedTaskStream({
 
   if (loading || !grouped) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
         ))}
@@ -299,7 +299,7 @@ export function UnifiedTaskStream({
             count={grouped.urgent.length}
             variant="urgent"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {grouped.urgent.map((item) => (
               <TaskRow
                 key={item._id}
@@ -323,7 +323,7 @@ export function UnifiedTaskStream({
             count={grouped.today.length}
             variant="today"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {todayTypeGroups.map((group) => (
               <TypeGroupFragment
                 key={group.typeKey}
@@ -347,7 +347,7 @@ export function UnifiedTaskStream({
             count={grouped.aiSuggestions.length}
             variant="ai"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {grouped.aiSuggestions.map((item) => (
               <RecommendationRow
                 key={item._id}
@@ -383,7 +383,7 @@ export function UnifiedTaskStream({
             )}
           </button>
           {upcomingOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {grouped.upcoming.map((item) => (
                 <TaskRow
                   key={item._id}
@@ -422,7 +422,7 @@ export function UnifiedTaskStream({
             )}
           </button>
           {completedOpen && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {grouped.completed.map((item) => (
                 <TaskRow
                   key={item._id}

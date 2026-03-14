@@ -321,6 +321,9 @@ export const getUnifiedTasks = query({
       requiredTools?: string[];
       completedAt?: number;
       skippedReason?: string;
+      description?: string;
+      aiConfidence?: string;
+      aiSourceSignals?: string[];
       sortKey: number;
     };
 
@@ -382,6 +385,9 @@ export const getUnifiedTasks = query({
         requiredTools: task.requiredTools,
         completedAt: task.completedAt,
         skippedReason: task.skippedReason,
+        description: task.description,
+        aiConfidence: task.aiConfidence,
+        aiSourceSignals: task.aiSourceSignals,
         sortKey,
       });
     }
@@ -410,6 +416,36 @@ export const getUnifiedTasks = query({
         createdAt: rec.createdAt,
         sortKey,
       });
+    }
+
+    // Read-time backfill: enrich promoted tasks that are missing description
+    // (created before the schema added description/aiConfidence/aiSourceSignals)
+    const tasksNeedingBackfill = items.filter(
+      (item): item is UnifiedTask =>
+        item.kind === "task" &&
+        !!item.linkedRecommendationId &&
+        !item.description
+    );
+
+    if (tasksNeedingBackfill.length > 0) {
+      const recs = await Promise.all(
+        tasksNeedingBackfill.map((task) => ctx.db.get(task.linkedRecommendationId!))
+      );
+
+      for (let i = 0; i < tasksNeedingBackfill.length; i++) {
+        const rec = recs[i];
+        if (!rec) continue;
+
+        const task = tasksNeedingBackfill[i]!;
+        // Build description from summary + recommendedAction (same logic as promoteRecommendation)
+        const descriptionParts = [rec.summary];
+        if (rec.recommendedAction) {
+          descriptionParts.push(`建議行動：${rec.recommendedAction}`);
+        }
+        task.description = descriptionParts.join("\n\n");
+        task.aiConfidence = rec.confidence;
+        task.aiSourceSignals = rec.sourceSignals;
+      }
     }
 
     // Sort: lower sortKey first
@@ -459,6 +495,13 @@ export const promoteRecommendation = mutation({
     // Determine due date: use provided, or default to today
     const dueDate = args.dueDate ?? new Date().toISOString().split("T")[0]!;
 
+    // Build description from summary + recommendedAction
+    const descriptionParts = [rec.summary];
+    if (rec.recommendedAction) {
+      descriptionParts.push(`建議行動：${rec.recommendedAction}`);
+    }
+    const description = descriptionParts.join("\n\n");
+
     const taskId = await ctx.db.insert("tasks", {
       farmId: rec.farmId,
       type: taskType,
@@ -472,6 +515,9 @@ export const promoteRecommendation = mutation({
       status: "pending",
       priority: taskPriority,
       aiReasoning: rec.reasoning,
+      description,
+      aiConfidence: rec.confidence,
+      aiSourceSignals: rec.sourceSignals,
       linkedRecommendationId: args.recommendationId,
     });
 
