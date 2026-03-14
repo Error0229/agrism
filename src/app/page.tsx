@@ -325,8 +325,8 @@ export default function DashboardPage() {
     <div className="space-y-6 pb-24">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-stone-800 tracking-tight">花蓮蔬果種植指南</h1>
-        <p className="text-sm text-stone-400 mt-0.5">
+        <h1 className="text-2xl font-bold text-stone-800 tracking-tight">花蓮蔬果種植指南</h1>
+        <p className="text-sm text-stone-500 mt-1">
           {format(new Date(), 'yyyy年M月d日 EEEE', { locale: zhTW })}
         </p>
       </div>
@@ -361,30 +361,33 @@ export default function DashboardPage() {
       {/* ================================================================
           Section 3: Growing Crops Overview
           ================================================================ */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <Sprout className="size-[18px] text-emerald-600" />
-            <span className="text-[15px] font-semibold text-stone-800">生長中作物</span>
+          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-emerald-100">
+            <Sprout className="size-4 text-emerald-500" />
+            <span className="text-sm font-semibold text-emerald-700">生長中作物</span>
+            <span className="text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+              {growingEntries.length}
+            </span>
           </div>
-          <div className="flex-1 h-px bg-emerald-200" />
         </div>
         {fieldsLoading ? (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
             ))}
           </div>
         ) : growingEntries.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            <Sprout className="mx-auto size-8 mb-2 text-stone-300" />
-            <p className="text-sm">目前沒有生長中的作物</p>
-            <Button asChild variant="outline" size="sm" className="mt-3">
+          <div className="py-12 text-center rounded-2xl border-2 border-dashed border-stone-200 bg-stone-50/50">
+            <Sprout className="mx-auto size-10 mb-3 text-stone-300" />
+            <p className="text-sm font-medium text-stone-500">目前沒有生長中的作物</p>
+            <p className="text-xs text-stone-400 mt-1">開始規劃您的田地吧</p>
+            <Button asChild variant="outline" size="sm" className="mt-4">
               <Link href="/fields">前往田地規劃種植</Link>
             </Button>
           </div>
         ) : (
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             {growingEntries.map((entry) => {
               const plantedDate = new Date(entry.plantedDate ?? '2000-01-01')
               const daysSincePlanted = differenceInDays(new Date(), plantedDate)
@@ -394,51 +397,67 @@ export default function DashboardPage() {
                 90
               const daysToHarvest = Math.max(0, totalGrowthDays - daysSincePlanted)
               const progressPercent = Math.min(100, Math.round((daysSincePlanted / totalGrowthDays) * 100))
+              const isReadyToHarvest = daysToHarvest === 0
 
               return (
                 <div
                   key={entry._id}
-                  className="rounded-xl border border-stone-200 bg-white p-3 space-y-1.5 hover:shadow-md transition-all hover:border-stone-300"
+                  className={cn(
+                    "group rounded-2xl border p-4 space-y-3 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5",
+                    isReadyToHarvest 
+                      ? "bg-gradient-to-br from-amber-50 to-orange-50/50 border-amber-200/80 hover:border-amber-300"
+                      : "bg-white border-stone-200/80 hover:border-stone-300"
+                  )}
                 >
-                  <div className="flex items-center gap-2">
+                  {/* Crop header */}
+                  <div className="flex items-start gap-3">
                     <CropAvatar
                       name={entry.cropName}
                       emoji={entry.cropEmoji}
                       imageUrl={entry.cropImageUrl}
                       thumbnailUrl={entry.cropThumbnailUrl}
-                      size="sm"
+                      size="md"
+                      className="ring-2 ring-white shadow-sm"
                     />
-                    <span className="text-sm font-medium truncate">
-                      {entry.cropName}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-stone-800 truncate">
+                        {entry.cropName}
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5 truncate">
+                        {entry.fieldName}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {entry.fieldName}
-                  </p>
+
                   {/* Growth progress bar */}
-                  <div className="space-y-1">
-                    <div className="h-1 rounded-full bg-stone-100 overflow-hidden">
+                  <div className="space-y-2">
+                    <div className="h-2 rounded-full bg-stone-100 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          isReadyToHarvest 
+                            ? "bg-gradient-to-r from-amber-400 to-orange-400"
+                            : "bg-gradient-to-r from-emerald-400 to-teal-400"
+                        )}
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground flex items-center gap-0.5">
+                    
+                    {/* Stats row */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-stone-500 flex items-center gap-1">
                         <Clock className="size-3" />
                         第 {daysSincePlanted} 天
                       </span>
-                      <span>
-                        {daysToHarvest > 0 ? (
-                          <span className="text-amber-600 font-medium">
-                            {daysToHarvest} 天後收成
-                          </span>
-                        ) : (
-                          <span className="text-emerald-600 font-semibold">
-                            可收成
-                          </span>
-                        )}
-                      </span>
+                      {isReadyToHarvest ? (
+                        <span className="text-xs font-semibold text-amber-600 px-2 py-0.5 rounded-full bg-amber-100">
+                          可收成
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-emerald-600">
+                          {daysToHarvest} 天後收成
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -449,124 +468,46 @@ export default function DashboardPage() {
       </div>
 
       {/* ================================================================
-          Section 4: Weather Summary (simplified)
+          Section 4: Quick Actions (redesigned as icon grid)
           ================================================================ */}
-      <Card className="border-stone-200 overflow-hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-[15px] font-semibold text-stone-800">
-            <Cloud className="size-[18px] text-sky-500" />
-            天氣概況
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {weatherLoading ? (
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-            </div>
-          ) : !weather ? (
-            <p className="text-sm text-muted-foreground py-2">
-              無法取得天氣資料
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  {weatherCodeIcon(weather.current.weather_code)}
-                  <span className="font-medium text-stone-700">
-                    {weatherCodeLabel(weather.current.weather_code)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Thermometer className="size-4 text-rose-400" />
-                  <span className="text-base font-semibold tabular-nums">
-                    {weather.current.temperature_2m.toFixed(1)}°C
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    體感 {weather.current.apparent_temperature.toFixed(1)}°C
-                  </span>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Wind className="size-4" />
-                  <span>{weather.current.wind_speed_10m.toFixed(0)} km/h</span>
-                </div>
-              </div>
-
-              {/* Alerts */}
-              {weather.alerts.length > 0 && (
-                <div className="space-y-2">
-                  {weather.alerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className={cn(
-                        'flex items-start gap-2 rounded-lg border p-2.5 text-[13px]',
-                        alert.severity === 'critical'
-                          ? 'border-rose-200 bg-rose-50 text-rose-700'
-                          : alert.severity === 'warning'
-                            ? 'border-amber-200/60 bg-amber-50/80 text-amber-700'
-                            : 'border-sky-200 bg-sky-50 text-sky-700',
-                      )}
-                    >
-                      <AlertTriangle className="size-4 mt-0.5 shrink-0" />
-                      <div>
-                        <span className="font-medium">{alert.title}</span>
-                        <span className="ml-1">{alert.recommendation}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <Button asChild variant="outline" size="sm" className="text-xs">
-                <Link href="/weather">
-                  查看完整天氣
-                  <ArrowRight className="ml-1 size-3.5" />
-                </Link>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ================================================================
-          Section 5: Quick Actions
-          ================================================================ */}
-      <Card className="border-stone-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-[15px] font-semibold text-stone-800">快速操作</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2.5 grid-cols-2 sm:grid-cols-4">
-            <Button asChild variant="outline" className="h-auto py-3.5 flex-col gap-1.5 border-stone-200 hover:bg-stone-50 hover:border-stone-300 transition-colors">
-              <Link href="/fields">
-                <Map className="size-5 text-stone-500" />
-                <span className="text-xs text-stone-600">田地規劃</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-auto py-3.5 flex-col gap-1.5 border-stone-200 hover:bg-stone-50 hover:border-stone-300 transition-colors">
-              <Link href="/crops">
-                <Sprout className="size-5 text-stone-500" />
-                <span className="text-xs text-stone-600">作物資料庫</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-auto py-3.5 flex-col gap-1.5 border-stone-200 hover:bg-stone-50 hover:border-stone-300 transition-colors">
-              <Link href="/calendar">
-                <CalendarDays className="size-5 text-stone-500" />
-                <span className="text-xs text-stone-600">農事日曆</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="h-auto py-3.5 flex-col gap-1.5 border-stone-200 hover:bg-stone-50 hover:border-stone-300 transition-colors">
-              <Link href="/records/harvest">
-                <CheckCircle2 className="size-5 text-stone-500" />
-                <span className="text-xs text-stone-600">收成紀錄</span>
-              </Link>
-            </Button>
+      <div className="grid gap-3 grid-cols-4 sm:gap-4">
+        <Link 
+          href="/fields"
+          className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-sky-50/50 border border-blue-100/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        >
+          <div className="size-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Map className="size-5 text-blue-600" />
           </div>
-        </CardContent>
-      </Card>
+          <span className="text-xs font-medium text-blue-700">田地規劃</span>
+        </Link>
+        <Link 
+          href="/crops"
+          className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-50/50 border border-emerald-100/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        >
+          <div className="size-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+            <Sprout className="size-5 text-emerald-600" />
+          </div>
+          <span className="text-xs font-medium text-emerald-700">作物資料庫</span>
+        </Link>
+        <Link 
+          href="/calendar"
+          className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-100/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        >
+          <div className="size-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <CalendarDays className="size-5 text-amber-600" />
+          </div>
+          <span className="text-xs font-medium text-amber-700">農事日曆</span>
+        </Link>
+        <Link 
+          href="/weather"
+          className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-cyan-50/50 border border-sky-100/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        >
+          <div className="size-10 rounded-xl bg-sky-100 flex items-center justify-center">
+            <Cloud className="size-5 text-sky-600" />
+          </div>
+          <span className="text-xs font-medium text-sky-700">天氣預報</span>
+        </Link>
+      </div>
 
       {/* ================================================================
           Quick Add FAB
