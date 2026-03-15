@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -16,7 +16,6 @@ import {
   Magnet,
   MapPin,
   Merge,
-  NotebookPen,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
@@ -55,7 +54,6 @@ import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -81,10 +79,13 @@ import type { CropCategory, PlantedCropStatus, FacilityType, UtilityKind } from 
 import { deriveFacilityType } from "@/lib/utils/facility-helpers";
 import { WATER_NODE_TYPES, ELECTRIC_NODE_TYPES } from "@/lib/types/enums";
 import { Input } from "@/components/ui/input";
-import { LifecycleInspector } from "./lifecycle-inspector";
+import { SmartCropCard } from "./smart-crop-card";
+import { FieldJournal } from "./field-journal";
+import { RegionJournal } from "./region-journal";
 import { RegionPlanningInspector } from "@/components/planning/region-planning-inspector";
 import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
-import { useFieldOccupancy } from "@/hooks/use-planned-plantings";
+import { useFieldOccupancy, usePlannedPlantingsByField } from "@/hooks/use-planned-plantings";
+import { useRegionPlan } from "@/hooks/use-region-plan";
 import { useFarmId } from "@/hooks/use-farm-id";
 import { CropAvatar } from "@/components/crops/crop-avatar";
 import { resolveCropMedia } from "@/lib/crops/media";
@@ -243,8 +244,8 @@ export const PropertyInspector = React.memo(function PropertyInspector({
   onSplitVertical,
   onMergeZones,
   onAlign,
-  memo,
-  onMemoChange,
+  memo: _memo,
+  onMemoChange: _onMemoChange,
   embedded = false,
 }: PropertyInspectorProps) {
   const inspectorOpen = useFieldEditor((s) => s.inspectorOpen);
@@ -517,11 +518,14 @@ export const PropertyInspector = React.memo(function PropertyInspector({
               </>
             )}
 
-            {/* Memo section — always visible at bottom */}
-            {onMemoChange && (
+            {/* Field Journal — only when no region/item is selected */}
+            {field && selectedIds.length === 0 && (
               <>
                 <Separator />
-                <MemoSection memo={memo ?? ""} onMemoChange={onMemoChange} />
+                <FieldJournal
+                  fieldId={field._id as Id<"fields">}
+                  fieldName={fieldName}
+                />
               </>
             )}
           </div>
@@ -794,8 +798,32 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
   // Planning hooks
   const farmId = useFarmId();
   const occupancy = useFieldOccupancy(fieldId as Id<"fields">);
+  const plannedPlantings = usePlannedPlantingsByField(fieldId as Id<"fields">);
+  const regionPlan = useRegionPlan(
+    fieldId as Id<"fields"> | undefined,
+    plantedCrop._id as Id<"plantedCrops">,
+    plantedCrop._id,
+  );
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [_editPlanId, setEditPlanId] = useState<string | null>(null);
+  const [editPlanId, setEditPlanId] = useState<string | null>(null);
+
+  // Look up the editing plan from planned plantings data
+  const editingPlan = useMemo(() => {
+    if (!editPlanId || !plannedPlantings) return undefined;
+    const plan = plannedPlantings.find((p) => p._id === editPlanId);
+    if (!plan) return undefined;
+    return {
+      _id: plan._id as Id<"plannedPlantings">,
+      cropId: plan.cropId ?? undefined,
+      cropName: plan.cropName ?? undefined,
+      startWindowEarliest: plan.startWindowEarliest ?? undefined,
+      startWindowLatest: plan.startWindowLatest ?? undefined,
+      endWindowEarliest: plan.endWindowEarliest ?? undefined,
+      endWindowLatest: plan.endWindowLatest ?? undefined,
+      notes: plan.notes ?? undefined,
+      planningState: plan.planningState,
+    };
+  }, [editPlanId, plannedPlantings]);
 
   const regionOccupancy = useMemo(() => {
     if (!occupancy) return [];
@@ -874,12 +902,11 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       </div>
     ),
     "lifecycle": (
-      <LifecycleInspector plantedCrop={plantedCrop} cropGrowthDays={crop?.growthDays} cropLifecycleType={crop?.lifecycleType} />
+      <SmartCropCard plantedCrop={plantedCrop} crop={crop} />
     ),
     "planning": fieldId ? (
       <RegionPlanningInspector
         plantedCrop={plantedCrop}
-        occupancy={regionOccupancy}
         fieldId={fieldId as Id<"fields"> | undefined}
         onPlanNext={() => setPlanDialogOpen(true)}
         onEditPlanning={(sourceId) => {
@@ -888,12 +915,13 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
         }}
       />
     ) : null,
-    "notes": plantedCrop.notes ? (
-      <div className="rounded-md border border-dashed border-border/40 bg-muted/10 px-2.5 py-2">
-        <p className="text-[10px] font-medium text-muted-foreground">備註</p>
-        <p className="mt-0.5 text-xs leading-relaxed">{plantedCrop.notes}</p>
-      </div>
-    ) : null,
+    "notes": (
+      <RegionJournal
+        plantedCropId={plantedCrop._id as Id<"plantedCrops">}
+        cropName={crop?.name}
+        cropEmoji={crop?.emoji}
+      />
+    ),
     "actions": (
       <div className="space-y-2">
         {onChangeCrop && (
@@ -1049,31 +1077,71 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
       </DndContext>
 
       {/* Plan crop dialog */}
-      {farmId && fieldId && (
-        <PlanCropDialog
-          farmId={farmId as Id<"farms">}
-          fieldId={fieldId as Id<"fields">}
-          open={planDialogOpen}
-          onOpenChange={(open) => {
-            setPlanDialogOpen(open);
-            if (!open) setEditPlanId(null);
-          }}
-          regionId={plantedCrop._id}
-          predecessorPlantedCropId={plantedCrop._id as Id<"plantedCrops">}
-          currentOccupant={{
-            cropName: crop?.name,
-            estimatedEnd: (() => {
-              const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
-              if (!occ?.endWindow.earliest) return undefined;
-              const d = new Date(occ.endWindow.earliest);
-              const month = d.getMonth() + 1;
-              const day = d.getDate();
-              const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
-              return `${d.getFullYear()}年${month}月${jun}`;
-            })(),
-          }}
-        />
-      )}
+      {farmId && fieldId && (() => {
+        // Bug 1 fix: pass existingPlan when editing
+        // Bug 3 fix: derive predecessor from chain tail, not root
+        const successors = regionPlan?.successors ?? [];
+        const chainTail = successors.length > 0 ? successors[successors.length - 1] : null;
+
+        // When editing, don't pass predecessor info
+        // When creating new, use chain tail as predecessor
+        const predecessorId = editPlanId
+          ? undefined
+          : chainTail
+            ? undefined // will use predecessorPlanId auto-linking via regionId in create mutation
+            : (plantedCrop._id as Id<"plantedCrops">);
+
+        // Build currentOccupant from chain tail (or root if no successors)
+        const occupantInfo = editPlanId
+          ? undefined
+          : chainTail
+            ? {
+                cropName: chainTail.cropName,
+                cropEmoji: undefined as string | undefined,
+                rotationFamily: undefined as string | undefined,
+                estimatedEnd: (() => {
+                  const endStr = chainTail.endWindow.earliest;
+                  if (!endStr) return undefined;
+                  try {
+                    const d = new Date(endStr);
+                    const month = d.getMonth() + 1;
+                    const day = d.getDate();
+                    const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+                    return `${d.getFullYear()}年${month}月${jun}`;
+                  } catch { return undefined; }
+                })(),
+              }
+            : {
+                cropName: crop?.name,
+                cropEmoji: crop?.emoji ?? undefined,
+                rotationFamily: crop?.rotationFamily ?? undefined,
+                estimatedEnd: (() => {
+                  const occ = regionOccupancy.find((o) => o.sourceId === plantedCrop._id && o.type === "current");
+                  if (!occ?.endWindow.earliest) return undefined;
+                  const d = new Date(occ.endWindow.earliest);
+                  const month = d.getMonth() + 1;
+                  const day = d.getDate();
+                  const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
+                  return `${d.getFullYear()}年${month}月${jun}`;
+                })(),
+              };
+
+        return (
+          <PlanCropDialog
+            farmId={farmId as Id<"farms">}
+            fieldId={fieldId as Id<"fields">}
+            open={planDialogOpen}
+            onOpenChange={(open) => {
+              setPlanDialogOpen(open);
+              if (!open) setEditPlanId(null);
+            }}
+            regionId={plantedCrop._id}
+            existingPlan={editingPlan}
+            predecessorPlantedCropId={predecessorId}
+            currentOccupant={occupantInfo}
+          />
+        );
+      })()}
     </>
   );
 });
@@ -1555,56 +1623,7 @@ function ToggleRow({
   );
 }
 
-const MemoSection = React.memo(function MemoSection({
-  memo,
-  onMemoChange,
-}: {
-  memo: string;
-  onMemoChange: (memo: string) => void;
-}) {
-  const [localMemo, setLocalMemo] = useState(memo);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sync from parent when field data updates externally
-  useEffect(() => {
-    setLocalMemo(memo);
-  }, [memo]);
-
-  const handleChange = useCallback(
-    (value: string) => {
-      setLocalMemo(value);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onMemoChange(value);
-      }, 1000);
-    },
-    [onMemoChange],
-  );
-
-  const handleBlur = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    onMemoChange(localMemo);
-  }, [localMemo, onMemoChange]);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <NotebookPen className="size-3 text-muted-foreground" />
-        <SectionHeading>備忘錄</SectionHeading>
-      </div>
-      <Textarea
-        value={localMemo}
-        onChange={(e) => handleChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder="在此輸入備忘錄..."
-        className="min-h-[80px] resize-y text-xs"
-      />
-      <p className="text-right text-[10px] text-muted-foreground">
-        {localMemo.length} 字
-      </p>
-    </div>
-  );
-});
+// MemoSection has been replaced by FieldJournal (issue #107)
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (

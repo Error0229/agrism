@@ -43,7 +43,7 @@ export function SeasonPlannerPanel({
   const [planRegionId, setPlanRegionId] = useState<string | undefined>();
   const [planCellContext, setPlanCellContext] = useState<CellContext | undefined>();
   const [predecessorPlantedCropId, setPredecessorPlantedCropId] = useState<Id<"plantedCrops"> | undefined>();
-  const [currentOccupant, setCurrentOccupant] = useState<{ cropName?: string; estimatedEnd?: string } | undefined>();
+  const [currentOccupant, setCurrentOccupant] = useState<{ cropName?: string; cropEmoji?: string; estimatedEnd?: string; rotationFamily?: string } | undefined>();
   const [editingPlan, setEditingPlan] = useState<
     | {
         _id: Id<"plannedPlantings">;
@@ -80,7 +80,7 @@ export function SeasonPlannerPanel({
             const jun = day <= 10 ? "上旬" : day <= 20 ? "中旬" : "下旬";
             estimatedEnd = `${d.getFullYear()}年${month}月${jun}`;
           }
-          setCurrentOccupant({ cropName: pc.crop.name, estimatedEnd });
+          setCurrentOccupant({ cropName: pc.crop.name, cropEmoji: pc.crop.emoji ?? undefined, estimatedEnd });
         } else {
           setCurrentOccupant(undefined);
         }

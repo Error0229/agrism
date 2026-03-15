@@ -15,7 +15,7 @@ import {
   useCancelPlannedPlanting,
   useCheckOverlap,
 } from "@/hooks/use-planned-plantings";
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,9 @@ export interface PlanCropDialogProps {
   /** Info about the current occupant, if any */
   currentOccupant?: {
     cropName?: string;
+    cropEmoji?: string;
     estimatedEnd?: string;
+    rotationFamily?: string;
   };
   /** Pre-fill start period from clicked cell in season board */
   initialCellContext?: CellContext;
@@ -147,6 +149,15 @@ const SUIT_STYLES: Record<string, string> = {
   recommended: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   marginal: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   risky: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+};
+
+const ROTATION_FAMILY_LABELS: Record<string, string> = {
+  brassica: "十字花科",
+  solanaceae: "茄科",
+  cucurbit: "瓜科",
+  legume: "豆科",
+  allium: "蔥蒜科",
+  root: "根莖類",
 };
 
 /** Small suitability badge shown next to crop in the details step */
@@ -232,10 +243,28 @@ export function PlanCropDialog({
       setSelectedCropId(existingPlan?.cropId ?? undefined);
       setSelectedCropName(existingPlan?.cropName ?? "");
 
+      // Bug 4 fix: parse predecessor's estimatedEnd for start date auto-fill
+      // Format can be "2026年5月下旬" or ISO date string
+      let predecessorEndParsed: { year: string; month: string; jun: string } | null = null;
+      if (currentOccupant?.estimatedEnd) {
+        // Try parsing "YYYY年M月[上旬|中旬|下旬]" format
+        const zhMatch = currentOccupant.estimatedEnd.match(/^(\d{4})年(\d{1,2})月(上旬|中旬|下旬)$/);
+        if (zhMatch?.[1] && zhMatch[2] && zhMatch[3]) {
+          predecessorEndParsed = {
+            year: zhMatch[1],
+            month: String(parseInt(zhMatch[2])).padStart(2, "0"),
+            jun: zhMatch[3] === "上旬" ? "early" : zhMatch[3] === "中旬" ? "mid" : "late",
+          };
+        } else {
+          // Try ISO date format fallback
+          predecessorEndParsed = parseWindowToMonthJun(currentOccupant.estimatedEnd);
+        }
+      }
+
       const parsedS = parseWindowToMonthJun(existingPlan?.startWindowEarliest);
-      setStartYear(parsedS?.year ?? initialCellContext?.year ?? currentYear);
-      setStartMonth(parsedS?.month ?? initialCellContext?.month ?? "");
-      setStartJun(parsedS?.jun ?? initialCellContext?.jun ?? "");
+      setStartYear(parsedS?.year ?? predecessorEndParsed?.year ?? initialCellContext?.year ?? currentYear);
+      setStartMonth(parsedS?.month ?? predecessorEndParsed?.month ?? initialCellContext?.month ?? "");
+      setStartJun(parsedS?.jun ?? predecessorEndParsed?.jun ?? initialCellContext?.jun ?? "");
 
       const parsedE = parseWindowToMonthJun(existingPlan?.endWindowEarliest);
       setEndYear(parsedE?.year ?? currentYear);
@@ -243,8 +272,29 @@ export function PlanCropDialog({
       setEndJun(parsedE?.jun ?? "");
 
       setNotes(existingPlan?.notes ?? "");
+
+      // Auto-calculate end date if we have a start from predecessor and a selected crop
+      if (!existingPlan && predecessorEndParsed) {
+        // End will be auto-calculated when crop is selected via handleCropSelect
+        // But if a crop is already selected (e.g. editing), calculate now
+        if (selectedCropId && crops) {
+          const crop = crops.find((c) => c._id === selectedCropId);
+          if (crop?.growthDays) {
+            const end = computeEndFromGrowthDays(
+              predecessorEndParsed.year,
+              predecessorEndParsed.month,
+              predecessorEndParsed.jun,
+              crop.growthDays,
+            );
+            setEndYear(end.year);
+            setEndMonth(end.month);
+            setEndJun(end.jun);
+          }
+        }
+      }
     }
-  }, [open, existingPlan, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year, currentYear]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existingPlan, initialCellContext?.month, initialCellContext?.jun, initialCellContext?.year, currentYear, currentOccupant?.estimatedEnd]);
 
   // Overlap detection
   const overlapStartTs = useMemo(() => {
@@ -260,7 +310,21 @@ export function PlanCropDialog({
     overlapStartTs,
     overlapEndTs,
     existingPlan?._id,
+    regionId,
   );
+
+  // Rotation family warning — check if selected crop shares family with predecessor
+  const rotationWarning = useMemo(() => {
+    if (!currentOccupant?.rotationFamily || !selectedCropId || !crops) return null;
+    const selectedCrop = crops.find((c) => c._id === selectedCropId);
+    if (!selectedCrop?.rotationFamily) return null;
+    if (selectedCrop.rotationFamily === currentOccupant.rotationFamily) {
+      const familyLabel =
+        ROTATION_FAMILY_LABELS[selectedCrop.rotationFamily] ?? selectedCrop.rotationFamily;
+      return `同科作物（${familyLabel}），建議輪作`;
+    }
+    return null;
+  }, [currentOccupant?.rotationFamily, selectedCropId, crops]);
 
   // Filtered crops list, sorted by suitability
   const filtered = useMemo(() => {
@@ -475,16 +539,20 @@ export function PlanCropDialog({
 
         {/* Predecessor info banner */}
         {predecessorPlantedCropId && currentOccupant?.cropName && (
-          <div className="flex items-start gap-2 rounded-md border border-sky-200/60 bg-sky-50/50 px-3 py-2 dark:border-sky-800/30 dark:bg-sky-950/20">
-            <Info className="mt-0.5 size-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-            <p className="text-xs text-sky-700 dark:text-sky-400">
-              接續 <span className="font-medium">{currentOccupant.cropName}</span> 後種植
+          <div className="flex items-start gap-2 rounded-md border border-sky-200/60 bg-sky-50/50 px-3 py-2.5 dark:border-sky-800/30 dark:bg-sky-950/20">
+            <div className="flex size-6 shrink-0 items-center justify-center rounded bg-sky-100 text-sm dark:bg-sky-900/30">
+              {currentOccupant.cropEmoji ?? "🌱"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-sky-700 dark:text-sky-400">
+                接續 {currentOccupant.cropName} 之後
+              </p>
               {currentOccupant.estimatedEnd && (
-                <span className="ml-1 text-muted-foreground">
-                  (預估結束: {currentOccupant.estimatedEnd})
-                </span>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  前作預估結束: {currentOccupant.estimatedEnd}
+                </p>
               )}
-            </p>
+            </div>
           </div>
         )}
 
@@ -585,6 +653,15 @@ export function PlanCropDialog({
                   cropId={selectedCropId as Id<"crops">}
                   fieldId={fieldId}
                 />
+              )}
+              {/* Rotation family warning */}
+              {rotationWarning && (
+                <div className="flex items-center gap-1.5 rounded-md border border-amber-300/60 bg-amber-50/50 px-2.5 py-1.5 dark:border-amber-700/40 dark:bg-amber-950/20">
+                  <AlertTriangle className="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {rotationWarning}
+                  </span>
+                </div>
               )}
             </div>
 

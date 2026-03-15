@@ -7,6 +7,7 @@ import type {
   Drainage,
   FacilityType,
   FinanceType,
+  JournalCategory,
   PestIncident,
   PestLevel,
   PlantedCropStatus,
@@ -180,4 +181,22 @@ export const CROP_STAGE_LABELS: Record<CropStage, string> = {
   vegetative: '營養生長期',
   flowering_fruiting: '開花結果期',
   harvest_ready: '採收期',
+}
+
+export const JOURNAL_CATEGORY_LABELS: Record<JournalCategory, string> = {
+  growth: '生長觀察',
+  pest: '病蟲害',
+  soil: '土壤觀察',
+  harvest: '採收紀錄',
+  weather: '天氣影響',
+  general: '一般備註',
+}
+
+export const JOURNAL_CATEGORY_ICONS: Record<JournalCategory, string> = {
+  growth: '\u{1F331}',
+  pest: '\u{1F41B}',
+  soil: '\u{1F9EA}',
+  harvest: '\u{1F33E}',
+  weather: '\u{1F327}',
+  general: '\u{1F4CB}',
 }

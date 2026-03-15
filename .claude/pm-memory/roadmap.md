@@ -30,8 +30,22 @@
 ## Completed (continued)
 - **#99** Crop Images from Wikimedia Commons — R2 storage, auto-lookup, 16 default crops
 - **#100** iNaturalist Field Photo Gallery — gallery pipeline, R2 upload, lightbox UI, CC attribution
-## Upcoming
-(All GitHub issues #83-#100 are implemented)
+## Completed — Wave 1 + Wave 2 (QA passed)
+- **#108** Unified Task Hub Phase 1 — QA: 15/16 PASS. Tasks schema, unified query, morning briefing card, task stream, quick-add FAB, recommendation promotion
+- **#106** Smart Crop Card — QA: 8/8 PASS. Auto-populate, getCropCareContext, 4-layer progressive disclosure, growth stage progress, override UX
+- **#107** Field Journal Phase 1 — QA: 7/8 PASS. 2 journal tables, CRUD, category chips + quick phrases, field + region tiers, timeline display
+- **#105** Succession Unification P0 — QA: 6/6 PASS. Unified timeline, auto-link, rotation warnings, plan dialog with predecessor context
+
+## Future Phases (after P0/Phase 1 of all 4 ship)
+- **#105** P1-P3: smart suggestions, season board enhancements, quick replan
+- **#106** Phases 2-3: contextual alerts, growth stage tips
+- **#107** Phases 2-5: cross-linking, photos, voice input
+- **#108** Phases 2-6: end-of-day summary, weekly review, offline support
+
+## Implementation Notes
+- Merge order for `property-inspector.tsx`: #106 → #107 → #105 (different line ranges, sequential merge avoids conflicts)
+- #108 is fully independent (dashboard only, no field editor overlap)
+- Schema changes are all additive and non-conflicting
 
 ## Closed (Not Planned)
 - **#101** Taiwan MOA + EPPO Pest Reference Images — rolled back; TARI image server down, wrong UX approach (farmers need symptom-based identification, not pest body photos). Consider Pl@ntNet integration instead.

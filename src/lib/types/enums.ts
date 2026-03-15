@@ -197,3 +197,13 @@ export const CropStage = {
   HARVEST_READY: 'harvest_ready',
 } as const
 export type CropStage = (typeof CropStage)[keyof typeof CropStage]
+
+export const JournalCategory = {
+  GROWTH: 'growth',
+  PEST: 'pest',
+  SOIL: 'soil',
+  HARVEST: 'harvest',
+  WEATHER: 'weather',
+  GENERAL: 'general',
+} as const
+export type JournalCategory = (typeof JournalCategory)[keyof typeof JournalCategory]

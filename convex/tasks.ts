@@ -2,26 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 import { Id } from "./_generated/dataModel";
-
-// ---------------------------------------------------------------------------
-// Task effort/difficulty/tools presets
-// ---------------------------------------------------------------------------
-
-type TaskPreset = {
-  effortMinutes: number;
-  difficulty: string;
-  requiredTools: string[];
-};
-
-const TASK_PRESETS: Record<string, TaskPreset> = {
-  seeding: { effortMinutes: 45, difficulty: "medium", requiredTools: ["手鏟"] },
-  fertilizing: { effortMinutes: 30, difficulty: "low", requiredTools: ["施肥器"] },
-  watering: { effortMinutes: 20, difficulty: "low", requiredTools: ["水管"] },
-  pruning: { effortMinutes: 35, difficulty: "medium", requiredTools: ["剪刀"] },
-  harvesting: { effortMinutes: 60, difficulty: "medium", requiredTools: ["採收籃"] },
-  typhoon_prep: { effortMinutes: 90, difficulty: "high", requiredTools: ["綁繩", "支架"] },
-  pest_control: { effortMinutes: 50, difficulty: "medium", requiredTools: ["噴霧器"] },
-};
+import { TASK_PRESETS } from "./_taskPresets";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -81,12 +62,37 @@ export const create = mutation({
     effortMinutes: v.optional(v.number()),
     difficulty: v.optional(v.string()),
     requiredTools: v.optional(v.array(v.string())),
+    // Unified Task Hub fields (issue #108)
+    source: v.optional(v.union(
+      v.literal("manual"),
+      v.literal("ai_briefing"),
+      v.literal("weather"),
+      v.literal("auto_rule"),
+      v.literal("calendar"),
+    )),
+    status: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("skipped"),
+    )),
+    priority: v.optional(v.union(
+      v.literal("urgent"),
+      v.literal("high"),
+      v.literal("normal"),
+      v.literal("low"),
+    )),
+    aiReasoning: v.optional(v.string()),
+    linkedRecommendationId: v.optional(v.id("recommendations")),
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("tasks", {
       ...args,
       completed: args.completed ?? false,
+      source: args.source ?? "manual",
+      status: args.status ?? "pending",
+      priority: args.priority ?? "normal",
     });
   },
 });
@@ -104,6 +110,29 @@ export const update = mutation({
     effortMinutes: v.optional(v.number()),
     difficulty: v.optional(v.string()),
     requiredTools: v.optional(v.array(v.string())),
+    // Unified Task Hub fields (issue #108)
+    source: v.optional(v.union(
+      v.literal("manual"),
+      v.literal("ai_briefing"),
+      v.literal("weather"),
+      v.literal("auto_rule"),
+      v.literal("calendar"),
+    )),
+    status: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("skipped"),
+    )),
+    priority: v.optional(v.union(
+      v.literal("urgent"),
+      v.literal("high"),
+      v.literal("normal"),
+      v.literal("low"),
+    )),
+    aiReasoning: v.optional(v.string()),
+    linkedRecommendationId: v.optional(v.id("recommendations")),
+    skippedReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -135,7 +164,428 @@ export const toggleComplete = mutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("找不到任務");
     await requireFarmMembership(ctx, task.farmId);
-    await ctx.db.patch(args.taskId, { completed: !task.completed });
+
+    const nowCompleting = !task.completed;
+    const patch: Record<string, unknown> = {
+      completed: nowCompleting,
+    };
+
+    if (nowCompleting) {
+      patch.status = "completed";
+      patch.completedAt = Date.now();
+    } else {
+      // Un-completing: revert to pending
+      patch.status = "pending";
+      patch.completedAt = undefined;
+    }
+
+    await ctx.db.patch(args.taskId, patch);
+
+    // Sync to linked recommendation if completing
+    if (nowCompleting && task.linkedRecommendationId) {
+      const rec = await ctx.db.get(task.linkedRecommendationId);
+      if (rec) {
+        await ctx.db.patch(task.linkedRecommendationId, { status: "completed" });
+      }
+    }
+    // Sync to linked recommendation if un-completing
+    if (!nowCompleting && task.linkedRecommendationId) {
+      const rec = await ctx.db.get(task.linkedRecommendationId);
+      if (rec && rec.status === "completed") {
+        await ctx.db.patch(task.linkedRecommendationId, { status: "accepted" });
+      }
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Unified Task Hub (issue #108)
+// ---------------------------------------------------------------------------
+
+/**
+ * Priority sort order for unified task sorting.
+ */
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
+/**
+ * Map recommendation priority to task priority.
+ */
+function recPriorityToTaskPriority(
+  recPriority: "high" | "medium" | "low"
+): "urgent" | "high" | "normal" | "low" {
+  switch (recPriority) {
+    case "high":
+      return "high";
+    case "medium":
+      return "normal";
+    case "low":
+      return "low";
+  }
+}
+
+/**
+ * Unified query that fetches all tasks + pending recommendations for a farm,
+ * grouped and sorted by priority/urgency.
+ */
+export const getUnifiedTasks = query({
+  args: {
+    farmId: v.id("farms"),
+    date: v.string(), // caller must provide today's date (deterministic)
+  },
+  handler: async (ctx, args) => {
+    await requireFarmMembership(ctx, args.farmId);
+
+    const today = args.date;
+
+    // Fetch only non-completed tasks (pending, in_progress) for the farm
+    const incompleteTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", false)
+      )
+      .take(500);
+
+    // Fetch recently completed tasks (completed === true), take latest 100
+    // for "completed today" display
+    const recentCompletedTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", args.farmId).eq("completed", true)
+      )
+      .order("desc")
+      .take(100);
+
+    // Only keep completed tasks from the last 24 hours
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const completedToday = recentCompletedTasks.filter(
+      (t) => (t.completedAt ?? t._creationTime) >= oneDayAgo
+    );
+
+    const allTasks = [...incompleteTasks, ...completedToday];
+
+    // Fetch pending recommendations not yet converted to tasks
+    const [newRecs, acceptedRecs] = await Promise.all([
+      ctx.db
+        .query("recommendations")
+        .withIndex("by_farmId_status", (q) =>
+          q.eq("farmId", args.farmId).eq("status", "new")
+        )
+        .take(200),
+      ctx.db
+        .query("recommendations")
+        .withIndex("by_farmId_status", (q) =>
+          q.eq("farmId", args.farmId).eq("status", "accepted")
+        )
+        .take(200),
+    ]);
+
+    // Gather IDs of recommendations already linked to tasks
+    const linkedRecIds = new Set(
+      allTasks
+        .filter((t) => t.linkedRecommendationId)
+        .map((t) => t.linkedRecommendationId as string)
+    );
+
+    // Filter out expired and already-linked recommendations
+    // Derive "now" from the caller-provided date to keep the query deterministic
+    const nowFromDate = new Date(today + "T23:59:59Z").getTime();
+    const unlinkedRecs = [...newRecs, ...acceptedRecs].filter(
+      (r) =>
+        !linkedRecIds.has(r._id as string) &&
+        (!r.expiresAt || r.expiresAt > nowFromDate)
+    );
+
+    // Build unified items from tasks
+    type UnifiedTask = {
+      kind: "task";
+      _id: Id<"tasks">;
+      type: string;
+      title: string;
+      source: string;
+      status: string;
+      priority: string;
+      dueDate?: string;
+      completed: boolean;
+      cropId?: Id<"crops">;
+      fieldId?: Id<"fields">;
+      plantedCropId?: Id<"plantedCrops">;
+      aiReasoning?: string;
+      linkedRecommendationId?: Id<"recommendations">;
+      effortMinutes?: number;
+      difficulty?: string;
+      requiredTools?: string[];
+      completedAt?: number;
+      skippedReason?: string;
+      description?: string;
+      aiConfidence?: string;
+      aiSourceSignals?: string[];
+      sortKey: number;
+    };
+
+    type UnifiedRecommendation = {
+      kind: "recommendation";
+      _id: Id<"recommendations">;
+      type: string;
+      title: string;
+      summary: string;
+      recommendedAction: string;
+      priority: string;
+      confidence: string;
+      reasoning: string;
+      sourceSignals: string[];
+      status: string;
+      relatedCropId?: Id<"crops">;
+      relatedFieldId?: Id<"fields">;
+      relatedPlantedCropId?: Id<"plantedCrops">;
+      createdAt: number;
+      sortKey: number;
+    };
+
+    type UnifiedItem = UnifiedTask | UnifiedRecommendation;
+
+    const items: UnifiedItem[] = [];
+
+    // Map tasks to unified items
+    for (const task of allTasks) {
+      const taskPriority = task.priority ?? "normal";
+      const taskStatus = task.status ?? (task.completed ? "completed" : "pending");
+
+      // Calculate sort key:
+      // 1) Priority bucket (urgent=0, high=1, normal=2, low=3) * 1000
+      // 2) Overdue tasks get a bonus of -500
+      // 3) Today's tasks get a bonus of -100
+      let sortKey = (PRIORITY_ORDER[taskPriority] ?? 2) * 1000;
+      if (task.dueDate) {
+        if (task.dueDate < today) sortKey -= 500; // overdue
+        else if (task.dueDate === today) sortKey -= 100; // due today
+      }
+
+      items.push({
+        kind: "task",
+        _id: task._id,
+        type: task.type,
+        title: task.title,
+        source: task.source ?? "manual",
+        status: taskStatus,
+        priority: taskPriority,
+        dueDate: task.dueDate,
+        completed: task.completed,
+        cropId: task.cropId,
+        fieldId: task.fieldId,
+        plantedCropId: task.plantedCropId,
+        aiReasoning: task.aiReasoning,
+        linkedRecommendationId: task.linkedRecommendationId,
+        effortMinutes: task.effortMinutes,
+        difficulty: task.difficulty,
+        requiredTools: task.requiredTools,
+        completedAt: task.completedAt,
+        skippedReason: task.skippedReason,
+        description: task.description,
+        aiConfidence: task.aiConfidence,
+        aiSourceSignals: task.aiSourceSignals,
+        sortKey,
+      });
+    }
+
+    // Map unlinked recommendations to unified items
+    for (const rec of unlinkedRecs) {
+      const mappedPriority = recPriorityToTaskPriority(rec.priority);
+      // Recommendations sort after same-priority tasks (add 500 offset)
+      const sortKey = (PRIORITY_ORDER[mappedPriority] ?? 2) * 1000 + 500;
+
+      items.push({
+        kind: "recommendation",
+        _id: rec._id,
+        type: rec.type,
+        title: rec.title,
+        summary: rec.summary,
+        recommendedAction: rec.recommendedAction,
+        priority: mappedPriority,
+        confidence: rec.confidence,
+        reasoning: rec.reasoning,
+        sourceSignals: rec.sourceSignals,
+        status: rec.status,
+        relatedCropId: rec.relatedCropId,
+        relatedFieldId: rec.relatedFieldId,
+        relatedPlantedCropId: rec.relatedPlantedCropId,
+        createdAt: rec.createdAt,
+        sortKey,
+      });
+    }
+
+    // Read-time backfill: enrich promoted tasks that are missing description
+    // (created before the schema added description/aiConfidence/aiSourceSignals)
+    const tasksNeedingBackfill = items.filter(
+      (item): item is UnifiedTask =>
+        item.kind === "task" &&
+        !!item.linkedRecommendationId &&
+        !item.description
+    );
+
+    if (tasksNeedingBackfill.length > 0) {
+      const recs = await Promise.all(
+        tasksNeedingBackfill.map((task) => ctx.db.get(task.linkedRecommendationId!))
+      );
+
+      for (let i = 0; i < tasksNeedingBackfill.length; i++) {
+        const rec = recs[i];
+        if (!rec) continue;
+
+        const task = tasksNeedingBackfill[i]!;
+        // Build description from summary + recommendedAction (same logic as promoteRecommendation)
+        const descriptionParts = [rec.summary];
+        if (rec.recommendedAction) {
+          descriptionParts.push(`建議行動：${rec.recommendedAction}`);
+        }
+        task.description = descriptionParts.join("\n\n");
+        task.aiConfidence = rec.confidence;
+        task.aiSourceSignals = rec.sourceSignals;
+      }
+    }
+
+    // Sort: lower sortKey first
+    items.sort((a, b) => a.sortKey - b.sortKey);
+
+    return items;
+  },
+});
+
+/**
+ * Promote a recommendation to a task.
+ * Creates a new task with source="ai_briefing", links back to the recommendation,
+ * and marks the recommendation as "accepted".
+ */
+export const promoteRecommendation = mutation({
+  args: {
+    recommendationId: v.id("recommendations"),
+    dueDate: v.optional(v.string()),
+    priority: v.optional(v.union(
+      v.literal("urgent"),
+      v.literal("high"),
+      v.literal("normal"),
+      v.literal("low"),
+    )),
+  },
+  handler: async (ctx, args) => {
+    const rec = await ctx.db.get(args.recommendationId);
+    if (!rec) throw new Error("找不到建議");
+    await requireFarmMembership(ctx, rec.farmId);
+
+    // Map recommendation type to task type
+    type RecommendationType = "care" | "harvest" | "weather" | "planning" | "pest" | "general";
+    type TaskType = "seeding" | "fertilizing" | "watering" | "pruning" | "harvesting" | "typhoon_prep" | "pest_control" | "general";
+    const typeMap: Record<RecommendationType, TaskType> = {
+      care: "general",
+      harvest: "harvesting",
+      weather: "typhoon_prep",
+      planning: "general",
+      pest: "pest_control",
+      general: "general",
+    };
+    const taskType: TaskType = typeMap[rec.type as RecommendationType] ?? "general";
+
+    // Map recommendation priority to task priority
+    const taskPriority = args.priority ?? recPriorityToTaskPriority(rec.priority);
+
+    // Determine due date: use provided, or default to today
+    const dueDate = args.dueDate ?? new Date().toISOString().split("T")[0]!;
+
+    // Build description from summary + recommendedAction
+    const descriptionParts = [rec.summary];
+    if (rec.recommendedAction) {
+      descriptionParts.push(`建議行動：${rec.recommendedAction}`);
+    }
+    const description = descriptionParts.join("\n\n");
+
+    const taskId = await ctx.db.insert("tasks", {
+      farmId: rec.farmId,
+      type: taskType,
+      title: rec.title,
+      cropId: rec.relatedCropId,
+      fieldId: rec.relatedFieldId,
+      plantedCropId: rec.relatedPlantedCropId,
+      dueDate,
+      completed: false,
+      source: "ai_briefing",
+      status: "pending",
+      priority: taskPriority,
+      aiReasoning: rec.reasoning,
+      description,
+      aiConfidence: rec.confidence,
+      aiSourceSignals: rec.sourceSignals,
+      linkedRecommendationId: args.recommendationId,
+    });
+
+    // Mark recommendation as accepted
+    await ctx.db.patch(args.recommendationId, { status: "accepted" });
+
+    return taskId;
+  },
+});
+
+/**
+ * Skip a task with an optional reason.
+ * Syncs back to the linked recommendation if one exists.
+ */
+export const skipTask = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("找不到任務");
+    await requireFarmMembership(ctx, task.farmId);
+
+    await ctx.db.patch(args.taskId, {
+      status: "skipped",
+      completed: false,
+      skippedReason: args.reason,
+    });
+
+    // Sync to linked recommendation
+    if (task.linkedRecommendationId) {
+      const rec = await ctx.db.get(task.linkedRecommendationId);
+      if (rec) {
+        await ctx.db.patch(task.linkedRecommendationId, {
+          status: "dismissed",
+          dismissReason: args.reason ?? "任務已跳過",
+        });
+      }
+    }
+  },
+});
+
+/**
+ * Enhanced complete: sets completedAt timestamp and syncs to recommendation.
+ */
+export const completeTask = mutation({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("找不到任務");
+    await requireFarmMembership(ctx, task.farmId);
+
+    await ctx.db.patch(args.taskId, {
+      completed: true,
+      status: "completed",
+      completedAt: Date.now(),
+    });
+
+    // Sync to linked recommendation
+    if (task.linkedRecommendationId) {
+      const rec = await ctx.db.get(task.linkedRecommendationId);
+      if (rec) {
+        await ctx.db.patch(task.linkedRecommendationId, { status: "completed" });
+      }
+    }
   },
 });
 

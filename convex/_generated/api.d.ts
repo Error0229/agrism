@@ -9,6 +9,7 @@
  */
 
 import type * as _helpers from "../_helpers.js";
+import type * as _taskPresets from "../_taskPresets.js";
 import type * as briefingContext from "../briefingContext.js";
 import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
@@ -16,6 +17,7 @@ import type * as cropGalleryLookup from "../cropGalleryLookup.js";
 import type * as cropImageLookup from "../cropImageLookup.js";
 import type * as cropImport from "../cropImport.js";
 import type * as crops from "../crops.js";
+import type * as dailyLogs from "../dailyLogs.js";
 import type * as dailyTaskGeneration from "../dailyTaskGeneration.js";
 import type * as dataTransfer from "../dataTransfer.js";
 import type * as farms from "../farms.js";
@@ -24,6 +26,7 @@ import type * as finance from "../finance.js";
 import type * as harvest from "../harvest.js";
 import type * as irrigationAdvice from "../irrigationAdvice.js";
 import type * as irrigationZones from "../irrigationZones.js";
+import type * as journal from "../journal.js";
 import type * as pestObservations from "../pestObservations.js";
 import type * as pestTriage from "../pestTriage.js";
 import type * as plannedPlantings from "../plannedPlantings.js";
@@ -42,6 +45,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
+  _taskPresets: typeof _taskPresets;
   briefingContext: typeof briefingContext;
   briefingGeneration: typeof briefingGeneration;
   cropEnrichment: typeof cropEnrichment;
@@ -49,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   cropImageLookup: typeof cropImageLookup;
   cropImport: typeof cropImport;
   crops: typeof crops;
+  dailyLogs: typeof dailyLogs;
   dailyTaskGeneration: typeof dailyTaskGeneration;
   dataTransfer: typeof dataTransfer;
   farms: typeof farms;
@@ -57,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   harvest: typeof harvest;
   irrigationAdvice: typeof irrigationAdvice;
   irrigationZones: typeof irrigationZones;
+  journal: typeof journal;
   pestObservations: typeof pestObservations;
   pestTriage: typeof pestTriage;
   plannedPlantings: typeof plannedPlantings;

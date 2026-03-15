@@ -1,0 +1,132 @@
+"use client";
+
+import { useMemo } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+
+/**
+ * Get today's date in YYYY-MM-DD format (client-side).
+ * Kept outside the hook so it can be used as a stable reference within a render.
+ */
+function getTodayISO(): string {
+  return new Date().toISOString().split("T")[0]!;
+}
+
+/**
+ * Unified task stream: fetches all tasks + pending recommendations
+ * merged into a single sorted list.
+ * Always passes today's date from the client to keep the Convex query deterministic.
+ */
+export function useUnifiedTasks(
+  farmId: Id<"farms"> | undefined,
+  date?: string,
+) {
+  const effectiveDate = date ?? getTodayISO();
+  return useQuery(
+    api.tasks.getUnifiedTasks,
+    farmId ? { farmId, date: effectiveDate } : "skip",
+  );
+}
+
+/**
+ * Promote a recommendation to a real task.
+ */
+export function usePromoteRecommendation() {
+  return useMutation(api.tasks.promoteRecommendation);
+}
+
+/**
+ * Skip a task with optional reason.
+ */
+export function useSkipTask() {
+  return useMutation(api.tasks.skipTask);
+}
+
+/**
+ * Complete a task (with timestamp + recommendation sync).
+ */
+export function useCompleteTask() {
+  return useMutation(api.tasks.completeTask);
+}
+
+// ---------------------------------------------------------------------------
+// Derived progress hook
+// ---------------------------------------------------------------------------
+
+export type DailyProgress = {
+  total: number;
+  completed: number;
+  skipped: number;
+  pending: number;
+  completedPercent: number;
+  remainingEffortMinutes: number;
+  urgentCount: number;
+};
+
+/**
+ * Shape of a unified item relevant to daily progress computation.
+ * Uses a specific union for `kind` instead of loose `string`.
+ */
+export interface DailyProgressItem {
+  kind: "task" | "recommendation";
+  status?: string;
+  priority?: string;
+  effortMinutes?: number;
+  dueDate?: string;
+  completed?: boolean;
+}
+
+/**
+ * Compute today's progress stats from the unified task list.
+ * Only counts "task" kind items (not unaccepted recommendations).
+ * Memoized to avoid recomputing on every render.
+ */
+export function useDailyProgress(
+  unifiedItems: DailyProgressItem[] | undefined,
+): DailyProgress | undefined {
+  return useMemo(() => {
+    if (!unifiedItems) return undefined;
+
+    const today = new Date().toISOString().split("T")[0]!;
+
+    // Only count actual tasks (not unaccepted recommendations), and only those due today or overdue
+    const todayTasks = unifiedItems.filter(
+      (item) =>
+        item.kind === "task" &&
+        item.dueDate &&
+        item.dueDate <= today,
+    );
+
+    const completed = todayTasks.filter(
+      (t) => t.status === "completed" || t.completed,
+    ).length;
+    const skipped = todayTasks.filter((t) => t.status === "skipped").length;
+    const pending = todayTasks.length - completed - skipped;
+    const total = todayTasks.length;
+
+    const remainingEffortMinutes = todayTasks
+      .filter(
+        (t) => t.status !== "completed" && t.status !== "skipped" && !t.completed,
+      )
+      .reduce((sum, t) => sum + (t.effortMinutes ?? 0), 0);
+
+    const urgentCount = todayTasks.filter(
+      (t) =>
+        t.priority === "urgent" &&
+        t.status !== "completed" &&
+        t.status !== "skipped" &&
+        !t.completed,
+    ).length;
+
+    return {
+      total,
+      completed,
+      skipped,
+      pending,
+      completedPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
+      remainingEffortMinutes,
+      urgentCount,
+    };
+  }, [unifiedItems]);
+}

@@ -26,6 +26,10 @@ export type SoilAmendment = Doc<"soilAmendments">;
 export type SoilNote = Doc<"soilNotes">;
 export type WeatherLog = Doc<"weatherLogs">;
 
+// --- Journal domain (issue #107) ---
+export type FieldJournalEntry = Doc<"fieldJournalEntries">;
+export type RegionJournalEntry = Doc<"regionJournalEntries">;
+
 // --- ID types ---
 export type FarmId = Id<"farms">;
 export type CropId = Id<"crops">;

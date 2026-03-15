@@ -2,42 +2,7 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 import { Doc, Id } from "./_generated/dataModel";
-
-// ---------------------------------------------------------------------------
-// Task effort/difficulty/tools presets (mirrored from tasks.ts)
-// ---------------------------------------------------------------------------
-
-type TaskPreset = {
-  effortMinutes: number;
-  difficulty: string;
-  requiredTools: string[];
-};
-
-const TASK_PRESETS: Record<string, TaskPreset> = {
-  seeding: { effortMinutes: 45, difficulty: "medium", requiredTools: ["手鏟"] },
-  fertilizing: {
-    effortMinutes: 30,
-    difficulty: "low",
-    requiredTools: ["施肥器"],
-  },
-  watering: { effortMinutes: 20, difficulty: "low", requiredTools: ["水管"] },
-  pruning: { effortMinutes: 35, difficulty: "medium", requiredTools: ["剪刀"] },
-  harvesting: {
-    effortMinutes: 60,
-    difficulty: "medium",
-    requiredTools: ["採收籃"],
-  },
-  typhoon_prep: {
-    effortMinutes: 90,
-    difficulty: "high",
-    requiredTools: ["綁繩", "支架"],
-  },
-  pest_control: {
-    effortMinutes: 50,
-    difficulty: "medium",
-    requiredTools: ["噴霧器"],
-  },
-};
+import { TASK_PRESETS } from "./_taskPresets";
 
 // ---------------------------------------------------------------------------
 // Date helpers
@@ -156,7 +121,7 @@ function checkWateringNeeds(
           zone.linkedRegionIds.length === 0 ||
           (plantedCrop.name &&
             zone.linkedRegionIds.includes(plantedCrop.name)) ||
-          zone.linkedRegionIds.includes(plantedCrop._id as string);
+          zone.linkedRegionIds.includes(String(plantedCrop._id));
 
         if (coversThisCrop && zone.lastWateredAt) {
           const lastWateredDate = timestampToISO(zone.lastWateredAt);
@@ -511,12 +476,21 @@ function checkSuccessionPlanting(
 // Duplicate detection helper
 // ---------------------------------------------------------------------------
 
+type DedupEntry = {
+  type: string;
+  plantedCropId?: Id<"plantedCrops">;
+  fieldId?: Id<"fields">;
+  title: string;
+  completed?: boolean;
+  dueDate?: string;
+};
+
 function isDuplicate(
   candidate: TaskCandidate,
-  existingTasks: Doc<"tasks">[],
+  existingEntries: DedupEntry[],
   today: string
 ): boolean {
-  return existingTasks.some((t) => {
+  return existingEntries.some((t) => {
     // Match by type
     if (t.type !== candidate.type) return false;
 
@@ -531,7 +505,9 @@ function isDuplicate(
       if (t.title !== candidate.title) return false;
     }
 
-    // If incomplete task exists → duplicate
+    // If incomplete entry exists → duplicate
+    // (TaskCandidate entries from the current batch have no `completed` field,
+    //  so they are treated as incomplete by default)
     if (!t.completed) return true;
 
     // If completed today → also skip
@@ -564,15 +540,16 @@ export const generateDailyTasks = mutation({
       return { generated: 0, skipped: 0, tasks: [] };
     }
 
-    // ----- 2. Fetch all planted crops across all fields -----
-    const allPlantedCrops: Doc<"plantedCrops">[] = [];
-    for (const field of fields) {
-      const fieldCrops = await ctx.db
-        .query("plantedCrops")
-        .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-        .collect();
-      allPlantedCrops.push(...fieldCrops);
-    }
+    // ----- 2. Fetch all planted crops across all fields (parallelized) -----
+    const allPlantedCropsNested = await Promise.all(
+      fields.map((field) =>
+        ctx.db
+          .query("plantedCrops")
+          .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
+          .collect()
+      )
+    );
+    const allPlantedCrops: Doc<"plantedCrops">[] = allPlantedCropsNested.flat();
 
     // Filter to status === "growing"
     const growingPlantedCrops = allPlantedCrops.filter(
@@ -580,15 +557,15 @@ export const generateDailyTasks = mutation({
     );
 
     // ----- 3. Batch-fetch crop data (dedup by cropId) -----
-    const cropIds = new Set<string>();
+    const cropIds = new Set<Id<"crops">>();
     for (const pc of growingPlantedCrops) {
-      if (pc.cropId) cropIds.add(pc.cropId as string);
+      if (pc.cropId) cropIds.add(pc.cropId);
     }
 
-    const cropMap = new Map<string, Doc<"crops">>();
+    const cropMap = new Map<Id<"crops">, Doc<"crops">>();
     await Promise.all(
       Array.from(cropIds).map(async (cropId) => {
-        const crop = await ctx.db.get(cropId as Id<"crops">);
+        const crop = await ctx.db.get(cropId);
         if (crop) cropMap.set(cropId, crop);
       })
     );
@@ -596,7 +573,7 @@ export const generateDailyTasks = mutation({
     // Build GrowingCropInfo array
     const growingCrops: GrowingCropInfo[] = growingPlantedCrops.map((pc) => ({
       plantedCrop: pc,
-      crop: pc.cropId ? (cropMap.get(pc.cropId as string) ?? null) : null,
+      crop: pc.cropId ? (cropMap.get(pc.cropId) ?? null) : null,
       fieldId: pc.fieldId,
     }));
 
@@ -665,8 +642,32 @@ export const generateDailyTasks = mutation({
     let skipped = 0;
     const generatedTasks: Array<{ type: string; title: string }> = [];
 
+    // Determine priority based on task type urgency
+    const typePriority = (type: string): "urgent" | "high" | "normal" | "low" => {
+      switch (type) {
+        case "typhoon_prep":
+          return "urgent";
+        case "watering":
+        case "harvesting":
+          return "high";
+        case "fertilizing":
+        case "pest_control":
+          return "normal";
+        case "pruning":
+        case "seeding":
+        default:
+          return "normal";
+      }
+    };
+
+    // Track candidates accepted in this batch so later candidates can dedup against them
+    const acceptedCandidates: TaskCandidate[] = [];
+
     for (const candidate of allCandidates) {
-      if (isDuplicate(candidate, allTasks, today)) {
+      if (
+        isDuplicate(candidate, allTasks, today) ||
+        isDuplicate(candidate, acceptedCandidates, today)
+      ) {
         skipped++;
         continue;
       }
@@ -685,24 +686,14 @@ export const generateDailyTasks = mutation({
         effortMinutes: preset?.effortMinutes,
         difficulty: preset?.difficulty,
         requiredTools: preset?.requiredTools,
+        // Unified Task Hub fields (issue #108)
+        source: "auto_rule" as const,
+        status: "pending" as const,
+        priority: typePriority(candidate.type),
       });
 
-      // Also add to allTasks so subsequent candidates can detect this new task as duplicate
-      allTasks.push({
-        _id: "" as Id<"tasks">,
-        _creationTime: Date.now(),
-        farmId: args.farmId,
-        type: candidate.type,
-        title: candidate.title,
-        cropId: candidate.cropId,
-        plantedCropId: candidate.plantedCropId,
-        fieldId: candidate.fieldId,
-        dueDate: candidate.dueDate,
-        completed: false,
-        effortMinutes: preset?.effortMinutes,
-        difficulty: preset?.difficulty,
-        requiredTools: preset?.requiredTools,
-      });
+      // Track this candidate for intra-batch dedup
+      acceptedCandidates.push(candidate);
 
       generated++;
       generatedTasks.push({ type: candidate.type, title: candidate.title });
