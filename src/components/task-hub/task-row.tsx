@@ -5,13 +5,20 @@ import { toast } from 'sonner'
 import { cn, sanitizeTaskTitle } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Check,
-  Sparkles,
   ChevronDown,
+  Sparkles,
   Clock,
   SkipForward,
   Lightbulb,
+  Plus,
   Droplets,
   Leaf,
   Scissors,
@@ -251,28 +258,8 @@ export function getTaskTheme(item: { type: string; title: string }): TaskTypeThe
 }
 
 // ---------------------------------------------------------------------------
-// Source badge
+// Source badge (used only in RecommendationRow now; TaskRow uses inline labels)
 // ---------------------------------------------------------------------------
-
-function SourceBadge({ source }: { source: string }) {
-  switch (source) {
-    case 'ai_briefing':
-      return (
-        <span className="text-[10px] text-stone-400 font-medium">AI</span>
-      )
-    case 'weather':
-      return (
-        <span className="text-[10px] text-stone-400 font-medium">天氣</span>
-      )
-    case 'auto_rule':
-      return (
-        <span className="text-[10px] text-stone-400 font-medium">自動</span>
-      )
-    // 'manual' -- no badge (noise reduction)
-    default:
-      return null
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Priority badge (larger, more visible)
@@ -318,9 +305,8 @@ export function TaskRow({
   onComplete,
   onSkip,
 }: TaskRowProps) {
-  const [showAiReasoning, setShowAiReasoning] = useState(false)
-  const [showSkipReasons, setShowSkipReasons] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [showAiReasoning, setShowAiReasoning] = useState(false)
 
   const isCompleted = item.status === 'completed' || item.completed
   const isSkipped = item.status === 'skipped'
@@ -354,7 +340,6 @@ export function TaskRow({
     } catch {
       toast.error('跳過任務失敗，請重試')
     }
-    setShowSkipReasons(false)
   }
 
   // Color strip on left edge per type
@@ -370,6 +355,14 @@ export function TaskRow({
   }
   const typeKey = getTaskTypeKey(item)
   const stripColor = stripColorMap[typeKey] ?? stripColorMap.default
+
+  // Confidence color for AI analysis
+  const confidenceColor = item.aiConfidence === 'high'
+    ? 'bg-emerald-100 text-emerald-700'
+    : item.aiConfidence === 'medium'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-rose-100 text-rose-700'
+  const confidenceLabel = item.aiConfidence === 'high' ? '高' : item.aiConfidence === 'medium' ? '中' : '低'
 
   return (
     <div
@@ -395,183 +388,183 @@ export function TaskRow({
       )}
 
       {/* Card body */}
-      <div className="px-2.5 py-2 pl-3">
-        {/* Top: type icon + title row */}
-        <div className="flex items-start gap-2.5">
-          {/* Type icon -- simple, no background box */}
-          <div className="flex size-5 shrink-0 items-center justify-center mt-0.5">
-            {isCompleted ? (
-              <Check className="size-4 text-emerald-500 stroke-[2.5]" />
-            ) : isSkipped ? (
-              <SkipForward className="size-3.5 text-stone-400" />
-            ) : (
-              <TypeIcon className={cn('size-4', theme.iconColor)} />
-            )}
-          </div>
-
-          {/* Title + context */}
-          <div className="flex-1 min-w-0">
-            <span className={cn(
-              'text-[13px] font-medium leading-snug line-clamp-2',
-              isCompleted && 'line-through text-muted-foreground',
-              isSkipped && 'line-through text-muted-foreground',
-            )}>
-              {sanitizeTaskTitle(item.title)}
-            </span>
-            {/* Context: field / crop */}
-            {(fieldName || cropName) && (
-              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                {fieldName}
-                {fieldName && cropName && ' · '}
-                {cropName}
-              </p>
-            )}
-            {/* Description (from promoted recommendations) */}
-            {item.description && (
-              <p className="text-[12px] text-muted-foreground mt-1 line-clamp-2 whitespace-pre-line">
-                {item.description}
-              </p>
-            )}
-          </div>
-
-          {/* Checkbox button -- top-right */}
-          {!isCompleted && !isSkipped && (
-            <button
-              type="button"
+      <div className="flex items-start gap-2 px-2.5 py-2 pl-3">
+        {/* LEFT: Action buttons - ButtonGroup */}
+        {!isCompleted && !isSkipped && (
+          <ButtonGroup className="shrink-0 self-start mt-0.5 gap-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className={cn(
+                'size-7',
+                completing ? 'bg-emerald-50 border-emerald-400' : 'hover:border-emerald-400 hover:bg-emerald-50',
+              )}
               onClick={handleComplete}
-              className="relative flex shrink-0 items-center justify-center min-w-[28px] min-h-[28px] -m-0.5 mt-[-1px]"
+              title="完成"
               aria-label="完成任務"
             >
-              <span
-                className={cn(
-                  'flex size-[20px] items-center justify-center rounded-full border-[1.5px] transition-all duration-200',
-                  'border-stone-400 hover:border-emerald-400 hover:bg-emerald-50 active:scale-90',
-                  completing && 'scale-110 border-emerald-400 bg-emerald-100',
-                )}
-              >
-                {completing && <Check className="size-3 text-emerald-500 stroke-[2.5]" />}
-              </span>
-            </button>
-          )}
-
-          {/* Skip button -- top-right corner */}
-          {!isCompleted && !isSkipped && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-6 shrink-0 text-stone-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-all -mt-0.5 -mr-1"
-              onClick={() => setShowSkipReasons(!showSkipReasons)}
-              title="跳過"
-            >
-              <SkipForward className="size-3" />
+              <Check className={cn(
+                'size-3.5 transition-colors',
+                completing ? 'text-emerald-500' : 'text-stone-300 hover:text-emerald-500',
+              )} />
             </Button>
-          )}
-        </div>
-
-        {/* Badges row */}
-        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-          <PriorityBadge priority={item.priority} />
-          <SourceBadge source={item.source} />
-          {item.effortMinutes && !isCompleted && !isSkipped && (
-            <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
-              <Clock className="size-3" />
-              {item.effortMinutes}分
-            </span>
-          )}
-          {isOverdue && item.dueDate && (
-            <Badge className="text-[11px] px-1.5 py-0 bg-rose-100 text-rose-700 border-rose-200 font-semibold">
-              逾期
-            </Badge>
-          )}
-        </div>
-
-        {/* Completed timestamp */}
-        {isCompleted && item.completedAt && (
-          <p className="text-[11px] text-emerald-600 mt-1.5 font-medium">
-            完成於 {new Date(item.completedAt).toLocaleTimeString('zh-TW', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </p>
-        )}
-
-        {/* Skipped reason */}
-        {isSkipped && item.skippedReason && (
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            跳過原因：{item.skippedReason}
-          </p>
-        )}
-
-        {/* AI reasoning toggle */}
-        {item.aiReasoning && !isCompleted && !isSkipped && (
-          <button
-            type="button"
-            onClick={() => setShowAiReasoning(!showAiReasoning)}
-            className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-700 mt-2 transition-colors"
-          >
-            <ChevronDown
-              className={cn(
-                'size-3 transition-transform duration-200',
-                showAiReasoning && 'rotate-180',
-              )}
-            />
-            {showAiReasoning ? '收合' : 'AI 分析'}
-          </button>
-        )}
-
-        {/* AI reasoning expanded */}
-        {showAiReasoning && item.aiReasoning && (
-          <div className="mt-2 rounded-lg bg-stone-50 border border-stone-200 p-2 text-[11px] space-y-1.5">
-            <div className="flex items-start gap-1.5">
-              <Sparkles className="size-3 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-stone-700">{item.aiReasoning}</p>
-            </div>
-            {item.aiConfidence && (
-              <div className="flex items-center gap-1.5 pl-[18px]">
-                <span className="font-medium text-muted-foreground">信心度：</span>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    'text-[10px] px-1.5 py-0',
-                    item.aiConfidence === 'high' && 'bg-emerald-100 text-emerald-700',
-                    item.aiConfidence === 'medium' && 'bg-amber-100 text-amber-700',
-                    item.aiConfidence === 'low' && 'bg-rose-100 text-rose-700',
-                  )}
+            <ButtonGroupSeparator />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-7 text-stone-400 hover:text-orange-500 hover:border-orange-300 hover:bg-orange-50"
+                  title="跳過"
+                  aria-label="跳過任務"
                 >
-                  {item.aiConfidence === 'high' ? '高' : item.aiConfidence === 'medium' ? '中' : '低'}
-                </Badge>
-              </div>
-            )}
-            {item.aiSourceSignals && item.aiSourceSignals.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1 pl-[18px]">
-                <span className="font-medium text-muted-foreground">依據：</span>
-                {item.aiSourceSignals.map((signal) => (
-                  <Badge key={signal} variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {translateSignal(signal)}
-                  </Badge>
-                ))}
-              </div>
-            )}
+                  <SkipForward className="size-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-auto p-2" sideOffset={4}>
+                <p className="text-[11px] text-muted-foreground mb-1.5 px-1">跳過原因</p>
+                <div className="flex flex-col gap-0.5">
+                  {SKIP_REASONS.map((reason) => (
+                    <button
+                      key={reason.value}
+                      type="button"
+                      onClick={() => handleSkipWithReason(reason.value)}
+                      className="text-left text-[12px] px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors whitespace-nowrap"
+                    >
+                      {reason.label}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </ButtonGroup>
+        )}
+
+        {/* Completed state indicator - LEFT side */}
+        {isCompleted && (
+          <div className="flex items-center justify-center size-7 shrink-0 self-start mt-0.5">
+            <div className="flex size-4.5 items-center justify-center rounded border-[1.5px] border-emerald-400 bg-emerald-100">
+              <Check className="size-2.5 text-emerald-500 stroke-[2.5]" />
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Skip reason pills -- slides out from card bottom */}
-      {showSkipReasons && (
-        <div className="flex flex-wrap gap-1.5 px-3 pb-2.5 pt-2 border-t border-inherit">
-          <span className="text-[11px] text-muted-foreground mr-0.5">原因：</span>
-          {SKIP_REASONS.map((reason) => (
-            <button
-              key={reason.value}
-              type="button"
-              onClick={() => handleSkipWithReason(reason.value)}
-              className="text-[11px] px-2 py-0.5 rounded-full border hover:bg-accent transition-colors"
-            >
-              {reason.label}
-            </button>
-          ))}
+        {/* Skipped state indicator - LEFT side */}
+        {isSkipped && (
+          <div className="flex items-center justify-center size-7 shrink-0 self-start mt-0.5">
+            <SkipForward className="size-3.5 text-stone-400" />
+          </div>
+        )}
+
+        {/* CENTER: Main content - takes full remaining width */}
+        <div className="flex-1 min-w-0">
+          {/* Row 1: Title + Priority badge (top-right for balance) */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <TypeIcon className={cn('size-4 shrink-0', theme.iconColor)} />
+              <h4 className={cn(
+                'text-sm font-medium truncate',
+                isCompleted && 'line-through text-muted-foreground',
+                isSkipped && 'line-through text-muted-foreground',
+              )}>
+                {sanitizeTaskTitle(item.title)}
+              </h4>
+              {item.source === 'ai_briefing' && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0 rounded-full shrink-0 font-medium">AI</span>
+              )}
+              {item.source === 'weather' && (
+                <span className="text-[10px] text-sky-600 bg-sky-50 px-1.5 py-0 rounded-full shrink-0 font-medium">天氣</span>
+              )}
+              {item.source === 'auto_rule' && (
+                <span className="text-[10px] text-violet-600 bg-violet-50 px-1.5 py-0 rounded-full shrink-0 font-medium">自動</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isOverdue && item.dueDate && (
+                <Badge className="text-[10px] px-1.5 py-0 bg-rose-100 text-rose-700 border-rose-200 font-semibold">
+                  逾期
+                </Badge>
+              )}
+              <PriorityBadge priority={item.priority} />
+            </div>
+          </div>
+
+          {/* Row 2: Description - fills the card body */}
+          {item.description && (
+            <p className="text-xs text-stone-600 mt-1 line-clamp-2 whitespace-pre-line">
+              {item.description}
+            </p>
+          )}
+
+          {/* Row 3: AI Analysis (foldable, default collapsed) */}
+          {item.aiReasoning && !isCompleted && !isSkipped && (
+            <div className="mt-1">
+              <button
+                type="button"
+                onClick={() => setShowAiReasoning(!showAiReasoning)}
+                className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                <Sparkles className="size-3 text-amber-400" />
+                <ChevronDown className={cn("size-3 transition-transform", showAiReasoning && "rotate-180")} />
+              </button>
+              {showAiReasoning && (
+                <div className="mt-1 rounded-md bg-stone-50 px-2.5 py-2 text-xs text-stone-600 leading-relaxed">
+                  <div className="flex items-start gap-1.5">
+                    <Sparkles className="size-3 text-amber-500 shrink-0 mt-0.5" />
+                    <span>{item.aiReasoning}</span>
+                  </div>
+                  {(item.aiConfidence || (item.aiSourceSignals && item.aiSourceSignals.length > 0)) && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pt-1.5 border-t border-stone-200">
+                      {item.aiConfidence && (
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', confidenceColor)}>
+                          信心：{confidenceLabel}
+                        </span>
+                      )}
+                      {item.aiSourceSignals?.map((signal) => (
+                        <span key={signal} className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                          {translateSignal(signal)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Completed timestamp */}
+          {isCompleted && item.completedAt && (
+            <p className="text-[11px] text-emerald-600 mt-1.5 font-medium">
+              完成於 {new Date(item.completedAt).toLocaleTimeString('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
+          )}
+
+          {/* Skipped reason */}
+          {isSkipped && item.skippedReason && (
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              跳過原因：{item.skippedReason}
+            </p>
+          )}
+
+          {/* Row 4: Bottom metadata — only if there's content */}
+          {(fieldName || cropName || (item.effortMinutes && !isCompleted && !isSkipped)) && (
+            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-stone-500">
+              {(fieldName || cropName) && (
+                <span>{[fieldName, cropName].filter(Boolean).join(' · ')}</span>
+              )}
+              {item.effortMinutes && !isCompleted && !isSkipped && (
+                <span className="flex items-center gap-0.5">
+                  <Clock className="size-3" />
+                  {item.effortMinutes}分
+                </span>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -590,93 +583,99 @@ export function RecommendationRow({
 }: RecommendationRowProps) {
   const [showReasoning, setShowReasoning] = useState(false)
 
-  const confidenceLabel =
-    item.confidence === 'high' ? '高信心' :
-    item.confidence === 'medium' ? '中信心' : '低信心'
+  const confidenceColor = item.confidence === 'high'
+    ? 'bg-emerald-100 text-emerald-700'
+    : item.confidence === 'medium'
+      ? 'bg-amber-100 text-amber-700'
+      : 'bg-rose-100 text-rose-700'
+  const confidenceLabel = item.confidence === 'high' ? '高' : item.confidence === 'medium' ? '中' : '低'
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-white px-2.5 py-2 space-y-2 transition-all hover:shadow-md hover:border-stone-300">
+    <div className="group relative overflow-hidden rounded-xl border border-amber-200 bg-white transition-all hover:shadow-md hover:border-amber-300">
       {/* Left color strip -- amber for AI suggestions */}
       <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-amber-400" />
 
-      {/* Top: icon + title + badges */}
-      <div className="flex items-start gap-2.5 pl-0.5">
-        <div className="flex size-5 shrink-0 items-center justify-center mt-0.5">
-          <Lightbulb className="size-4 text-amber-500" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[13px] font-medium">{item.title}</span>
-            <span className="text-[10px] text-stone-400 font-medium">AI</span>
-            <PriorityBadge priority={item.priority} />
+      {/* Card body */}
+      <div className="px-3 py-2 pl-3.5">
+        {/* Row 1: Icon + Title + badges */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Lightbulb className="size-4 shrink-0 text-amber-500" />
+            <h4 className="text-sm font-medium truncate">{item.title}</h4>
+            <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0 rounded-full shrink-0 font-medium">AI</span>
           </div>
-          {(fieldName || cropName) && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {fieldName}
-              {fieldName && cropName && ' · '}
-              {cropName}
-            </p>
-          )}
-          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{item.summary}</p>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <PriorityBadge priority={item.priority} />
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', confidenceColor)}>
+              {confidenceLabel}
+            </span>
+          </div>
         </div>
+
+        {/* Row 2: Summary */}
+        <p className="text-xs text-stone-600 mt-1 line-clamp-2">{item.summary}</p>
+
+        {/* Row 3: AI reasoning (foldable, default collapsed) */}
+        {item.reasoning && (
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setShowReasoning(!showReasoning)}
+              className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              <Sparkles className="size-3 text-amber-400" />
+              <ChevronDown className={cn("size-3 transition-transform", showReasoning && "rotate-180")} />
+            </button>
+            {showReasoning && (
+              <div className="mt-1 rounded-md bg-stone-50 px-2.5 py-2 text-xs text-stone-600 leading-relaxed">
+                <div className="flex items-start gap-1.5">
+                  <Sparkles className="size-3 text-amber-500 shrink-0 mt-0.5" />
+                  <span>{item.reasoning}</span>
+                </div>
+                {item.recommendedAction && (
+                  <div className="flex items-start gap-1.5 mt-1.5 pt-1.5 border-t border-stone-200">
+                    <span className="text-[11px] font-medium text-stone-500 shrink-0">建議：</span>
+                    <span className="text-[11px]">{item.recommendedAction}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 4: Metadata — only if there's content */}
+        {(fieldName || cropName || item.sourceSignals.length > 0) && (
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-stone-500">
+            {(fieldName || cropName) && (
+              <span>{[fieldName, cropName].filter(Boolean).join(' · ')}</span>
+            )}
+            {item.sourceSignals.length > 0 && (
+              <div className="flex items-center gap-1">
+                {item.sourceSignals.map((signal) => (
+                  <span key={signal} className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                    {translateSignal(signal)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Reasoning toggle */}
-      <button
-        type="button"
-        onClick={() => setShowReasoning(!showReasoning)}
-        className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-700 transition-colors pl-0.5"
-      >
-        <ChevronDown
-          className={cn(
-            'size-3 transition-transform duration-200',
-            showReasoning && 'rotate-180',
-          )}
-        />
-        {showReasoning ? '收合分析' : '展開 AI 分析'}
-      </button>
-
-      {/* Expanded reasoning */}
-      {showReasoning && (
-        <div className="rounded-lg bg-stone-50 border border-stone-150 p-2.5 text-xs space-y-1.5 ml-0.5">
-          <div>
-            <span className="font-medium text-muted-foreground">建議行動：</span>
-            <span>{item.recommendedAction}</span>
-          </div>
-          <div>
-            <span className="font-medium text-muted-foreground">分析原因：</span>
-            <span>{item.reasoning}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="font-medium text-muted-foreground">信心度：</span>
-            <span>{confidenceLabel}</span>
-          </div>
-          {item.sourceSignals.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {item.sourceSignals.map((signal) => (
-                <Badge key={signal} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {translateSignal(signal)}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-2 pl-0.5">
+      {/* Footer: Action buttons — visually distinct from task actions */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-stone-100">
         <Button
           size="sm"
-          className="h-7 text-xs gap-1 bg-stone-800 hover:bg-stone-900 text-white"
+          className="h-6 text-[11px] gap-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full"
           onClick={() => onPromote(item._id)}
         >
-          <Check className="size-3" />
+          <Plus className="size-3" />
           加入待辦
         </Button>
         <Button
           size="sm"
-          variant="outline"
-          className="h-7 text-xs gap-1"
+          variant="ghost"
+          className="h-6 text-[11px] gap-1 px-2 text-stone-500 hover:text-stone-700 rounded-full"
           onClick={() => onSnooze(item._id)}
         >
           <Clock className="size-3" />
@@ -684,7 +683,7 @@ export function RecommendationRow({
         </Button>
         <button
           type="button"
-          className="h-7 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="h-6 text-[11px] text-stone-400 hover:text-stone-600 transition-colors ml-auto"
           onClick={() => onDismiss(item._id)}
         >
           忽略
