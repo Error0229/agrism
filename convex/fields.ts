@@ -211,6 +211,15 @@ export const listSummary = query({
             plantedDate: pc.plantedDate,
             customGrowthDays: pc.customGrowthDays,
             growthDays: crop?.growthDays ?? 0,
+            // Lifecycle fields (issue #110)
+            stage: pc.stage,
+            lifecycleType: pc.lifecycleType,
+            stageConfidence: pc.stageConfidence,
+            timelineConfidence: pc.timelineConfidence,
+            estimatedAgeDays: pc.estimatedAgeDays,
+            endWindowEarliest: pc.endWindowEarliest,
+            endWindowLatest: pc.endWindowLatest,
+            stageUpdatedAt: pc.stageUpdatedAt,
           };
         }),
       };
