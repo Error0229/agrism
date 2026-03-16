@@ -278,6 +278,32 @@ export function HarvestAnalytics({ logs, cropMap, fieldMap }: HarvestAnalyticsPr
     )
   }
 
+  // --- Filtered-empty state (logs exist but date range excludes all) ---
+  if (filtered.length === 0 && logs.length > 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <BarChart3 className="mb-4 h-10 w-10 text-muted-foreground/30" />
+          <p className="text-muted-foreground">此時間範圍內無收穫紀錄，請嘗試調整日期範圍</p>
+          <div className="mt-3">
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATE_RANGE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Date Range Filter */}
@@ -487,7 +513,7 @@ export function HarvestAnalytics({ logs, cropMap, fieldMap }: HarvestAnalyticsPr
                           <span className="flex items-center gap-2">
                             <span>{name}</span>
                             <span className="font-mono font-medium tabular-nums">
-                              {typeof value === 'number' ? value : value} 筆
+                              {value} 筆
                             </span>
                           </span>
                         )}

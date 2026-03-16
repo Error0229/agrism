@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
 import type { Id } from '../../../../../convex/_generated/dataModel'
 import { useHarvestLogs, useCreateHarvestLog, useDeleteHarvestLog } from '@/hooks/use-harvest'
@@ -45,8 +45,10 @@ import { HarvestAnalytics } from '@/components/analytics/harvest-analytics'
 export default function HarvestRecordsPage() {
   const farmId = useFarmId()
   const logs = useHarvestLogs(farmId)
-  const crops = useCrops(farmId) ?? []
-  const fields = useFields(farmId) ?? []
+  const cropsData = useCrops(farmId)
+  const fieldsData = useFields(farmId)
+  const crops = useMemo(() => cropsData ?? [], [cropsData])
+  const fields = useMemo(() => fieldsData ?? [], [fieldsData])
   const createLog = useCreateHarvestLog()
   const deleteLog = useDeleteHarvestLog()
   const isLoading = logs === undefined
@@ -65,8 +67,8 @@ export default function HarvestRecordsPage() {
     notes: '',
   })
 
-  const cropMap = new Map<string, string>(crops.map((c) => [c._id, c.name]))
-  const fieldMap = new Map<string, string>(fields.map((f) => [f._id, f.name]))
+  const cropMap = useMemo(() => new Map<string, string>(crops.map((c) => [c._id, c.name])), [crops])
+  const fieldMap = useMemo(() => new Map<string, string>(fields.map((f) => [f._id, f.name])), [fields])
 
   function resetForm() {
     setForm({

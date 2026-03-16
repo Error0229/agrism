@@ -151,14 +151,14 @@ function HarvestCountdown({
 
     if (daysUntil <= 0) {
       return (
-        <span className="text-emerald-600 font-semibold text-[10px]">
+        <span className="text-emerald-600 font-semibold text-[11px]">
           可採收
         </span>
       )
     }
 
     return (
-      <span className="text-[10px] text-stone-500">
+      <span className="text-[11px] text-stone-500">
         <span className="text-stone-400">預計</span>{" "}
         <span className="font-medium text-stone-600 tabular-nums">
           {earlyStr}
@@ -177,14 +177,14 @@ function HarvestCountdown({
 
     if (remaining <= 0) {
       return (
-        <span className="text-emerald-600 font-semibold text-[10px]">
+        <span className="text-emerald-600 font-semibold text-[11px]">
           可採收
         </span>
       )
     }
 
     return (
-      <span className="text-amber-600 font-medium text-[10px] tabular-nums">
+      <span className="text-amber-600 font-medium text-[11px] tabular-nums">
         {remaining} 天後收成
       </span>
     )
@@ -249,7 +249,7 @@ function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
               {entry.cropName}
             </span>
           </div>
-          <p className="text-[10px] text-stone-400 truncate">
+          <p className="text-[11px] text-stone-400 truncate">
             {entry.fieldName}
           </p>
         </div>
@@ -261,7 +261,7 @@ function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
           <Badge
             variant="secondary"
             className={cn(
-              "text-[10px] px-1.5 py-0 h-[18px] font-medium border-0",
+              "text-[11px] px-1.5 py-0 h-[18px] font-medium border-0",
               STAGE_COLORS[stage] ?? "bg-stone-100 text-stone-600",
             )}
           >
@@ -269,7 +269,7 @@ function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
           </Badge>
         )}
         {entry.lifecycleType && LIFECYCLE_TYPE_SHORT_LABELS[entry.lifecycleType] && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-stone-400">
+          <span className="inline-flex items-center gap-0.5 text-[11px] text-stone-400">
             <LifecycleTypeIcon type={entry.lifecycleType} />
             {LIFECYCLE_TYPE_SHORT_LABELS[entry.lifecycleType]}
           </span>
@@ -282,7 +282,7 @@ function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
       {/* Row 4: Days + Harvest countdown */}
       <div className="flex items-center justify-between">
         {daysSincePlanted !== null ? (
-          <span className="text-[10px] text-stone-400 flex items-center gap-0.5">
+          <span className="text-[11px] text-stone-400 flex items-center gap-0.5">
             <Clock className="size-2.5" />
             第 {daysSincePlanted} 天
           </span>

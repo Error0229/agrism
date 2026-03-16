@@ -211,12 +211,20 @@ export default function DashboardPage() {
       }
 
       // Refresh weather data too
-      fetchWithRetry('/api/weather', { retries: 2, timeoutMs: 10_000 })
-        .then((res) => res.json())
-        .then((data) => { if (data) setWeather(data) })
-        .catch(() => null)
+      let weatherFailed = false
+      try {
+        const res = await fetchWithRetry('/api/weather', { retries: 2, timeoutMs: 10_000 })
+        const data = await res.json()
+        if (data) setWeather(data)
+      } catch {
+        weatherFailed = true
+      }
 
-      toast.success('農務資料已更新')
+      if (weatherFailed) {
+        toast.warning('部分資料更新失敗')
+      } else {
+        toast.success('農務資料已更新')
+      }
     } catch {
       toast.error('部分更新失敗，請稍後重試')
     } finally {
