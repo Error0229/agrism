@@ -39,6 +39,8 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, Wheat } from 'lucide-react'
 import { toast } from 'sonner'
+import { QueryErrorBoundary } from '@/components/query-error-boundary'
+import { HarvestAnalytics } from '@/components/analytics/harvest-analytics'
 
 export default function HarvestRecordsPage() {
   const farmId = useFarmId()
@@ -115,6 +117,26 @@ export default function HarvestRecordsPage() {
           新增收成
         </Button>
       </div>
+
+      {/* Harvest Analytics Section */}
+      {!isLoading && (
+        <QueryErrorBoundary>
+          <HarvestAnalytics
+            logs={(logs ?? []).map((l) => ({
+              _id: l._id,
+              date: l.date,
+              cropId: l.cropId ?? undefined,
+              fieldId: l.fieldId ?? undefined,
+              quantity: l.quantity,
+              unit: l.unit,
+              qualityGrade: l.qualityGrade ?? undefined,
+              notes: l.notes ?? undefined,
+            }))}
+            cropMap={cropMap}
+            fieldMap={fieldMap}
+          />
+        </QueryErrorBoundary>
+      )}
 
       {isLoading ? (
         <div className="overflow-x-auto rounded-md border">
