@@ -31,8 +31,17 @@ import {
 // Re-export for any existing consumers
 export { LIFECYCLE_TYPE_LABELS, STAGE_LABELS };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PlantedCropData = any;
+interface PlantedCropData {
+  _id: Id<"plantedCrops">;
+  plantedDate?: string;
+  customGrowthDays?: number;
+  stage?: string;
+  startDateMode?: "exact" | "range" | "relative" | "unknown";
+  estimatedAgeDays?: number;
+  endWindowEarliest?: number;
+  endWindowLatest?: number;
+  timelineConfidence?: "high" | "medium" | "low";
+}
 
 const START_DATE_MODE_LABELS: Record<string, string> = {
   exact: "確切日期",

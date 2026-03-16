@@ -8,17 +8,23 @@ const HUALIEN_LAT = 23.99;
 const HUALIEN_LON = 121.60;
 
 export async function GET() {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-
   try {
-    const { data, fallbackUsed, providerErrors } = await getWeatherData({
+    const weatherPromise = getWeatherData({
       latitude: HUALIEN_LAT,
       longitude: HUALIEN_LON,
       timezone: "Asia/Taipei",
       forecastDays: 7,
       historyDays: 3,
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new DOMException("Weather request timed out", "TimeoutError")), 10_000)
+    );
+
+    const { data, fallbackUsed, providerErrors } = await Promise.race([
+      weatherPromise,
+      timeoutPromise,
+    ]);
 
     const alerts = buildSevereWeatherAlerts({
       current: {
@@ -37,8 +43,6 @@ export async function GET() {
       providerErrors,
       forecastPoints: data.forecast.length,
     });
-
-    clearTimeout(timeout);
 
     return NextResponse.json({
       current: {
@@ -86,8 +90,7 @@ export async function GET() {
       alerts,
     });
   } catch (error) {
-    clearTimeout(timeout);
-    const isTimeout = error instanceof DOMException && error.name === "AbortError";
+    const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
     console.error("Weather API error:", error);
     return NextResponse.json(
       {

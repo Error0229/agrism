@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import React, { useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -197,7 +197,7 @@ function HarvestCountdown({
 // Single crop card
 // ---------------------------------------------------------------------------
 
-function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
+const CropLifecycleCard = React.memo(function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
   const stage = entry.stage
   const hasLowConfidence =
     entry.stageConfidence === "low" || entry.timelineConfidence === "low"
@@ -293,7 +293,7 @@ function CropLifecycleCard({ entry }: { entry: GrowingEntry }) {
       </div>
     </div>
   )
-}
+})
 
 // ---------------------------------------------------------------------------
 // Loading skeleton card
