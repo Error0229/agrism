@@ -22,39 +22,17 @@ import {
 } from "@/components/ui/select";
 import { useUpdatePlantedCropLifecycle } from "@/hooks/use-fields";
 import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  LIFECYCLE_TYPE_LABELS,
+  STAGE_LABELS,
+  STAGE_COLORS,
+} from "@/lib/constants/lifecycle";
+
+// Re-export for any existing consumers
+export { LIFECYCLE_TYPE_LABELS, STAGE_LABELS };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PlantedCropData = any;
-
-// --- Label maps ---
-
-export const LIFECYCLE_TYPE_LABELS: Record<string, string> = {
-  seasonal: "短期季節作物",
-  long_cycle: "長期作物",
-  perennial: "多年生",
-  orchard: "果園",
-};
-
-export const STAGE_LABELS: Record<string, string> = {
-  seedling: "幼苗期",
-  vegetative: "營養生長期",
-  flowering: "開花期",
-  fruiting: "結果期",
-  harvest_ready: "可採收",
-  dormant: "休眠",
-  declining: "衰退",
-};
-
-// Stage color mapping for the pill indicator
-const STAGE_COLORS: Record<string, string> = {
-  seedling: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400",
-  vegetative: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  flowering: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400",
-  fruiting: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  harvest_ready: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  dormant: "bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400",
-  declining: "bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400",
-};
 
 const START_DATE_MODE_LABELS: Record<string, string> = {
   exact: "確切日期",
