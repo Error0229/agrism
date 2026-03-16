@@ -28,15 +28,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "缺少 messages 參數" }, { status: 400 });
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
   try {
     const result = streamText({
       model: openrouter("openai/gpt-4o"),
       system: systemPrompt + (context ? `\n\n使用者目前的種植資料:\n${context}` : ""),
       messages: await convertToModelMessages(messages),
+      abortSignal: controller.signal,
     });
 
+    clearTimeout(timeout);
     return result.toUIMessageStreamResponse();
-  } catch {
-    return NextResponse.json({ error: "AI 服務暫時無法使用，請稍後再試" }, { status: 500 });
+  } catch (error) {
+    clearTimeout(timeout);
+    const isTimeout = error instanceof DOMException && error.name === "AbortError";
+    return NextResponse.json(
+      {
+        error: isTimeout ? "AI 回應逾時，請稍後再試" : "AI 服務暫時無法使用，請稍後再試",
+        code: isTimeout ? "TIMEOUT" : "AI_ERROR",
+      },
+      { status: isTimeout ? 504 : 500 }
+    );
   }
 }

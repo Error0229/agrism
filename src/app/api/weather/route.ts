@@ -8,6 +8,9 @@ const HUALIEN_LAT = 23.99;
 const HUALIEN_LON = 121.60;
 
 export async function GET() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
   try {
     const { data, fallbackUsed, providerErrors } = await getWeatherData({
       latitude: HUALIEN_LAT,
@@ -34,6 +37,8 @@ export async function GET() {
       providerErrors,
       forecastPoints: data.forecast.length,
     });
+
+    clearTimeout(timeout);
 
     return NextResponse.json({
       current: {
@@ -81,10 +86,15 @@ export async function GET() {
       alerts,
     });
   } catch (error) {
+    clearTimeout(timeout);
+    const isTimeout = error instanceof DOMException && error.name === "AbortError";
     console.error("Weather API error:", error);
     return NextResponse.json(
-      { error: "無法取得天氣資料" },
-      { status: 500 }
+      {
+        error: isTimeout ? "天氣服務逾時，請稍後再試" : "無法取得天氣資料",
+        code: isTimeout ? "TIMEOUT" : "FETCH_FAILED",
+      },
+      { status: isTimeout ? 504 : 500 }
     );
   }
 }
