@@ -9,6 +9,7 @@ import { CropImportReview } from '@/components/crops/crop-import-review'
 import { CropAvatar } from '@/components/crops/crop-avatar'
 import { CropImageAttribution } from '@/components/crops/crop-image-attribution'
 import { CropGallery } from '@/components/crops/crop-gallery'
+import { QuickPlantDialog } from '@/components/crops/quick-plant-dialog'
 import { useEnrichCrop } from '@/hooks/use-crop-enrichment'
 import { useCropFieldsSuitabilities } from '@/hooks/use-suitability'
 import { resolveCropMedia } from '@/lib/crops/media'
@@ -252,9 +253,11 @@ const STATUS_ICON: Record<string, { icon: string; color: string }> = {
 function FieldSuitabilitySection({
   cropId,
   farmId,
+  onQuickPlant,
 }: {
   cropId: Id<'crops'>
   farmId: Id<'farms'>
+  onQuickPlant?: (fieldId: string, fieldName: string) => void
 }) {
   const results = useCropFieldsSuitabilities(cropId, farmId)
 
@@ -291,9 +294,20 @@ function FieldSuitabilitySection({
             <div key={item.fieldId} className="rounded-lg border bg-muted/20 px-3 py-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium">{item.fieldName}</span>
-                <Badge className={cn('text-[11px] px-1.5 py-0 border-0', SCORE_STYLES[item.score])}>
-                  {SCORE_LABELS[item.score] ?? item.score}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {item.score === 'recommended' && onQuickPlant && (
+                    <button
+                      onClick={() => onQuickPlant(item.fieldId, item.fieldName)}
+                      className="flex items-center gap-0.5 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+                    >
+                      <Sprout className="size-2.5" />
+                      種植
+                    </button>
+                  )}
+                  <Badge className={cn('text-[11px] px-1.5 py-0 border-0', SCORE_STYLES[item.score])}>
+                    {SCORE_LABELS[item.score] ?? item.score}
+                  </Badge>
+                </div>
               </div>
               {/* Constraint pills */}
               {item.constraints.length > 0 && (
@@ -346,6 +360,8 @@ export default function CropDetailPage({
   const isReviewMode = searchParams.get('review') === 'true'
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [quickPlantOpen, setQuickPlantOpen] = useState(false)
+  const [quickPlantFieldId, setQuickPlantFieldId] = useState<Id<'fields'> | undefined>(undefined)
 
   if (crop === undefined) {
     return (
@@ -392,6 +408,8 @@ export default function CropDetailPage({
   const plantingMonths = crop.plantingMonths ?? []
   const media = resolveCropMedia(crop)
   const harvestMonths = crop.harvestMonths ?? []
+  const currentMonth = new Date().getMonth() + 1
+  const canPlantNow = plantingMonths.includes(currentMonth)
   const hasCalendar = plantingMonths.length > 0 || harvestMonths.length > 0
   const hasEnvironment = crop.tempMin != null || crop.sunlight || crop.humidityMin != null || crop.windSensitivity || crop.droughtTolerance || crop.waterloggingTolerance
   const hasSoil = crop.soilPhMin != null || crop.soilType || crop.fertilityDemand || crop.fertilizerType || crop.commonDeficiencies?.length
@@ -532,6 +550,23 @@ export default function CropDetailPage({
                 </TooltipTrigger>
                 <TooltipContent>資料完整度 {completeness}%</TooltipContent>
               </Tooltip>
+
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => {
+                  setQuickPlantFieldId(undefined)
+                  setQuickPlantOpen(true)
+                }}
+              >
+                <Sprout className="size-3.5" />
+                快速種植
+                {canPlantNow && (
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-emerald-500/20 text-white border-0 ml-0.5">
+                    本月適合播種
+                  </Badge>
+                )}
+              </Button>
 
               <div className="flex gap-1.5">
                 <Button
@@ -1170,7 +1205,14 @@ export default function CropDetailPage({
 
         {/* ===== FIELD SUITABILITY ===== */}
         {crop.farmId && (
-          <FieldSuitabilitySection cropId={crop._id} farmId={crop.farmId} />
+          <FieldSuitabilitySection
+            cropId={crop._id}
+            farmId={crop.farmId}
+            onQuickPlant={(fieldId, _fieldName) => {
+              setQuickPlantFieldId(fieldId as Id<'fields'>)
+              setQuickPlantOpen(true)
+            }}
+          />
         )}
 
         {/* ===== AI ENRICHMENT META ===== */}
@@ -1184,6 +1226,15 @@ export default function CropDetailPage({
         )}
 
         </>}
+
+        {/* Quick plant dialog */}
+        <QuickPlantDialog
+          cropId={crop._id}
+          cropName={crop.name}
+          open={quickPlantOpen}
+          onOpenChange={setQuickPlantOpen}
+          preselectedFieldId={quickPlantFieldId}
+        />
       </div>
     </TooltipProvider>
   )

@@ -41,8 +41,10 @@ import type {
 import { cn } from '@/lib/utils'
 import { AddCropDialog } from '@/components/crops/add-crop-dialog'
 import { SmartAddDialog } from '@/components/crops/smart-add-dialog'
+import { QuickPlantDialog } from '@/components/crops/quick-plant-dialog'
 import { CropAvatar } from '@/components/crops/crop-avatar'
 import { resolveCropMedia } from '@/lib/crops/media'
+import type { Id } from '../../../../convex/_generated/dataModel'
 
 const ALL_CATEGORIES = Object.values(CropCategory) as string[]
 
@@ -61,6 +63,7 @@ export default function CropsPage() {
   const [category, setCategory] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [smartDialogOpen, setSmartDialogOpen] = useState(false)
+  const [quickPlantCrop, setQuickPlantCrop] = useState<{ id: string; name: string } | null>(null)
 
   const filtered = useMemo(() => {
     if (!crops) return []
@@ -176,7 +179,11 @@ export default function CropsPage() {
         {!isLoading && filtered.length > 0 && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((crop) => (
-              <CropCard key={crop._id} crop={crop} />
+              <CropCard
+                key={crop._id}
+                crop={crop}
+                onQuickPlant={(id, name) => setQuickPlantCrop({ id, name })}
+              />
             ))}
           </div>
         )}
@@ -194,6 +201,18 @@ export default function CropsPage() {
           open={smartDialogOpen}
           onOpenChange={setSmartDialogOpen}
         />
+
+        {/* Quick plant dialog */}
+        {quickPlantCrop && (
+          <QuickPlantDialog
+            cropId={quickPlantCrop.id as Id<'crops'>}
+            cropName={quickPlantCrop.name}
+            open={!!quickPlantCrop}
+            onOpenChange={(open) => {
+              if (!open) setQuickPlantCrop(null)
+            }}
+          />
+        )}
       </div>
     </TooltipProvider>
   )
@@ -223,7 +242,7 @@ interface CropCardData {
   lastAiEnriched?: number | null
 }
 
-function CropCard({ crop }: { crop: CropCardData }) {
+function CropCard({ crop, onQuickPlant }: { crop: CropCardData; onQuickPlant?: (id: string, name: string) => void }) {
   const media = resolveCropMedia(crop)
   const plantingMonths = crop.plantingMonths ?? []
   const harvestMonths = crop.harvestMonths ?? []
@@ -367,6 +386,28 @@ function CropCard({ crop }: { crop: CropCardData }) {
             </div>
           )}
         </div>
+
+        {/* Quick plant button — only when plantable now */}
+        {canPlantNow && onQuickPlant && (
+          <div className="absolute bottom-3 right-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onQuickPlant(crop._id, crop.name)
+                  }}
+                  className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+                >
+                  <Sprout className="size-3" />
+                  快速種植
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>將此作物種植到田區</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
 
         {/* AI enriched indicator */}
         {crop.lastAiEnriched && (
