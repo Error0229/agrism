@@ -371,6 +371,161 @@ export const getCropCareContext = query({
 });
 
 // ---------------------------------------------------------------------------
+// Rotation Validation (issue #117 — Smart Planting Validation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Checks whether planting a given crop in a field would violate rotation rules.
+ * Looks at previously harvested/removed crops in the field and compares their
+ * rotationFamily + harvestedDate against the candidate crop's rotation requirements.
+ *
+ * Returns null if the crop has no rotationFamily, otherwise returns violation info.
+ */
+export const checkRotationViolation = query({
+  args: {
+    fieldId: v.id("fields"),
+    cropId: v.id("crops"),
+  },
+  handler: async (ctx, { fieldId, cropId }) => {
+    const field = await ctx.db.get(fieldId);
+    if (!field) return null;
+    await requireFarmMembership(ctx, field.farmId);
+
+    const crop = await ctx.db.get(cropId);
+    if (!crop) return null;
+    if (!crop.rotationFamily) return null;
+
+    const rotationYears = crop.rotationYears ?? 3;
+    const today = new Date();
+
+    // Fetch all past plantings (harvested or removed) in this field
+    const pastPlantings = await ctx.db
+      .query("plantedCrops")
+      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+      .take(500);
+
+    // Filter to harvested/removed with a harvestedDate
+    const relevantPlantings = pastPlantings.filter(
+      (pc) =>
+        (pc.status === "harvested" || pc.status === "removed") &&
+        pc.harvestedDate &&
+        pc.cropId,
+    );
+
+    // Batch-fetch all related crops
+    const cropIdSet = new Set<string>();
+    for (const pc of relevantPlantings) {
+      if (pc.cropId) cropIdSet.add(pc.cropId as string);
+    }
+    const cropMap = new Map<string, { name: string; rotationFamily?: string }>();
+    await Promise.all(
+      Array.from(cropIdSet).map(async (cid) => {
+        const c = await ctx.db.get(cid as Id<"crops">);
+        if (c) cropMap.set(cid, { name: c.name, rotationFamily: c.rotationFamily });
+      }),
+    );
+
+    // Check for violations
+    const violations: Array<{
+      cropName: string;
+      rotationFamily: string;
+      yearsAgo: number;
+      requiredYears: number;
+    }> = [];
+
+    for (const pc of relevantPlantings) {
+      if (!pc.cropId || !pc.harvestedDate) continue;
+      const pastCrop = cropMap.get(pc.cropId as string);
+      if (!pastCrop?.rotationFamily) continue;
+      if (pastCrop.rotationFamily !== crop.rotationFamily) continue;
+
+      const harvestedDate = new Date(pc.harvestedDate + "T00:00:00");
+      const diffMs = today.getTime() - harvestedDate.getTime();
+      const yearsAgo = Math.round((diffMs / (1000 * 60 * 60 * 24 * 365)) * 10) / 10;
+
+      if (yearsAgo < rotationYears) {
+        violations.push({
+          cropName: pastCrop.name,
+          rotationFamily: crop.rotationFamily,
+          yearsAgo: Math.round(yearsAgo * 10) / 10,
+          requiredYears: rotationYears,
+        });
+      }
+    }
+
+    return {
+      hasViolation: violations.length > 0,
+      violations,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Companion/Antagonist Check (issue #117 — Smart Planting Validation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Checks which companion and antagonist plants are currently growing in the
+ * same field as the given planted crop. Cross-references neighbor crop names
+ * against the crop's companionPlants / antagonistPlants arrays.
+ */
+export const checkCompanionStatus = query({
+  args: {
+    plantedCropId: v.id("plantedCrops"),
+  },
+  handler: async (ctx, { plantedCropId }) => {
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) return null;
+
+    await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
+
+    // We need the crop to check its companion/antagonist lists
+    if (!pc.cropId) return { companions: [], antagonists: [] };
+    const crop = await ctx.db.get(pc.cropId);
+    if (!crop) return { companions: [], antagonists: [] };
+
+    const companionList = crop.companionPlants ?? [];
+    const antagonistList = crop.antagonistPlants ?? [];
+    if (companionList.length === 0 && antagonistList.length === 0) {
+      return { companions: [], antagonists: [] };
+    }
+
+    // Fetch all growing crops in the same field (excluding self)
+    const allPlantedInField = await ctx.db
+      .query("plantedCrops")
+      .withIndex("by_fieldId", (q) => q.eq("fieldId", pc.fieldId))
+      .take(200);
+
+    const neighbors = allPlantedInField.filter(
+      (n) => n._id !== plantedCropId && n.status === "growing" && n.cropId,
+    );
+
+    // Batch-fetch neighbor crop names
+    const neighborCropIdSet = new Set<string>();
+    for (const n of neighbors) {
+      if (n.cropId) neighborCropIdSet.add(n.cropId as string);
+    }
+    const neighborCropNames: string[] = [];
+    await Promise.all(
+      Array.from(neighborCropIdSet).map(async (cid) => {
+        const c = await ctx.db.get(cid as Id<"crops">);
+        if (c) neighborCropNames.push(c.name);
+      }),
+    );
+
+    // Cross-reference
+    const companions = companionList.filter((name) =>
+      neighborCropNames.includes(name),
+    );
+    const antagonists = antagonistList.filter((name) =>
+      neighborCropNames.includes(name),
+    );
+
+    return { companions, antagonists };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Field CRUD
 // ---------------------------------------------------------------------------
 

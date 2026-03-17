@@ -4,8 +4,17 @@ import { useState } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+
+const ROTATION_FAMILY_LABELS: Record<string, string> = {
+  brassica: '十字花科',
+  solanaceae: '茄科',
+  cucurbit: '瓜科',
+  legume: '豆科',
+  allium: '蔥蒜科',
+  root: '根莖類',
+}
 import { useFarmId } from '@/hooks/use-farm-id'
-import { useFieldsSummary } from '@/hooks/use-fields'
+import { useFieldsSummary, useCheckRotationViolation } from '@/hooks/use-fields'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Sprout, CheckCircle2 } from 'lucide-react'
+import { Loader2, Sprout, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface QuickPlantDialogProps {
@@ -56,6 +65,12 @@ export function QuickPlantDialog({
     preselectedFieldId ?? ''
   )
   const [isPending, setIsPending] = useState(false)
+
+  // Rotation validation (issue #117)
+  const rotationCheck = useCheckRotationViolation(
+    selectedFieldId ? (selectedFieldId as Id<'fields'>) : undefined,
+    cropId,
+  )
 
   // Reset selection when dialog opens with a preselected field
   const handleOpenChange = (nextOpen: boolean) => {
@@ -205,6 +220,21 @@ export function QuickPlantDialog({
               <div className="text-sm">
                 <span className="text-muted-foreground">日期：</span>
                 <span className="font-medium">{today}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Rotation violation warning (issue #117) */}
+          {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+                <p className="font-medium">輪作警告</p>
+                {rotationCheck.violations.map((v, i) => (
+                  <p key={i}>
+                    此田區 {v.yearsAgo} 年前種過{v.cropName}（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+                  </p>
+                ))}
               </div>
             </div>
           )}

@@ -5,6 +5,7 @@ import { Search, CalendarRange, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCrops } from "@/hooks/use-crops";
+import { useCheckRotationViolation } from "@/hooks/use-fields";
 import { useCropFieldSuitability, useFieldCropSuitabilities } from "@/hooks/use-suitability";
 import type { CellContext } from "./season-board";
 import {
@@ -234,6 +235,12 @@ export function PlanCropDialog({
 
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Server-side rotation validation (issue #117)
+  const rotationCheck = useCheckRotationViolation(
+    fieldId,
+    selectedCropId ? (selectedCropId as Id<"crops">) : undefined,
+  );
 
   // Reset form state when dialog opens with new context
   React.useEffect(() => {
@@ -654,15 +661,27 @@ export function PlanCropDialog({
                   fieldId={fieldId}
                 />
               )}
-              {/* Rotation family warning */}
-              {rotationWarning && (
+              {/* Rotation family warning — server-side check (issue #117) */}
+              {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 ? (
+                <div className="flex items-start gap-1.5 rounded-md border border-amber-300/60 bg-amber-50/50 px-2.5 py-1.5 dark:border-amber-700/40 dark:bg-amber-950/20">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="text-[11px] text-amber-700 dark:text-amber-400 space-y-0.5">
+                    <p className="font-medium">輪作警告</p>
+                    {rotationCheck.violations.map((v, i) => (
+                      <p key={i}>
+                        此田區 {v.yearsAgo} 年前種過{v.cropName}（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : rotationWarning ? (
                 <div className="flex items-center gap-1.5 rounded-md border border-amber-300/60 bg-amber-50/50 px-2.5 py-1.5 dark:border-amber-700/40 dark:bg-amber-950/20">
                   <AlertTriangle className="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
                   <span className="text-[11px] text-amber-700 dark:text-amber-400">
                     {rotationWarning}
                   </span>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Start window */}
