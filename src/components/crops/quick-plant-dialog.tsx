@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Component, useState, type ReactNode } from 'react'
 import { useMutation } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
@@ -15,6 +15,24 @@ const ROTATION_FAMILY_LABELS: Record<string, string> = {
 }
 import { useFarmId } from '@/hooks/use-farm-id'
 import { useFieldsSummary, useCheckRotationViolation } from '@/hooks/use-fields'
+
+// Error boundary — silently hides rotation check on failure (non-critical)
+class RotationErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  render() {
+    if (this.state.hasError) return null
+    return this.props.children
+  }
+}
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,6 +52,35 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Sprout, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+
+// Extracted rotation warning — isolated so errors don't crash the dialog
+function RotationWarning({
+  fieldId,
+  cropId,
+}: {
+  fieldId: Id<'fields'>
+  cropId: Id<'crops'>
+}) {
+  const rotationCheck = useCheckRotationViolation(fieldId, cropId)
+
+  if (!rotationCheck?.hasViolation || rotationCheck.violations.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+      <div className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+        <p className="font-medium">輪作警告</p>
+        {rotationCheck.violations.map((v, i) => (
+          <p key={i}>
+            此田區 {v.yearsAgo} 年前種過{v.cropName}（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 interface QuickPlantDialogProps {
   cropId: Id<'crops'>
@@ -65,12 +112,6 @@ export function QuickPlantDialog({
     preselectedFieldId ?? ''
   )
   const [isPending, setIsPending] = useState(false)
-
-  // Rotation validation (issue #117)
-  const rotationCheck = useCheckRotationViolation(
-    selectedFieldId ? (selectedFieldId as Id<'fields'>) : undefined,
-    cropId,
-  )
 
   // Reset selection when dialog opens with a preselected field
   const handleOpenChange = (nextOpen: boolean) => {
@@ -224,19 +265,14 @@ export function QuickPlantDialog({
             </div>
           )}
 
-          {/* Rotation violation warning (issue #117) */}
-          {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
-                <p className="font-medium">輪作警告</p>
-                {rotationCheck.violations.map((v, i) => (
-                  <p key={i}>
-                    此田區 {v.yearsAgo} 年前種過{v.cropName}（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
-                  </p>
-                ))}
-              </div>
-            </div>
+          {/* Rotation violation warning (issue #117) — wrapped in error boundary */}
+          {selectedFieldId && (
+            <RotationErrorBoundary>
+              <RotationWarning
+                fieldId={selectedFieldId as Id<'fields'>}
+                cropId={cropId}
+              />
+            </RotationErrorBoundary>
           )}
         </div>
 
