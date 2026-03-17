@@ -11,7 +11,7 @@ export const buildFarmContext = internalQuery({
     const fields = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(50);
 
     // Get all planted crops for all fields
     const allPlantedCrops = (
@@ -20,7 +20,7 @@ export const buildFarmContext = internalQuery({
           ctx.db
             .query("plantedCrops")
             .withIndex("by_fieldId", (q) => q.eq("fieldId", f._id))
-            .collect()
+            .take(200)
         )
       )
     ).flat();
@@ -68,20 +68,20 @@ export const buildFarmContext = internalQuery({
       .withIndex("by_farmId_date", (q) =>
         q.eq("farmId", farmId).gte("date", sevenDaysAgoStr)
       )
-      .collect();
+      .take(200);
     recentWeather.sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
 
     // Get active tasks (use compound index to fetch only incomplete tasks)
     const pendingTasks = await ctx.db
       .query("tasks")
       .withIndex("by_farmId_completed", (q) => q.eq("farmId", farmId).eq("completed", false))
-      .collect();
+      .take(200);
 
     // Get planned plantings
     const plans = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(200);
     const activePlans = plans.filter((p) => p.planningState !== "cancelled");
 
     // Get recent dismissed/snoozed recommendations (last 30 days) using index
@@ -89,10 +89,10 @@ export const buildFarmContext = internalQuery({
     const [dismissedRecs, snoozedRecs] = await Promise.all([
       ctx.db.query("recommendations")
         .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "dismissed"))
-        .collect(),
+        .take(200),
       ctx.db.query("recommendations")
         .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "snoozed"))
-        .collect(),
+        .take(200),
     ]);
     const recentFeedback = [...dismissedRecs, ...snoozedRecs]
       .filter((r) => r.createdAt >= thirtyDaysAgo)

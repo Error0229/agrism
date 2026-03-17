@@ -13,7 +13,7 @@ export const list = query({
     const results = await ctx.db
       .query("pestObservations")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
     return results.sort((a, b) => b.observedAt - a.observedAt);
   },
 });
@@ -27,7 +27,7 @@ export const listByCrop = query({
     const results = await ctx.db
       .query("pestObservations")
       .withIndex("by_cropId", (q) => q.eq("cropId", args.cropId))
-      .collect();
+      .take(200);
     return results.sort((a, b) => b.observedAt - a.observedAt);
   },
 });

@@ -10,7 +10,7 @@ export const list = query({
     const results = await ctx.db
       .query("weatherLogs")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     return results.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
   },

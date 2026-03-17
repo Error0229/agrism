@@ -45,13 +45,13 @@ async function buildFieldOccupancy(
   const plantedCrops = await ctx.db
     .query("plantedCrops")
     .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-    .collect();
+    .take(200);
 
   // Fetch planned plantings (non-cancelled)
   const plannedPlantings = await ctx.db
     .query("plannedPlantings")
     .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-    .collect();
+    .take(200);
   const activePlans = plannedPlantings.filter(
     (p) => p.planningState !== "cancelled",
   );
@@ -171,7 +171,7 @@ export const getByField = query({
     const rows = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     // Filter out cancelled
     return rows.filter((r) => r.planningState !== "cancelled");
   },
@@ -184,7 +184,7 @@ export const getByFarm = query({
     const rows = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(200);
     return rows.filter((r) => r.planningState !== "cancelled");
   },
 });
@@ -267,7 +267,7 @@ export const getSuccessionChain = query({
     const allPlans = await ctx.db
       .query("plannedPlantings")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     const activePlans = allPlans.filter((p) => p.planningState !== "cancelled");
 
     // Build chain: find all plans linked to this plantedCropId via predecessor links
@@ -907,7 +907,7 @@ export const create = mutation({
       const existingPlans = await ctx.db
         .query("plannedPlantings")
         .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
-        .collect();
+        .take(200);
 
       if (plantedCrop && plantedCrop.fieldId === args.fieldId) {
         // Found a matching plantedCrop — check if it's not perennial

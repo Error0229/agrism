@@ -10,7 +10,7 @@ export const list = query({
     const results = await ctx.db
       .query("harvestLogs")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     // Sort by date desc in memory
     return results.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
@@ -32,6 +32,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.quantity <= 0) throw new Error("收穫數量必須大於零");
     await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("harvestLogs", args);
   },

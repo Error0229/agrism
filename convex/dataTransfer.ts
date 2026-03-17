@@ -23,13 +23,13 @@ export const exportFarmData = query({
       financeRecords,
       weatherLogs,
     ] = await Promise.all([
-      ctx.db.query("crops").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("cropTemplates").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("fields").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("tasks").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("harvestLogs").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("financeRecords").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
-      ctx.db.query("weatherLogs").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).collect(),
+      ctx.db.query("crops").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("cropTemplates").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("fields").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("tasks").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("harvestLogs").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("financeRecords").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
+      ctx.db.query("weatherLogs").withIndex("by_farmId", (q) => q.eq("farmId", args.farmId)).take(1000),
     ]);
 
     // Fetch child records for templates
@@ -38,7 +38,7 @@ export const exportFarmData = query({
       const items = await ctx.db
         .query("cropTemplateItems")
         .withIndex("by_templateId", (q) => q.eq("templateId", template._id))
-        .collect();
+        .take(1000);
       cropTemplateItems.push(...items);
     }
 
@@ -52,12 +52,12 @@ export const exportFarmData = query({
 
     for (const field of fields) {
       const [pcs, facs, nodes, edges, amendments, notes] = await Promise.all([
-        ctx.db.query("plantedCrops").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
-        ctx.db.query("facilities").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
-        ctx.db.query("utilityNodes").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
-        ctx.db.query("utilityEdges").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
-        ctx.db.query("soilAmendments").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
-        ctx.db.query("soilNotes").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).collect(),
+        ctx.db.query("plantedCrops").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
+        ctx.db.query("facilities").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
+        ctx.db.query("utilityNodes").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
+        ctx.db.query("utilityEdges").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
+        ctx.db.query("soilAmendments").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
+        ctx.db.query("soilNotes").withIndex("by_fieldId", (q) => q.eq("fieldId", field._id)).take(1000),
       ]);
       plantedCrops.push(...pcs);
       facilities.push(...facs);

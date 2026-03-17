@@ -534,7 +534,7 @@ export const generateDailyTasks = mutation({
     const fields = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(50);
 
     if (fields.length === 0) {
       return { generated: 0, skipped: 0, tasks: [] };
@@ -546,7 +546,7 @@ export const generateDailyTasks = mutation({
         ctx.db
           .query("plantedCrops")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-          .collect()
+          .take(200)
       )
     );
     const allPlantedCrops: Doc<"plantedCrops">[] = allPlantedCropsNested.flat();
@@ -583,7 +583,7 @@ export const generateDailyTasks = mutation({
       .withIndex("by_farmId_completed", (q) =>
         q.eq("farmId", args.farmId).eq("completed", false)
       )
-      .collect();
+      .take(500);
 
     // Also fetch recently completed tasks (today) for dedup of same-day completions
     const completedTasks = await ctx.db
@@ -601,7 +601,7 @@ export const generateDailyTasks = mutation({
     const irrigationZones = await ctx.db
       .query("irrigationZones")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     // ----- 6. Fetch recent weather logs (last 7 days) using date index -----
     const sevenDaysAgoDate = new Date();
@@ -613,7 +613,7 @@ export const generateDailyTasks = mutation({
       .withIndex("by_farmId_date", (q) =>
         q.eq("farmId", args.farmId).gte("date", sevenDaysAgo)
       )
-      .collect();
+      .take(200);
 
     // ----- 7. Fetch planned plantings for the farm (bounded) -----
     const plannedPlantings = await ctx.db

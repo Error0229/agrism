@@ -44,7 +44,7 @@ export const listAmendments = query({
     const results = await ctx.db
       .query("soilAmendments")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
-      .collect();
+      .take(200);
 
     return results.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
   },
@@ -60,6 +60,7 @@ export const createAmendment = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.quantity <= 0) throw new Error("用量必須大於零");
     const field = await ctx.db.get(args.fieldId);
     if (!field) throw new Error("找不到田區");
     await requireFarmMembership(ctx, field.farmId);
@@ -93,7 +94,7 @@ export const listNotes = query({
     const results = await ctx.db
       .query("soilNotes")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", args.fieldId))
-      .collect();
+      .take(200);
 
     return results.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
   },

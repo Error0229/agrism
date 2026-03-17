@@ -14,10 +14,10 @@ export const getActive = query({
     const [newRecs, acceptedRecs] = await Promise.all([
       ctx.db.query("recommendations")
         .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "new"))
-        .collect(),
+        .take(200),
       ctx.db.query("recommendations")
         .withIndex("by_farmId_status", (q) => q.eq("farmId", farmId).eq("status", "accepted"))
-        .collect(),
+        .take(200),
     ]);
 
     return [...newRecs, ...acceptedRecs]

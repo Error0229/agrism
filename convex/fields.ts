@@ -28,7 +28,7 @@ export const list = query({
     const rows = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(50);
 
     // Fetch all sub-entities per field in parallel
     const fieldSubEntities = await Promise.all(
@@ -38,19 +38,19 @@ export const list = query({
             ctx.db
               .query("plantedCrops")
               .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-              .collect(),
+              .take(200),
             ctx.db
               .query("facilities")
               .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-              .collect(),
+              .take(200),
             ctx.db
               .query("utilityNodes")
               .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-              .collect(),
+              .take(200),
             ctx.db
               .query("utilityEdges")
               .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-              .collect(),
+              .take(200),
           ]);
         return { field, plantedCrops, facilities, utilityNodes, utilityEdges };
       })
@@ -99,19 +99,19 @@ export const getById = query({
         ctx.db
           .query("plantedCrops")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-          .collect(),
+          .take(200),
         ctx.db
           .query("facilities")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-          .collect(),
+          .take(200),
         ctx.db
           .query("utilityNodes")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-          .collect(),
+          .take(200),
         ctx.db
           .query("utilityEdges")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-          .collect(),
+          .take(200),
       ]);
 
     // Batch-fetch all unique crop IDs to avoid N+1
@@ -149,7 +149,7 @@ export const listSummary = query({
     const fields = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(50);
 
     // Fetch all planted crops across all fields
     const fieldPlantedCrops = await Promise.all(
@@ -157,7 +157,7 @@ export const listSummary = query({
         ctx.db
           .query("plantedCrops")
           .withIndex("by_fieldId", (q) => q.eq("fieldId", field._id))
-          .collect()
+          .take(200)
       )
     );
     const allPlantedCrops = fieldPlantedCrops.flat();
@@ -387,6 +387,8 @@ export const create = mutation({
     windExposure: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.widthM <= 0) throw new Error("田地寬度必須大於零");
+    if (args.heightM <= 0) throw new Error("田地高度必須大於零");
     await requireFarmMembership(ctx, args.farmId);
     const fieldId = await ctx.db.insert("fields", {
       farmId: args.farmId,
@@ -416,6 +418,8 @@ export const update = mutation({
     windExposure: v.optional(v.string()),
   },
   handler: async (ctx, { fieldId, ...patch }) => {
+    if (patch.widthM !== undefined && patch.widthM <= 0) throw new Error("田地寬度必須大於零");
+    if (patch.heightM !== undefined && patch.heightM <= 0) throw new Error("田地高度必須大於零");
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, fieldId));
     // Filter out undefined values
     const updates: Record<string, unknown> = {};
@@ -449,7 +453,7 @@ export const remove = mutation({
     const edges = await ctx.db
       .query("utilityEdges")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     for (const edge of edges) {
       await ctx.db.delete(edge._id);
     }
@@ -458,7 +462,7 @@ export const remove = mutation({
     const nodes = await ctx.db
       .query("utilityNodes")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     for (const node of nodes) {
       await ctx.db.delete(node._id);
     }
@@ -467,7 +471,7 @@ export const remove = mutation({
     const facs = await ctx.db
       .query("facilities")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     for (const fac of facs) {
       await ctx.db.delete(fac._id);
     }
@@ -476,7 +480,7 @@ export const remove = mutation({
     const planted = await ctx.db
       .query("plantedCrops")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
     for (const pc of planted) {
       await ctx.db.delete(pc._id);
     }
@@ -848,7 +852,7 @@ export const deleteUtilityNode = mutation({
     const fromEdges = await ctx.db
       .query("utilityEdges")
       .withIndex("by_fromNodeId", (q) => q.eq("fromNodeId", nodeId))
-      .collect();
+      .take(200);
     for (const edge of fromEdges) {
       await ctx.db.delete(edge._id);
     }
@@ -856,7 +860,7 @@ export const deleteUtilityNode = mutation({
     const toEdges = await ctx.db
       .query("utilityEdges")
       .withIndex("by_toNodeId", (q) => q.eq("toNodeId", nodeId))
-      .collect();
+      .take(200);
     for (const edge of toEdges) {
       await ctx.db.delete(edge._id);
     }

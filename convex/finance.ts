@@ -10,7 +10,7 @@ export const list = query({
     const results = await ctx.db
       .query("financeRecords")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     // Sort by date desc in memory
     return results.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
@@ -29,6 +29,7 @@ export const create = mutation({
     relatedCropId: v.optional(v.id("crops")),
   },
   handler: async (ctx, args) => {
+    if (args.amount <= 0) throw new Error("金額必須大於零");
     await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("financeRecords", args);
   },
@@ -52,7 +53,7 @@ export const getSummary = query({
     const records = await ctx.db
       .query("financeRecords")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     let totalIncome = 0;
     let totalExpense = 0;

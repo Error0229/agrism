@@ -23,7 +23,7 @@ export const list = query({
     let results = await ctx.db
       .query("tasks")
       .withIndex("by_farmId", (q) => q.eq("farmId", args.farmId))
-      .collect();
+      .take(200);
 
     if (args.fieldId !== undefined) {
       results = results.filter((t) => t.fieldId === args.fieldId);
@@ -86,6 +86,7 @@ export const create = mutation({
     linkedRecommendationId: v.optional(v.id("recommendations")),
   },
   handler: async (ctx, args) => {
+    if (args.title.trim() === "") throw new Error("任務標題不可為空");
     await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("tasks", {
       ...args,
@@ -781,7 +782,7 @@ export const removeByPlantedCrop = mutation({
     const farmTasks = await ctx.db
       .query("tasks")
       .withIndex("by_farmId", (q) => q.eq("farmId", field.farmId))
-      .collect();
+      .take(500);
     const toDelete = farmTasks.filter((t) => t.plantedCropId === args.plantedCropId);
     for (const task of toDelete) {
       await ctx.db.delete(task._id);

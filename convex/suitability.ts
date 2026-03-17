@@ -288,7 +288,7 @@ export const evaluateFieldCrops = query({
     const crops = await ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(500);
 
     return crops.map((crop) => ({
       cropId: crop._id,
@@ -310,7 +310,7 @@ export const evaluateCropFields = query({
     const fields = await ctx.db
       .query("fields")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(50);
 
     return fields.map((field) => ({
       fieldId: field._id,
