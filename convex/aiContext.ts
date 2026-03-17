@@ -1,5 +1,7 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { requireFarmMembership } from "./_helpers";
 
 export const buildChatContext = query({
@@ -44,13 +46,9 @@ export const buildChatContext = query({
     >();
     await Promise.all(
       [...cropIdSet].map(async (cropId) => {
-        const crop = await ctx.db.get(cropId as never);
+        const crop = await ctx.db.get(cropId as Id<"crops">);
         if (crop) {
-          const c = crop as {
-            name: string;
-            lifecycleType?: string;
-            growthDays?: number;
-          };
+          const c = crop as Doc<"crops">;
           cropMap.set(cropId, {
             name: c.name,
             lifecycleType: c.lifecycleType,
@@ -76,9 +74,9 @@ export const buildChatContext = query({
       [...cropIdSet]
         .filter((id) => !cropMap.has(id))
         .map(async (cropId) => {
-          const crop = await ctx.db.get(cropId as never);
+          const crop = await ctx.db.get(cropId as Id<"crops">);
           if (crop) {
-            const c = crop as { name: string; lifecycleType?: string; growthDays?: number };
+            const c = crop as Doc<"crops">;
             cropMap.set(cropId, { name: c.name, lifecycleType: c.lifecycleType, growthDays: c.growthDays });
           }
         })

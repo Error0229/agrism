@@ -397,6 +397,7 @@ export const checkRotationViolation = query({
     if (!crop.rotationFamily) return null;
 
     const rotationYears = crop.rotationYears ?? 3;
+    // Convex queries are deterministic at the transaction level; new Date() is acceptable here
     const today = new Date();
 
     // Fetch all past plantings (harvested or removed) in this field
@@ -604,41 +605,45 @@ export const remove = mutation({
   handler: async (ctx, { fieldId }) => {
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, fieldId));
 
-    // CASCADE DELETE in dependency order
+    // CASCADE DELETE in dependency order — loop in batches to handle >100 children
     // 1. utility edges
-    const edges = await ctx.db
-      .query("utilityEdges")
-      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .take(200);
-    for (const edge of edges) {
-      await ctx.db.delete(edge._id);
+    while (true) {
+      const batch = await ctx.db
+        .query("utilityEdges")
+        .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+        .take(100);
+      if (batch.length === 0) break;
+      await Promise.all(batch.map((doc) => ctx.db.delete(doc._id)));
     }
 
     // 2. utility nodes
-    const nodes = await ctx.db
-      .query("utilityNodes")
-      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .take(200);
-    for (const node of nodes) {
-      await ctx.db.delete(node._id);
+    while (true) {
+      const batch = await ctx.db
+        .query("utilityNodes")
+        .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+        .take(100);
+      if (batch.length === 0) break;
+      await Promise.all(batch.map((doc) => ctx.db.delete(doc._id)));
     }
 
     // 3. facilities
-    const facs = await ctx.db
-      .query("facilities")
-      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .take(200);
-    for (const fac of facs) {
-      await ctx.db.delete(fac._id);
+    while (true) {
+      const batch = await ctx.db
+        .query("facilities")
+        .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+        .take(100);
+      if (batch.length === 0) break;
+      await Promise.all(batch.map((doc) => ctx.db.delete(doc._id)));
     }
 
     // 4. planted crops
-    const planted = await ctx.db
-      .query("plantedCrops")
-      .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .take(200);
-    for (const pc of planted) {
-      await ctx.db.delete(pc._id);
+    while (true) {
+      const batch = await ctx.db
+        .query("plantedCrops")
+        .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
+        .take(100);
+      if (batch.length === 0) break;
+      await Promise.all(batch.map((doc) => ctx.db.delete(doc._id)));
     }
 
     // 5. field itself
@@ -714,6 +719,25 @@ export const createRegion = mutation({
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
+
+    // Compute suitability when a crop is provided (same pattern as plantCrop)
+    let suitabilityPatch: Record<string, unknown> = {};
+    if (args.cropId) {
+      const [crop, field] = await Promise.all([
+        ctx.db.get(args.cropId),
+        ctx.db.get(args.fieldId),
+      ]);
+      if (crop && field) {
+        const result = computeSuitability(crop, field);
+        suitabilityPatch = {
+          suitabilityScore: result.score,
+          suitabilityConstraints: result.constraints,
+          suitabilityNotes: result.overallNotes,
+          suitabilityComputedAt: Date.now(),
+        };
+      }
+    }
+
     const plantedCropId = await ctx.db.insert("plantedCrops", {
       cropId: args.cropId,
       fieldId: args.fieldId,
@@ -725,6 +749,7 @@ export const createRegion = mutation({
       widthM: args.widthM,
       heightM: args.heightM,
       shapePoints: args.shapePoints,
+      ...suitabilityPatch,
     });
     return plantedCropId;
   },

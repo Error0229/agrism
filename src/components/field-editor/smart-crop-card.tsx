@@ -309,16 +309,26 @@ function CollapsibleSection({
   icon: Icon,
   children,
   defaultOpen = false,
+  onOpenChange: onOpenChangeExternal,
 }: {
   title: string;
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const handleOpenChange = useCallback(
+    (value: boolean) => {
+      setOpen(value);
+      onOpenChangeExternal?.(value);
+    },
+    [onOpenChangeExternal],
+  );
+
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={open} onOpenChange={handleOpenChange}>
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -409,11 +419,17 @@ export const SmartCropCard = React.memo(function SmartCropCard({
     plantedCrop._id,
   );
 
-  // Live companion/antagonist status and rotation check (issue #117)
-  const companionStatus = useCompanionStatus(plantedCrop._id);
+  // Lazy companion/antagonist status and rotation check (issue #117)
+  // Only subscribe when the relevant collapsible sections are expanded
+  // to avoid 2 extra Convex subscriptions per card when collapsed.
+  const [showCompanionStatus, setShowCompanionStatus] = useState(false);
+  const [showRotationCheck, setShowRotationCheck] = useState(false);
+  const companionStatus = useCompanionStatus(
+    showCompanionStatus ? plantedCrop._id : undefined,
+  );
   const rotationCheck = useCheckRotationViolation(
-    plantedCrop.fieldId,
-    plantedCrop.cropId ?? undefined,
+    showRotationCheck ? plantedCrop.fieldId : undefined,
+    showRotationCheck ? (plantedCrop.cropId ?? undefined) : undefined,
   );
 
   const save = useCallback(
@@ -921,9 +937,18 @@ export const SmartCropCard = React.memo(function SmartCropCard({
             </CollapsibleSection>
           )}
 
-          {/* Companions & antagonists */}
+          {/* Companions & antagonists — expanding triggers lazy subscriptions */}
           {hasCompanionData && (
-            <CollapsibleSection title="共生與忌避" icon={Leaf}>
+            <CollapsibleSection
+              title="共生與忌避"
+              icon={Leaf}
+              onOpenChange={(open) => {
+                if (open) {
+                  setShowCompanionStatus(true);
+                  setShowRotationCheck(true);
+                }
+              }}
+            >
               {reference?.companionPlants && reference.companionPlants.length > 0 && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
