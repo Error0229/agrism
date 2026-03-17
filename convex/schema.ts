@@ -268,6 +268,18 @@ export default defineSchema({
     endWindowLatest: v.optional(v.number()),
     // Occupancy — whether this planting currently occupies its area
     isOccupyingArea: v.optional(v.boolean()),
+
+    // --- Suitability persistence (issue #119) ---
+    suitabilityScore: v.optional(v.string()), // "recommended" | "marginal" | "risky"
+    suitabilityConstraints: v.optional(v.array(v.object({
+      factor: v.string(),
+      status: v.string(),
+      cropNeed: v.string(),
+      fieldValue: v.string(),
+      explanation: v.string(),
+    }))),
+    suitabilityNotes: v.optional(v.string()),
+    suitabilityComputedAt: v.optional(v.number()),
   })
     .index("by_fieldId", ["fieldId"])
     .index("by_cropId", ["cropId"]),

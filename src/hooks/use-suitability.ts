@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
+import { useCallback } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -31,5 +32,13 @@ export function useCropFieldsSuitabilities(
   return useQuery(
     api.suitability.evaluateCropFields,
     cropId && farmId ? { cropId, farmId } : "skip",
+  );
+}
+
+export function useRecomputeSuitability() {
+  const mutate = useMutation(api.suitability.recomputeSuitability);
+  return useCallback(
+    (plantedCropId: Id<"plantedCrops">) => mutate({ plantedCropId }),
+    [mutate],
   );
 }

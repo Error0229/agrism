@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireFarmMembership } from "./_helpers";
 import type { Doc } from "./_generated/dataModel";
@@ -223,7 +223,7 @@ function checkSoilPh(crop: Doc<"crops">, field: Doc<"fields">): Constraint | nul
   return { factor: "土壤酸鹼度", status, cropNeed, fieldValue, explanation };
 }
 
-function computeSuitability(crop: Doc<"crops">, field: Doc<"fields">): SuitabilityResult {
+export function computeSuitability(crop: Doc<"crops">, field: Doc<"fields">): SuitabilityResult {
   const checks = [
     checkSunlight(crop, field),
     checkWind(crop, field),
@@ -317,5 +317,43 @@ export const evaluateCropFields = query({
       fieldName: field.name,
       ...computeSuitability(crop, field),
     }));
+  },
+});
+
+// === Mutations ===
+
+export const recomputeSuitability = mutation({
+  args: { plantedCropId: v.id("plantedCrops") },
+  handler: async (ctx, { plantedCropId }) => {
+    const pc = await ctx.db.get(plantedCropId);
+    if (!pc) throw new Error("找不到種植紀錄");
+
+    const field = await ctx.db.get(pc.fieldId);
+    if (!field) throw new Error("田區不存在");
+    await requireFarmMembership(ctx, field.farmId);
+
+    if (!pc.cropId) {
+      // No crop assigned — clear suitability data
+      await ctx.db.patch(plantedCropId, {
+        suitabilityScore: undefined,
+        suitabilityConstraints: undefined,
+        suitabilityNotes: undefined,
+        suitabilityComputedAt: undefined,
+      });
+      return null;
+    }
+
+    const crop = await ctx.db.get(pc.cropId);
+    if (!crop) throw new Error("作物不存在");
+
+    const result = computeSuitability(crop, field);
+    await ctx.db.patch(plantedCropId, {
+      suitabilityScore: result.score,
+      suitabilityConstraints: result.constraints,
+      suitabilityNotes: result.overallNotes,
+      suitabilityComputedAt: Date.now(),
+    });
+
+    return result;
   },
 });

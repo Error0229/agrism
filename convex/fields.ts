@@ -10,6 +10,7 @@ import {
   estimateHarvestDate,
   mapCropLifecycleType,
 } from "../shared/growth-stage";
+import { computeSuitability } from "./suitability";
 
 async function resolveFieldFarmId(ctx: QueryCtx | MutationCtx, fieldId: Id<"fields">) {
   const field = await ctx.db.get(fieldId);
@@ -664,6 +665,23 @@ export const plantCrop = mutation({
   },
   handler: async (ctx, args) => {
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, args.fieldId));
+
+    // Compute suitability at planting time
+    const [crop, field] = await Promise.all([
+      ctx.db.get(args.cropId),
+      ctx.db.get(args.fieldId),
+    ]);
+    let suitabilityPatch: Record<string, unknown> = {};
+    if (crop && field) {
+      const result = computeSuitability(crop, field);
+      suitabilityPatch = {
+        suitabilityScore: result.score,
+        suitabilityConstraints: result.constraints,
+        suitabilityNotes: result.overallNotes,
+        suitabilityComputedAt: Date.now(),
+      };
+    }
+
     const plantedCropId = await ctx.db.insert("plantedCrops", {
       cropId: args.cropId,
       fieldId: args.fieldId,
@@ -675,6 +693,7 @@ export const plantCrop = mutation({
       widthM: args.widthM,
       heightM: args.heightM,
       shapePoints: args.shapePoints,
+      ...suitabilityPatch,
     });
     return plantedCropId;
   },
@@ -722,7 +741,10 @@ export const assignCropToRegion = mutation({
     await requireFarmMembership(ctx, await resolveFieldFarmId(ctx, pc.fieldId));
 
     // Auto-populate fields from crop metadata when not already set on the plantedCrop
-    const crop = await ctx.db.get(cropId);
+    const [crop, field] = await Promise.all([
+      ctx.db.get(cropId),
+      ctx.db.get(pc.fieldId),
+    ]);
     const patch: Record<string, unknown> = { cropId };
 
     if (crop) {
@@ -732,6 +754,15 @@ export const assignCropToRegion = mutation({
         if (mapped) {
           patch.lifecycleType = mapped;
         }
+      }
+
+      // Compute suitability when assigning crop to region
+      if (field) {
+        const result = computeSuitability(crop, field);
+        patch.suitabilityScore = result.score;
+        patch.suitabilityConstraints = result.constraints;
+        patch.suitabilityNotes = result.overallNotes;
+        patch.suitabilityComputedAt = Date.now();
       }
     }
 
