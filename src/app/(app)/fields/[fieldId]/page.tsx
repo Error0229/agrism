@@ -1,4 +1,4 @@
-import { EditorLayout } from "@/components/field-editor/editor-layout";
+import { FieldDetailWrapper } from "@/components/field-editor/field-detail-wrapper";
 
 export default async function FieldDetailPage({
   params,
@@ -9,7 +9,7 @@ export default async function FieldDetailPage({
 
   return (
     <div className="h-full">
-      <EditorLayout fieldId={fieldId} />
+      <FieldDetailWrapper fieldId={fieldId} />
     </div>
   );
 }

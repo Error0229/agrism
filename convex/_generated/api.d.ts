@@ -10,6 +10,7 @@
 
 import type * as _helpers from "../_helpers.js";
 import type * as _taskPresets from "../_taskPresets.js";
+import type * as aiContext from "../aiContext.js";
 import type * as briefingContext from "../briefingContext.js";
 import type * as briefingGeneration from "../briefingGeneration.js";
 import type * as cropEnrichment from "../cropEnrichment.js";
@@ -46,6 +47,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
   _taskPresets: typeof _taskPresets;
+  aiContext: typeof aiContext;
   briefingContext: typeof briefingContext;
   briefingGeneration: typeof briefingGeneration;
   cropEnrichment: typeof cropEnrichment;

@@ -41,6 +41,7 @@ import { Plus, Trash2, Wheat } from 'lucide-react'
 import { toast } from 'sonner'
 import { QueryErrorBoundary } from '@/components/query-error-boundary'
 import { HarvestAnalytics } from '@/components/analytics/harvest-analytics'
+import Link from 'next/link'
 
 export default function HarvestRecordsPage() {
   const farmId = useFarmId()
@@ -199,8 +200,20 @@ export default function HarvestRecordsPage() {
               {(logs ?? []).map((log) => (
                 <TableRow key={log._id}>
                   <TableCell className="whitespace-nowrap">{log.date}</TableCell>
-                  <TableCell>{(log.cropId && cropMap.get(log.cropId)) ?? '—'}</TableCell>
-                  <TableCell>{(log.fieldId && fieldMap.get(log.fieldId)) ?? '—'}</TableCell>
+                  <TableCell>
+                    {log.cropId && cropMap.get(log.cropId) ? (
+                      <Link href={`/crops/${log.cropId}`} className="text-primary hover:underline underline-offset-2">
+                        {cropMap.get(log.cropId)}
+                      </Link>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {log.fieldId && fieldMap.get(log.fieldId) ? (
+                      <Link href={`/fields/${log.fieldId}`} className="text-primary hover:underline underline-offset-2">
+                        {fieldMap.get(log.fieldId)}
+                      </Link>
+                    ) : '—'}
+                  </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     {log.quantity} {log.unit}
                   </TableCell>

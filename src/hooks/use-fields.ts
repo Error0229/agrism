@@ -18,6 +18,27 @@ export function useFieldById(fieldId: Id<"fields"> | undefined) {
   return useQuery(api.fields.getById, fieldId ? { fieldId } : "skip");
 }
 
+// --- Planting Validation (issue #117) ---
+
+export function useCheckRotationViolation(
+  fieldId: Id<"fields"> | undefined,
+  cropId: Id<"crops"> | undefined,
+) {
+  return useQuery(
+    api.fields.checkRotationViolation,
+    fieldId && cropId ? { fieldId, cropId } : "skip",
+  );
+}
+
+export function useCompanionStatus(
+  plantedCropId: Id<"plantedCrops"> | undefined,
+) {
+  return useQuery(
+    api.fields.checkCompanionStatus,
+    plantedCropId ? { plantedCropId } : "skip",
+  );
+}
+
 // --- Field CRUD ---
 
 export function useCreateField() {

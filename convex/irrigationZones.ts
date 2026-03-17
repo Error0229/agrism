@@ -13,7 +13,7 @@ export const list = query({
     return ctx.db
       .query("irrigationZones")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(200);
   },
 });
 
@@ -26,7 +26,7 @@ export const listByField = query({
     return ctx.db
       .query("irrigationZones")
       .withIndex("by_fieldId", (q) => q.eq("fieldId", fieldId))
-      .collect();
+      .take(200);
   },
 });
 
@@ -44,6 +44,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.name.trim() === "") throw new Error("灌溉區域名稱不可為空");
     await requireFarmMembership(ctx, args.farmId);
     return ctx.db.insert("irrigationZones", args);
   },

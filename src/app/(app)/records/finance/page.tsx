@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useFarmId } from '@/hooks/use-farm-id'
 import type { Id } from '../../../../../convex/_generated/dataModel'
 import {
@@ -48,6 +48,9 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
+import { useCrops } from '@/hooks/use-crops'
+import { useFields } from '@/hooks/use-fields'
 
 function formatNT(amount: number) {
   return `NT$ ${amount.toLocaleString('zh-TW')}`
@@ -59,7 +62,18 @@ export default function FinanceRecordsPage() {
   const summary = useFinanceSummary(farmId)
   const createRecord = useCreateFinanceRecord()
   const deleteRecord = useDeleteFinanceRecord()
+  const cropsData = useCrops(farmId)
+  const fieldsData = useFields(farmId)
+  const crops = useMemo(() => cropsData ?? [], [cropsData])
+  const fields = useMemo(() => fieldsData ?? [], [fieldsData])
   const isLoading = records === undefined
+
+  const cropMap = useMemo(() => new Map<string, string>(crops.map((c) => [c._id, c.name])), [crops])
+  const fieldMap = useMemo(() => new Map<string, string>(fields.map((f) => [f._id, f.name])), [fields])
+
+  // Check if any record has crop/field references to conditionally show columns
+  const hasAnyCropRef = useMemo(() => (records ?? []).some((r) => r.relatedCropId), [records])
+  const hasAnyFieldRef = useMemo(() => (records ?? []).some((r) => r.relatedFieldId), [records])
 
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -69,6 +83,8 @@ export default function FinanceRecordsPage() {
     amount: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
+    relatedCropId: '',
+    relatedFieldId: '',
   })
 
   function resetForm() {
@@ -78,6 +94,8 @@ export default function FinanceRecordsPage() {
       amount: '',
       date: new Date().toISOString().split('T')[0],
       description: '',
+      relatedCropId: '',
+      relatedFieldId: '',
     })
   }
 
@@ -92,6 +110,8 @@ export default function FinanceRecordsPage() {
         amount: Number(form.amount),
         date: form.date,
         description: form.description,
+        relatedCropId: form.relatedCropId ? (form.relatedCropId as Id<"crops">) : undefined,
+        relatedFieldId: form.relatedFieldId ? (form.relatedFieldId as Id<"fields">) : undefined,
       })
       toast.success('財務紀錄已新增')
       setOpen(false)
@@ -226,6 +246,8 @@ export default function FinanceRecordsPage() {
                 <TableHead>日期</TableHead>
                 <TableHead>類型</TableHead>
                 <TableHead>分類</TableHead>
+                {hasAnyCropRef && <TableHead>作物</TableHead>}
+                {hasAnyFieldRef && <TableHead>田區</TableHead>}
                 <TableHead className="text-right">金額</TableHead>
                 <TableHead>說明</TableHead>
                 <TableHead className="w-[50px]" />
@@ -241,6 +263,24 @@ export default function FinanceRecordsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{r.category}</TableCell>
+                  {hasAnyCropRef && (
+                    <TableCell>
+                      {r.relatedCropId && cropMap.get(r.relatedCropId) ? (
+                        <Link href={`/crops/${r.relatedCropId}`} className="text-primary hover:underline underline-offset-2">
+                          {cropMap.get(r.relatedCropId)}
+                        </Link>
+                      ) : '—'}
+                    </TableCell>
+                  )}
+                  {hasAnyFieldRef && (
+                    <TableCell>
+                      {r.relatedFieldId && fieldMap.get(r.relatedFieldId) ? (
+                        <Link href={`/fields/${r.relatedFieldId}`} className="text-primary hover:underline underline-offset-2">
+                          {fieldMap.get(r.relatedFieldId)}
+                        </Link>
+                      ) : '—'}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right whitespace-nowrap font-medium">
                     {formatNT(r.amount)}
                   </TableCell>
@@ -314,6 +354,32 @@ export default function FinanceRecordsPage() {
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label>關聯作物（選填）</Label>
+              <Select value={form.relatedCropId} onValueChange={(v) => setForm((f) => ({ ...f, relatedCropId: v }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="選擇作物" />
+                </SelectTrigger>
+                <SelectContent>
+                  {crops.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>關聯田區（選填）</Label>
+              <Select value={form.relatedFieldId} onValueChange={(v) => setForm((f) => ({ ...f, relatedFieldId: v }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="選擇田區" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fields.map((f) => (
+                    <SelectItem key={f._id} value={f._id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label>說明</Label>

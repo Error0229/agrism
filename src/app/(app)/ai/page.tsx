@@ -1,17 +1,16 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
+import { useQuery } from 'convex/react'
+import { api } from '../../../../convex/_generated/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useFields } from '@/hooks/use-fields'
-import { useTasks } from '@/hooks/use-tasks'
-import { useCrops } from '@/hooks/use-crops'
 import { useFarmId } from '@/hooks/use-farm-id'
-import { Send } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import type { UIMessage } from 'ai'
 
 const quickQuestions = [
@@ -56,45 +55,13 @@ export default function AiAssistantPage() {
   const [input, setInput] = useState('')
   const farmId = useFarmId()
 
-  // Fetch farm data for context using Convex hooks
-  const fieldsData = useFields(farmId)
-  const tasksData = useTasks(farmId)
-  const cropsData = useCrops(farmId)
-
-  const context = useMemo(() => {
-    const cropMap = new Map(
-      (cropsData ?? []).map((c: { _id: string; name: string }) => [c._id, c.name]),
-    )
-
-    const plantedInfo = (fieldsData ?? []).flatMap((field) =>
-      field.plantedCrops
-        .filter((pc) => pc.status === 'growing')
-        .map((pc) => {
-          const cropName = (pc.cropId ? cropMap.get(pc.cropId) : null) ?? '未知作物'
-          return `- ${cropName}（${field.name}），種植日期：${pc.plantedDate}`
-        }),
-    )
-
-    const pendingTasks = (tasksData ?? [])
-      .filter((t) => !t.completed)
-      .slice(0, 10)
-      .map((t) => {
-        const cropName = t.cropId ? cropMap.get(t.cropId) : null
-        const prefix = cropName ? `${cropName} - ` : ''
-        return `- ${prefix}${t.title}，預定：${t.dueDate}`
-      })
-
-    if (plantedInfo.length === 0 && pendingTasks.length === 0) return ''
-
-    let ctx = ''
-    if (plantedInfo.length > 0) {
-      ctx += `已種植作物：\n${plantedInfo.join('\n')}`
-    }
-    if (pendingTasks.length > 0) {
-      ctx += `\n\n待完成任務：\n${pendingTasks.join('\n')}`
-    }
-    return ctx
-  }, [fieldsData, tasksData, cropsData])
+  // Fetch aggregated farm context from server-side Convex query
+  const contextData = useQuery(
+    api.aiContext.buildChatContext,
+    farmId ? { farmId } : 'skip',
+  )
+  const contextLoading = farmId !== undefined && contextData === undefined
+  const context = contextData ?? ''
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
@@ -130,6 +97,12 @@ export default function AiAssistantPage() {
         <p className="text-muted-foreground">
           花蓮種植 AI 顧問，為您提供在地化種植建議
         </p>
+        {contextLoading && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+            <Loader2 className="size-3 animate-spin" />
+            正在載入農場資料...
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-14rem)]">

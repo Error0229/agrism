@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Droplets,
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useCropCareContext } from "@/hooks/use-crop-care-context";
-import { useUpdatePlantedCropLifecycle } from "@/hooks/use-fields";
+import { useUpdatePlantedCropLifecycle, useCompanionStatus, useCheckRotationViolation } from "@/hooks/use-fields";
 import { SUNLIGHT_LEVEL_LABELS, WATER_LEVEL_LABELS } from "@/lib/types/labels";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { CropAlert, GrowthStageEntry } from "../../../shared/growth-stage";
@@ -51,6 +52,8 @@ import { mapCropLifecycleType } from "../../../shared/growth-stage";
 type PlantedCropData = Pick<
   Doc<"plantedCrops">,
   | "_id"
+  | "fieldId"
+  | "cropId"
   | "lifecycleType"
   | "customGrowthDays"
   | "stage"
@@ -129,6 +132,15 @@ const STAGE_COLORS: Record<string, { bg: string; text: string; fill: string }> =
     text: "text-red-500 dark:text-red-400",
     fill: "bg-red-500",
   },
+};
+
+const ROTATION_FAMILY_LABELS: Record<string, string> = {
+  brassica: "十字花科",
+  solanaceae: "茄科",
+  cucurbit: "瓜科",
+  legume: "豆科",
+  allium: "蔥蒜科",
+  root: "根莖類",
 };
 
 const PROPAGATION_LABELS: Record<string, string> = {
@@ -297,16 +309,26 @@ function CollapsibleSection({
   icon: Icon,
   children,
   defaultOpen = false,
+  onOpenChange: onOpenChangeExternal,
 }: {
   title: string;
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const handleOpenChange = useCallback(
+    (value: boolean) => {
+      setOpen(value);
+      onOpenChangeExternal?.(value);
+    },
+    [onOpenChangeExternal],
+  );
+
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={open} onOpenChange={handleOpenChange}>
       <CollapsibleTrigger asChild>
         <button
           type="button"
@@ -395,6 +417,19 @@ export const SmartCropCard = React.memo(function SmartCropCard({
 
   const { data: careContext, isLoading } = useCropCareContext(
     plantedCrop._id,
+  );
+
+  // Lazy companion/antagonist status and rotation check (issue #117)
+  // Only subscribe when the relevant collapsible sections are expanded
+  // to avoid 2 extra Convex subscriptions per card when collapsed.
+  const [showCompanionStatus, setShowCompanionStatus] = useState(false);
+  const [showRotationCheck, setShowRotationCheck] = useState(false);
+  const companionStatus = useCompanionStatus(
+    showCompanionStatus ? plantedCrop._id : undefined,
+  );
+  const rotationCheck = useCheckRotationViolation(
+    showRotationCheck ? plantedCrop.fieldId : undefined,
+    showRotationCheck ? (plantedCrop.cropId ?? undefined) : undefined,
   );
 
   const save = useCallback(
@@ -820,6 +855,38 @@ export const SmartCropCard = React.memo(function SmartCropCard({
         </>
       )}
 
+      {/* Rotation violation alert (issue #117) */}
+      {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-2.5 py-1.5 dark:border-amber-700/40 dark:bg-amber-950/20">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+              輪作警告
+            </p>
+            {rotationCheck.violations.map((v, i) => (
+              <p key={i} className="text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+                此田區 {v.yearsAgo} 年前種過{v.cropName}（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Live antagonist alert (issue #117) */}
+      {companionStatus && companionStatus.antagonists.length > 0 && (
+        <div className="flex items-start gap-2 rounded-md border border-red-300/60 bg-red-50/50 px-2.5 py-1.5 dark:border-red-700/40 dark:bg-red-950/20">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-red-600 dark:text-red-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold text-red-700 dark:text-red-400">
+              忌避作物警告
+            </p>
+            <p className="text-[10px] leading-snug text-red-700 dark:text-red-400">
+              同田有忌避作物：{companionStatus.antagonists.join("、")}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Loading indicator */}
       {isLoading && (
         <div className="flex items-center justify-center py-3">
@@ -870,23 +937,40 @@ export const SmartCropCard = React.memo(function SmartCropCard({
             </CollapsibleSection>
           )}
 
-          {/* Companions & antagonists */}
+          {/* Companions & antagonists — expanding triggers lazy subscriptions */}
           {hasCompanionData && (
-            <CollapsibleSection title="共生與忌避" icon={Leaf}>
+            <CollapsibleSection
+              title="共生與忌避"
+              icon={Leaf}
+              onOpenChange={(open) => {
+                if (open) {
+                  setShowCompanionStatus(true);
+                  setShowRotationCheck(true);
+                }
+              }}
+            >
               {reference?.companionPlants && reference.companionPlants.length > 0 && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
                     好鄰居
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {reference.companionPlants.map((p: string) => (
-                      <span
-                        key={p}
-                        className="rounded-sm bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                      >
-                        {p}
-                      </span>
-                    ))}
+                    {reference.companionPlants.map((p: string) => {
+                      const isPresent = companionStatus?.companions.includes(p);
+                      return (
+                        <span
+                          key={p}
+                          className={cn(
+                            "rounded-sm px-1.5 py-px text-[10px] font-medium",
+                            isPresent
+                              ? "bg-emerald-200 text-emerald-800 dark:bg-emerald-800/40 dark:text-emerald-300 ring-1 ring-emerald-400/50"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                          )}
+                        >
+                          {isPresent && "✓ "}{p}{isPresent && "（同田種植中）"}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -896,14 +980,22 @@ export const SmartCropCard = React.memo(function SmartCropCard({
                     壞鄰居
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {reference.antagonistPlants.map((p: string) => (
-                      <span
-                        key={p}
-                        className="rounded-sm bg-red-100 px-1.5 py-px text-[10px] font-medium text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                      >
-                        {p}
-                      </span>
-                    ))}
+                    {reference.antagonistPlants.map((p: string) => {
+                      const isPresent = companionStatus?.antagonists.includes(p);
+                      return (
+                        <span
+                          key={p}
+                          className={cn(
+                            "rounded-sm px-1.5 py-px text-[10px] font-medium",
+                            isPresent
+                              ? "bg-red-200 text-red-800 dark:bg-red-800/40 dark:text-red-300 ring-1 ring-red-400/50"
+                              : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                          )}
+                        >
+                          {isPresent && "⚠ "}{p}{isPresent && "（同田種植中）"}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -912,7 +1004,7 @@ export const SmartCropCard = React.memo(function SmartCropCard({
                   label="輪作科別"
                   value={
                     <span>
-                      {reference.rotationFamily}
+                      {ROTATION_FAMILY_LABELS[reference.rotationFamily] ?? reference.rotationFamily}
                       {reference.rotationYears && (
                         <span className="text-muted-foreground">
                           {" "}（休耕 {reference.rotationYears} 年）

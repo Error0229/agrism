@@ -23,7 +23,9 @@ import {
   SplitSquareVertical,
   Sprout,
   Crosshair,
+  Loader2,
   Trash2,
+  TreePine,
   Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +54,7 @@ export type AlignType = 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bott
 import { cn } from "@/lib/utils";
 import { useFieldEditor } from "@/lib/store/field-editor-store";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -87,6 +90,7 @@ import { PlanCropDialog } from "@/components/planning/plan-crop-dialog";
 import { useFieldOccupancy, usePlannedPlantingsByField } from "@/hooks/use-planned-plantings";
 import { useRegionPlan } from "@/hooks/use-region-plan";
 import { useFarmId } from "@/hooks/use-farm-id";
+import { useRecomputeSuitability } from "@/hooks/use-suitability";
 import { CropAvatar } from "@/components/crops/crop-avatar";
 import { resolveCropMedia } from "@/lib/crops/media";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -795,6 +799,10 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     1,
   );
 
+  // Suitability hook
+  const recomputeSuitability = useRecomputeSuitability();
+  const [recomputing, setRecomputing] = useState(false);
+
   // Planning hooks
   const farmId = useFarmId();
   const occupancy = useFieldOccupancy(fieldId as Id<"fields">);
@@ -832,7 +840,7 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
     );
   }, [occupancy, plantedCrop._id]);
 
-  const CROP_DEFAULTS = ["area-info", "lifecycle", "planning", "notes", "actions"];
+  const CROP_DEFAULTS = ["area-info", "suitability", "lifecycle", "planning", "notes", "actions"];
   const { order, activeId, handleDragStart, handleDragEnd, handleDragCancel } = useSectionOrder("crop-selection", CROP_DEFAULTS);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -901,6 +909,148 @@ const CropSelectionSection = React.memo(function CropSelectionSection({
         </div>
       </div>
     ),
+    "suitability": (() => {
+      const score = plantedCrop.suitabilityScore as string | undefined;
+      const constraints = (plantedCrop.suitabilityConstraints ?? []) as Array<{
+        factor: string;
+        status: string;
+        cropNeed: string;
+        fieldValue: string;
+        explanation: string;
+      }>;
+      const notes = plantedCrop.suitabilityNotes as string | undefined;
+      const computedAt = plantedCrop.suitabilityComputedAt as number | undefined;
+
+      const SCORE_LABELS: Record<string, string> = {
+        recommended: "推薦",
+        marginal: "尚可",
+        risky: "風險",
+      };
+      const SCORE_BADGE_STYLES: Record<string, string> = {
+        recommended: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+        marginal: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+        risky: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+      };
+      const STATUS_ICONS: Record<string, { icon: string; color: string }> = {
+        ok: { icon: "\u2713", color: "text-emerald-600 dark:text-emerald-400" },
+        warning: { icon: "\u26A0", color: "text-amber-600 dark:text-amber-400" },
+        critical: { icon: "\u2717", color: "text-rose-600 dark:text-rose-400" },
+      };
+
+      const handleRecompute = async () => {
+        setRecomputing(true);
+        try {
+          await recomputeSuitability(plantedCrop._id as Id<"plantedCrops">);
+          toast.success("適性已重新計算");
+        } catch {
+          toast.error("重新計算失敗");
+        } finally {
+          setRecomputing(false);
+        }
+      };
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 pb-0.5">
+            <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-primary">
+              <TreePine className="size-3" />
+            </div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70">
+              田區適性
+            </h3>
+            <div className="h-px flex-1 bg-border/60" />
+          </div>
+
+          {!score ? (
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">未計算</p>
+              {plantedCrop.cropId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={handleRecompute}
+                  disabled={recomputing}
+                >
+                  {recomputing ? (
+                    <Loader2 className="mr-1 size-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1 size-3" />
+                  )}
+                  計算適性
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Overall score badge + notes */}
+              <div className="flex items-center justify-between gap-2">
+                <Badge className={cn("text-[11px] px-1.5 py-0 border-0", SCORE_BADGE_STYLES[score])}>
+                  {SCORE_LABELS[score] ?? score}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  onClick={handleRecompute}
+                  disabled={recomputing}
+                >
+                  {recomputing ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-3" />
+                  )}
+                </Button>
+              </div>
+              {notes && (
+                <p className="text-xs text-muted-foreground">{notes}</p>
+              )}
+
+              {/* Constraint list */}
+              {constraints.length > 0 && (
+                <div className="space-y-1">
+                  {constraints.map((c) => {
+                    const s = STATUS_ICONS[c.status] ?? STATUS_ICONS.ok;
+                    return (
+                      <div
+                        key={c.factor}
+                        className={cn(
+                          "rounded-md px-2 py-1 text-[11px]",
+                          c.status === "ok" && "bg-emerald-50/50 dark:bg-emerald-950/20 opacity-70",
+                          c.status === "warning" && "bg-amber-50/50 dark:bg-amber-950/20",
+                          c.status === "critical" && "bg-rose-50/50 dark:bg-rose-950/20",
+                        )}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={cn("font-medium", s.color)}>{s.icon}</span>
+                          <span className="font-medium">{c.factor}</span>
+                        </div>
+                        <div className="text-muted-foreground mt-0.5">
+                          {c.cropNeed} → {c.fieldValue}
+                        </div>
+                        <p className={cn(
+                          "mt-0.5",
+                          c.status === "ok" ? "text-muted-foreground" : s.color,
+                        )}>
+                          {c.explanation}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Computed timestamp */}
+              {computedAt && (
+                <p className="text-[10px] text-muted-foreground/60">
+                  計算時間: {new Date(computedAt).toLocaleString("zh-TW")}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    })(),
     "lifecycle": (
       <SmartCropCard plantedCrop={plantedCrop} crop={crop} />
     ),

@@ -27,6 +27,7 @@ import {
   Wheat,
   ShieldAlert,
 } from 'lucide-react'
+import Link from 'next/link'
 import type { Id } from '../../../convex/_generated/dataModel'
 
 // ---------------------------------------------------------------------------
@@ -553,7 +554,35 @@ export function TaskRow({
           {(fieldName || cropName || (item.effortMinutes && !isCompleted && !isSkipped)) && (
             <div className="flex items-center gap-2 mt-1.5 text-[11px] text-stone-500">
               {(fieldName || cropName) && (
-                <span>{[fieldName, cropName].filter(Boolean).join(' · ')}</span>
+                <span className="flex items-center gap-0">
+                  {fieldName && (
+                    item.fieldId ? (
+                      <Link
+                        href={`/fields/${item.fieldId}`}
+                        className="text-primary hover:underline underline-offset-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {fieldName}
+                      </Link>
+                    ) : (
+                      <span>{fieldName}</span>
+                    )
+                  )}
+                  {fieldName && cropName && <span className="mx-1">·</span>}
+                  {cropName && (
+                    item.cropId ? (
+                      <Link
+                        href={`/crops/${item.cropId}`}
+                        className="text-primary hover:underline underline-offset-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {cropName}
+                      </Link>
+                    ) : (
+                      <span>{cropName}</span>
+                    )
+                  )}
+                </span>
               )}
               {item.effortMinutes && !isCompleted && !isSkipped && (
                 <span className="flex items-center gap-0.5">
@@ -647,7 +676,35 @@ export function RecommendationRow({
         {(fieldName || cropName || item.sourceSignals.length > 0) && (
           <div className="flex items-center gap-2 mt-1.5 text-[11px] text-stone-500">
             {(fieldName || cropName) && (
-              <span>{[fieldName, cropName].filter(Boolean).join(' · ')}</span>
+              <span className="flex items-center gap-0">
+                {fieldName && (
+                  item.relatedFieldId ? (
+                    <Link
+                      href={`/fields/${item.relatedFieldId}`}
+                      className="text-primary hover:underline underline-offset-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {fieldName}
+                    </Link>
+                  ) : (
+                    <span>{fieldName}</span>
+                  )
+                )}
+                {fieldName && cropName && <span className="mx-1">·</span>}
+                {cropName && (
+                  item.relatedCropId ? (
+                    <Link
+                      href={`/crops/${item.relatedCropId}`}
+                      className="text-primary hover:underline underline-offset-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {cropName}
+                    </Link>
+                  ) : (
+                    <span>{cropName}</span>
+                  )
+                )}
+              </span>
             )}
             {item.sourceSignals.length > 0 && (
               <div className="flex items-center gap-1">

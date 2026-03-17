@@ -138,7 +138,7 @@ export const list = query({
     const all = await ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(500);
     // Filter out crops pending review — they should not appear in the main crop list
     return all.filter((c) => c.importStatus !== "pending_review");
   },
@@ -167,21 +167,21 @@ export const listByFarmInternal = internalQuery({
     return ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(500);
   },
 });
 
 export const listAllFarmsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
-    return ctx.db.query("farms").collect();
+    return ctx.db.query("farms").take(500);
   },
 });
 
 export const listAllCropsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("crops").collect();
+    return await ctx.db.query("crops").take(500);
   },
 });
 
@@ -256,7 +256,7 @@ export const listPendingImports = query({
     const all = await ctx.db
       .query("crops")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(500);
     return all.filter((c) => c.importStatus === "pending_review");
   },
 });
@@ -271,6 +271,7 @@ export const create = mutation({
     ...optionalCropFields,
   },
   handler: async (ctx, args) => {
+    if (args.name.trim() === "") throw new Error("作物名稱不可為空");
     await requireFarmMembership(ctx, args.farmId);
     const id = await ctx.db.insert("crops", {
       ...args,
@@ -695,7 +696,7 @@ export const listTemplates = query({
     return ctx.db
       .query("cropTemplates")
       .withIndex("by_farmId", (q) => q.eq("farmId", farmId))
-      .collect();
+      .take(200);
   },
 });
 
@@ -734,7 +735,7 @@ export const applyTemplate = query({
     const items = await ctx.db
       .query("cropTemplateItems")
       .withIndex("by_templateId", (q) => q.eq("templateId", templateId))
-      .collect();
+      .take(500);
 
     if (items.length === 0) return [];
 
@@ -755,7 +756,7 @@ export const removeTemplate = mutation({
     const items = await ctx.db
       .query("cropTemplateItems")
       .withIndex("by_templateId", (q) => q.eq("templateId", templateId))
-      .collect();
+      .take(500);
 
     for (const item of items) {
       await ctx.db.delete(item._id);
