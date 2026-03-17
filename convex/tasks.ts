@@ -45,6 +45,40 @@ export const list = query({
   },
 });
 
+export const getByFieldId = query({
+  args: {
+    fieldId: v.id("fields"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { fieldId, limit }) => {
+    // 1. Get the field to find farmId
+    const field = await ctx.db.get(fieldId);
+    if (!field) throw new Error("找不到田區");
+
+    // 2. Check farm membership
+    await requireFarmMembership(ctx, field.farmId);
+
+    // 3. Query tasks by farmId (incomplete only), filter by fieldId in memory
+    const allTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_farmId_completed", (q) =>
+        q.eq("farmId", field.farmId).eq("completed", false)
+      )
+      .take(500);
+
+    const fieldTasks = allTasks.filter(
+      (t) =>
+        t.fieldId === fieldId &&
+        (t.status === "pending" || t.status === "in_progress" || t.status === undefined)
+    );
+
+    // 4. Take limit
+    const limited = fieldTasks.slice(0, limit ?? 10);
+
+    return limited;
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------

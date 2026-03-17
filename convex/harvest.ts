@@ -38,6 +38,47 @@ export const create = mutation({
   },
 });
 
+export const getByFieldId = query({
+  args: {
+    fieldId: v.id("fields"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { fieldId, limit }) => {
+    // 1. Get the field to find farmId
+    const field = await ctx.db.get(fieldId);
+    if (!field) throw new Error("找不到田區");
+
+    // 2. Check farm membership
+    await requireFarmMembership(ctx, field.farmId);
+
+    // 3. Query harvestLogs by farmId then filter by fieldId in memory
+    const allLogs = await ctx.db
+      .query("harvestLogs")
+      .withIndex("by_farmId", (q) => q.eq("farmId", field.farmId))
+      .take(200);
+
+    const fieldLogs = allLogs.filter((log) => log.fieldId === fieldId);
+
+    // 4. Sort by date desc and take limit
+    fieldLogs.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+    const limited = fieldLogs.slice(0, limit ?? 5);
+
+    // 5. For each log, resolve cropName from crops table
+    const results = await Promise.all(
+      limited.map(async (log) => {
+        let cropName: string | undefined;
+        if (log.cropId) {
+          const crop = await ctx.db.get(log.cropId);
+          cropName = crop?.name;
+        }
+        return { ...log, cropName };
+      })
+    );
+
+    return results;
+  },
+});
+
 export const remove = mutation({
   args: { harvestLogId: v.id("harvestLogs") },
   handler: async (ctx, args) => {
