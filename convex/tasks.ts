@@ -453,6 +453,27 @@ export const getUnifiedTasks = query({
       });
     }
 
+    // Read-time backfill: resolve cropId/fieldId from plantedCropId when missing
+    const tasksNeedingCropBackfill = items.filter(
+      (item): item is UnifiedTask =>
+        item.kind === "task" &&
+        !!item.plantedCropId &&
+        (!item.cropId || !item.fieldId)
+    );
+
+    if (tasksNeedingCropBackfill.length > 0) {
+      const plantedCrops = await Promise.all(
+        tasksNeedingCropBackfill.map((task) => ctx.db.get(task.plantedCropId!))
+      );
+      for (let i = 0; i < tasksNeedingCropBackfill.length; i++) {
+        const pc = plantedCrops[i];
+        if (!pc) continue;
+        const task = tasksNeedingCropBackfill[i]!;
+        if (!task.cropId && pc.cropId) task.cropId = pc.cropId;
+        if (!task.fieldId) task.fieldId = pc.fieldId;
+      }
+    }
+
     // Read-time backfill: enrich promoted tasks that are missing description
     // (created before the schema added description/aiConfidence/aiSourceSignals)
     const tasksNeedingBackfill = items.filter(

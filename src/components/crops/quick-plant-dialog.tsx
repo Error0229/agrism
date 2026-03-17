@@ -160,6 +160,7 @@ export function QuickPlantDialog({
 
       const fieldName = selectedField?.name ?? '田區'
       toast.success(`已將 ${cropName} 種植到 ${fieldName}`)
+      setSelectedFieldId('')
       onOpenChange(false)
     } catch (err) {
       toast.error(

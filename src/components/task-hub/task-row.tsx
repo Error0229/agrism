@@ -552,34 +552,34 @@ export function TaskRow({
 
           {/* Row 4: Bottom metadata — only if there's content */}
           {(fieldName || cropName || (item.effortMinutes && !isCompleted && !isSkipped)) && (
-            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-stone-500">
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-stone-500">
               {(fieldName || cropName) && (
                 <span className="flex items-center gap-0">
                   {fieldName && (
                     item.fieldId ? (
                       <Link
                         href={`/fields/${item.fieldId}`}
-                        className="text-primary hover:underline underline-offset-2"
+                        className="font-medium text-primary hover:underline underline-offset-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {fieldName}
                       </Link>
                     ) : (
-                      <span>{fieldName}</span>
+                      <span className="font-medium">{fieldName}</span>
                     )
                   )}
-                  {fieldName && cropName && <span className="mx-1">·</span>}
+                  {fieldName && cropName && <span className="mx-1 text-stone-300">·</span>}
                   {cropName && (
                     item.cropId ? (
                       <Link
                         href={`/crops/${item.cropId}`}
-                        className="text-primary hover:underline underline-offset-2"
+                        className="font-medium text-primary hover:underline underline-offset-2"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {cropName}
                       </Link>
                     ) : (
-                      <span>{cropName}</span>
+                      <span className="font-medium">{cropName}</span>
                     )
                   )}
                 </span>
