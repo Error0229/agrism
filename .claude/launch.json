@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "agrism-dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "dev", "--port", "3099"],
+      "port": 3099,
+      "autoPort": false,
+      "url": "http://localhost:3099"
+    }
+  ]
+}

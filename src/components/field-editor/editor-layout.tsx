@@ -1364,6 +1364,7 @@ export function EditorLayout({ fieldId }: EditorLayoutProps) {
       {farmId && (
         <PlantCropDialog
           farmId={farmId}
+          fieldId={fieldId}
           open={reassignPlantedCropId !== null}
           onOpenChange={(open) => {
             if (!open) {

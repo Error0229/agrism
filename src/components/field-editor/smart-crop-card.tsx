@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   Droplets,
@@ -529,8 +530,22 @@ export const SmartCropCard = React.memo(function SmartCropCard({
   const hasWaterStageData = stageSpecificCare?.waterFrequencyDays != null;
   const hasFertStageData = stageSpecificCare?.fertilizerFrequencyDays != null;
 
+  // Planting months from care context crop data
+  const plantingMonths = (careContext?.crop?.plantingMonths as number[] | undefined) ?? null;
+  const { plantingMonthsLabel, canPlantNow } = useMemo(() => {
+    if (!plantingMonths || plantingMonths.length === 0)
+      return { plantingMonthsLabel: null, canPlantNow: false };
+    const sorted = [...plantingMonths].sort((a, b) => a - b);
+    const label = sorted.map((m) => `${m}月`).join("、");
+    const currentMonth = new Date().getMonth() + 1;
+    return {
+      plantingMonthsLabel: label,
+      canPlantNow: plantingMonths.includes(currentMonth),
+    };
+  }, [plantingMonths]);
+
   // Has any care data to show
-  const hasCareData = waterFreqLabel || fertFreqLabel || sunlightLabel;
+  const hasCareData = waterFreqLabel || fertFreqLabel || sunlightLabel || plantingMonthsLabel;
   const hasCareNotes = stageSpecificCare?.careNotes;
 
   // Has reference data
@@ -818,6 +833,28 @@ export const SmartCropCard = React.memo(function SmartCropCard({
                 {sunlightLabel && (
                   <CareActionRow icon={Sun} label="日照需求" value={sunlightLabel} />
                 )}
+                {plantingMonthsLabel && (
+                  <div className="flex items-start gap-2 py-1">
+                    <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded bg-muted/40">
+                      <CalendarDays className="size-3 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] text-muted-foreground">適合播種月份</p>
+                      <p className="text-xs font-medium leading-tight">
+                        {plantingMonthsLabel}
+                      </p>
+                    </div>
+                    {canPlantNow ? (
+                      <span className="mt-0.5 shrink-0 rounded bg-emerald-100 px-1 py-px text-[7px] font-medium text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        現在可種
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 shrink-0 rounded bg-amber-100 px-1 py-px text-[7px] font-medium text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                        非適種期
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -997,6 +1034,32 @@ export const SmartCropCard = React.memo(function SmartCropCard({
                       );
                     })}
                   </div>
+                </div>
+              )}
+              {/* Live field companion/antagonist summary */}
+              {showCompanionStatus && companionStatus && (
+                <div className="space-y-0.5 border-t border-border/30 pt-1.5">
+                  <p className="text-[10px] font-medium text-muted-foreground">
+                    同田種植狀況
+                  </p>
+                  {companionStatus.companions.length === 0 && companionStatus.antagonists.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground/70">
+                      目前田區無相關共生／忌避作物
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {companionStatus.companions.map((name) => (
+                        <Badge key={`c-${name}`} variant="outline" className="border-emerald-300 bg-emerald-50 text-[10px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                          ✓ {name}（同田種植中）
+                        </Badge>
+                      ))}
+                      {companionStatus.antagonists.map((name) => (
+                        <Badge key={`a-${name}`} variant="outline" className="border-red-300 bg-red-50 text-[10px] text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400">
+                          ⚠ {name}（同田種植中）
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {reference?.rotationFamily && (

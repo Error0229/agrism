@@ -36,6 +36,19 @@
 - **#107** Field Journal Phase 1 — QA: 7/8 PASS. 2 journal tables, CRUD, category chips + quick phrases, field + region tiers, timeline display
 - **#105** Succession Unification P0 — QA: 6/6 PASS. Unified timeline, auto-link, rotation warnings, plan dialog with predecessor context
 
+## Completed — Feature Wave (2026-03-17)
+- **#114** Backend Hardening — 67 bounded queries, 9 mutation validations
+- **#115** Cross-Entity Navigation — links in harvest/task/finance to crops/fields
+- **#116** Quick Plant Action — plant from crop cards/detail page
+- **#117** Smart Planting Validation — rotation + companion/antagonist warnings
+- **#118** AI Context Enrichment — server-side farm data aggregation for AI chat
+- **#119** Suitability Persistence — cached scores, constraint explanations in editor
+
+## Completed — Daily Improvement (2026-03-16)
+- **#112** Resilient API Layer — error boundaries, fetchWithRetry, API timeouts, toast error recovery
+- **#110** Crop Lifecycle Dashboard Cards — stage progress bars, harvest countdown, lifecycle badges
+- **#111** Harvest Analytics Dashboard — yield trends (AreaChart), field comparison (BarChart), quality distribution (DonutChart), summary stats
+
 ## Future Phases (after P0/Phase 1 of all 4 ship)
 - **#105** P1-P3: smart suggestions, season board enhancements, quick replan
 - **#106** Phases 2-3: contextual alerts, growth stage tips
