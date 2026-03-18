@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 
 import { useCrops } from "@/hooks/use-crops";
@@ -27,6 +27,19 @@ import {
 export interface CropSelectResult {
   cropId: string;
   onboarding?: OnboardingResult;
+}
+
+class RotationErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    return this.state.hasError ? null : this.props.children;
+  }
 }
 
 const ROTATION_FAMILY_LABELS: Record<string, string> = {
@@ -136,21 +149,23 @@ export function PlantCropDialog({
               </DialogDescription>
             </DialogHeader>
             {/* Rotation warning — advisory, not blocking */}
-            {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
-              <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                    輪作提醒
-                  </p>
-                  {rotationCheck.violations.map((v, i) => (
-                    <p key={i} className="text-xs leading-snug text-amber-700 dark:text-amber-400">
-                      此區域 {v.yearsAgo} 年前曾種植同科作物「{v.cropName}」（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+            <RotationErrorBoundary>
+              {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      輪作提醒
                     </p>
-                  ))}
+                    {rotationCheck.violations.map((v, i) => (
+                      <p key={i} className="text-xs leading-snug text-amber-700 dark:text-amber-400">
+                        此區域 {v.yearsAgo} 年前曾種植同科作物「{v.cropName}」（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </RotationErrorBoundary>
             <ExistingPlantingOnboard
               cropName={selectedCrop.name}
               cropEmoji={selectedCrop.emoji}

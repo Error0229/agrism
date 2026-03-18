@@ -532,13 +532,17 @@ export const SmartCropCard = React.memo(function SmartCropCard({
 
   // Planting months from care context crop data
   const plantingMonths = (careContext?.crop?.plantingMonths as number[] | undefined) ?? null;
-  const plantingMonthsLabel = useMemo(() => {
-    if (!plantingMonths || plantingMonths.length === 0) return null;
+  const { plantingMonthsLabel, canPlantNow } = useMemo(() => {
+    if (!plantingMonths || plantingMonths.length === 0)
+      return { plantingMonthsLabel: null, canPlantNow: false };
     const sorted = [...plantingMonths].sort((a, b) => a - b);
-    return sorted.map((m) => `${m}月`).join("、");
+    const label = sorted.map((m) => `${m}月`).join("、");
+    const currentMonth = new Date().getMonth() + 1;
+    return {
+      plantingMonthsLabel: label,
+      canPlantNow: plantingMonths.includes(currentMonth),
+    };
   }, [plantingMonths]);
-  const currentMonth = new Date().getMonth() + 1;
-  const canPlantNow = plantingMonths?.includes(currentMonth) ?? false;
 
   // Has any care data to show
   const hasCareData = waterFreqLabel || fertFreqLabel || sunlightLabel || plantingMonthsLabel;
