@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Search } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 
 import { useCrops } from "@/hooks/use-crops";
+import { useCheckRotationViolation } from "@/hooks/use-fields";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Dialog,
@@ -28,8 +29,18 @@ export interface CropSelectResult {
   onboarding?: OnboardingResult;
 }
 
+const ROTATION_FAMILY_LABELS: Record<string, string> = {
+  brassica: "十字花科",
+  solanaceae: "茄科",
+  cucurbit: "瓜科",
+  legume: "豆科",
+  allium: "蔥蒜科",
+  root: "根莖類",
+};
+
 interface PlantCropDialogProps {
   farmId: string;
+  fieldId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (cropId: string, onboarding?: OnboardingResult) => void;
@@ -43,6 +54,7 @@ interface PlantCropDialogProps {
 
 export function PlantCropDialog({
   farmId,
+  fieldId,
   open,
   onOpenChange,
   onSelect,
@@ -58,6 +70,13 @@ export function PlantCropDialog({
     thumbnailUrl?: string;
   } | null>(null);
 
+  // Rotation check — only active when a crop is selected in the list (before onboarding step)
+  const [pendingCropId, setPendingCropId] = useState<string | null>(null);
+  const rotationCheck = useCheckRotationViolation(
+    fieldId && pendingCropId ? (fieldId as Id<"fields">) : undefined,
+    pendingCropId ? (pendingCropId as Id<"crops">) : undefined,
+  );
+
   const filtered = useMemo(() => {
     if (!crops) return [];
     if (!search.trim()) return crops;
@@ -69,6 +88,7 @@ export function PlantCropDialog({
     (open: boolean) => {
       if (!open) {
         setSelectedCrop(null);
+        setPendingCropId(null);
         setSearch("");
       }
       onOpenChange(open);
@@ -85,6 +105,7 @@ export function PlantCropDialog({
       imageUrl: media.imageUrl,
       thumbnailUrl: media.thumbnailUrl,
     });
+    setPendingCropId(crop._id);
   }, []);
 
   const handleOnboardComplete = useCallback(
@@ -92,6 +113,7 @@ export function PlantCropDialog({
       if (!selectedCrop) return;
       onSelect(selectedCrop.id, result);
       setSelectedCrop(null);
+      setPendingCropId(null);
       setSearch("");
     },
     [selectedCrop, onSelect],
@@ -99,6 +121,7 @@ export function PlantCropDialog({
 
   const handleBack = useCallback(() => {
     setSelectedCrop(null);
+    setPendingCropId(null);
   }, []);
 
   return (
@@ -112,6 +135,22 @@ export function PlantCropDialog({
                 設定這塊區域的作物種植資訊
               </DialogDescription>
             </DialogHeader>
+            {/* Rotation warning — advisory, not blocking */}
+            {rotationCheck?.hasViolation && rotationCheck.violations.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50/50 px-3 py-2 dark:border-amber-700/40 dark:bg-amber-950/20">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    輪作提醒
+                  </p>
+                  {rotationCheck.violations.map((v, i) => (
+                    <p key={i} className="text-xs leading-snug text-amber-700 dark:text-amber-400">
+                      此區域 {v.yearsAgo} 年前曾種植同科作物「{v.cropName}」（{ROTATION_FAMILY_LABELS[v.rotationFamily] ?? v.rotationFamily}），建議間隔 {v.requiredYears} 年
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
             <ExistingPlantingOnboard
               cropName={selectedCrop.name}
               cropEmoji={selectedCrop.emoji}

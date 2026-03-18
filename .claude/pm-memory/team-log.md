@@ -1,5 +1,97 @@
 # PM Team Log
 
+## Completed: PR #120 Merged (2026-03-17) — Feature Wave
+- **PR**: feat/hardening-navigation-0317 → main (#120) — MERGED (squash)
+- **Issues**: #114, #115, #116, #117, #118, #119
+
+### #114 Backend Hardening
+- 67 `.collect()` → `.take(N)` bounded queries
+- 9 mutation validations (field size, task title, quantity, amount)
+
+### #115 Cross-Entity Navigation
+- Links in harvest, task, finance records to related crops/fields
+- Field context panel in field editor
+
+### #116 Quick Plant Action
+- QuickPlantDialog for planting from crop cards and detail page
+- Field selection with suitability badges
+
+### #117 Smart Planting Validation
+- checkRotationViolation query (field history + time window)
+- checkCompanionStatus query (live neighbor cross-reference)
+- Warnings in quick-plant, plan-crop dialogs, Smart Crop Card
+
+### #118 AI Context Enrichment
+- buildChatContext query aggregating 7 data categories server-side
+- Replaces client-side context in AI chat page
+
+### #119 Suitability Persistence
+- Schema: suitabilityScore/Constraints/Notes/ComputedAt on plantedCrops
+- Compute on plant (plantCrop, assignCropToRegion, createRegion)
+- recomputeSuitability mutation
+- Expanded suitability in crop detail + field editor property inspector
+
+### Review: 4 parallel reviewers, 3 HIGH fixed, 18 threads resolved
+- H1: `as never` → proper `Id<"crops">` types
+- H2: Cascade delete loop (prevents orphaned sub-entities)
+- H3: Lazy companion/rotation subscriptions in SmartCropCard
+
+## Completed: PR #113 Merged (2026-03-16) — Daily Improvement Cycle
+- **PR**: feat/daily-improvement-0316 → main (#113) — MERGED (squash)
+- **Process**: Research (3 agents) → Strategist review → Spec + Issues → Implement → QA → Fix → Review (5 agents) → Fix HIGH → Re-review → Merge
+- **Issues**: #110, #111, #112
+
+### #112 Resilient API Layer
+- `src/lib/fetch-utils.ts` — fetchWithRetry with exponential backoff, 4xx skip, signal combining
+- `src/components/query-error-boundary.tsx` — reusable error boundary with zh-TW fallback
+- Dashboard: 4 independent error boundaries, weather retry with dedup guard
+- API routes: AbortSignal.timeout for chat (30s), Promise.race timeout for weather (10s)
+- Toast-based error recovery for all 5 task mutation handlers
+
+### #110 Crop Lifecycle Dashboard Cards
+- `src/lib/constants/lifecycle.ts` — shared STAGE_LABELS, STAGE_COLORS, LIFECYCLE_TYPE_LABELS
+- `src/components/dashboard/growing-crops-section.tsx` — lifecycle-aware cards with:
+  - Color-coded stage badges, lifecycle type icons, segmented 5-stage progress bar
+  - Harvest countdown/window, low-confidence attention indicator
+  - Loading skeleton, empty state, responsive grid, React.memo
+- `convex/fields.ts` — listSummary returns lifecycle fields from plantedCrops
+
+### #111 Harvest Analytics Dashboard
+- `src/components/analytics/harvest-analytics.tsx` — first use of recharts in app:
+  - Yield Over Time (AreaChart with crop filter)
+  - Yield by Field (BarChart, sorted descending)
+  - Quality Distribution (DonutChart with grade breakdown)
+  - 4 summary stat cards, date range filter (3/6/12 months/all)
+  - Unit normalization (斤→kg), filtered-empty state
+
+### Review: 5 parallel reviewers, 3 HIGH fixed, 19/26 threads resolved
+- H1: Chat timeout fixed (AbortSignal.timeout instead of broken clearTimeout)
+- H2: Weather timeout fixed (Promise.race instead of dead AbortController)
+- H3: PlantedCropData = any replaced with proper interface
+- 7 MEDIUM/LOW threads remain as non-blocking tech debt
+
+### Commits: 014b20b, d4fd23e, 40854cb, e70458c, 2c96f0a
+
+## Completed: PR #109 Merged (2026-03-15)
+- **PR**: feat/sprint-105-108 → main (#109) — MERGED
+- **Dashboard task hub UX redesign** (iterative, user-driven):
+  - Responsive 3-column grid (was 2-col), removed fullWidth hack
+  - Task cards: left-side ButtonGroup (complete ✓ + skip ⏭), consistent button shapes
+  - Recommendation cards: distinct footer actions (加入待辦/稍後/忽略), NOT same UI as tasks
+  - Source labels as inline badge pills next to title (AI amber, 天氣 sky, 自動 violet)
+  - AI reasoning block foldable, default collapsed
+  - Better text contrast for accessibility
+  - Added shadcn button-group component
+- **Backend: promotion data preservation**:
+  - Added description, aiConfidence, aiSourceSignals to tasks schema
+  - promoteRecommendation carries over summary + recommendedAction + confidence + signals
+  - getUnifiedTasks backfills from linked recommendation for pre-existing promoted tasks
+- **Review**: All 28 threads resolved, 0 unresolved, build clean
+- **Commits**: a15f0bd, e134796
+
+## Completed: PR #109 Review-Fix Loop (2026-03-13)
+- 5 parallel reviewers, 2 fix rounds, all CRITICAL/HIGH resolved
+
 ## Completed: Issues #105, #106, #107, #108 — Wave 1+2 Sprint (2026-03-12)
 - **4 issues implemented, reviewed, QA'd in one session**
 - **Total commits**: 12 (4 feat + 4 review fixes + 1 wiring + 1 QA fix + 2 chore)
